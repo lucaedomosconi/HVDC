@@ -59,7 +59,7 @@ test_4.h -> three paper layers and two oil layers with air filled holes
 test_5.h -> spherical air filled hole
 ```
 
-### Post-processing of Output Files
+## Post-processing of Output Files
 
 The user can use the `GNU Octave` function included in `export.m` 
 (it is located in the  folder `script/m`) to generate the .vtu files,
