@@ -67,11 +67,13 @@ which can by opened using Paraview. The usage is the following:
 ```
 export(<final time step>, <number of processes>)
 ```
-with `<final time step>` being the index of the last time step and `<number of processes>` equal to the desired number of processors. 
+with `<final time step>` being the index of the last time step and `<number of processes>` 
+equal to the desired number of processors. 
 Moreover,  the file `rho.m` contains a function that generates a plot
-of the value of the charge density rho over time. The usage is the following:
+of the value of the charge density rho over time at the points specified in the .h file. 
+The usage is the following:
 ```
-rho(<refinement level>,<cube side lenght>)
+rho(<refinement levels>,<cube side lenght>)
 ```
-where the refinement level refers to the elements selected by the `rho_idx` variable,
-and the cube side length is usually set to 0.001.
+where `refinement levels` is a vector with the refinement levels of at the nodes 
+selected by the `rho_idx` variable, and the cube side length is usually set to 0.001.
