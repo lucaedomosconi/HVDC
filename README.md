@@ -73,7 +73,7 @@ Moreover,  the file `rho.m` contains a function that generates a plot
 of the value of the charge density rho over time at the points specified in the .h file. 
 The usage is the following:
 ```
-rho(<refinement levels>,<cube side lenght>)
+rho(<refinement levels>,<cube side lenght>=0.001)
 ```
 where `refinement levels` is a vector with the refinement levels of at the nodes 
-selected by the `rho_idx` variable, and the cube side length is usually set to 0.001.
+selected by the `rho_idx` variable, and `cube side length` is the cubic domain dimension.
