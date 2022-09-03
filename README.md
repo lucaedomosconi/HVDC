@@ -22,9 +22,12 @@ for the post-processing operations.
 For the compilation, a `local_settings.mk` file must be created in order to add or modify, 
 accordingly to the user necessities, the compilation options present inside `Makefile`, 
 and then the following command must be executed 
-
 ```
 make all
+```
+To create the code documentation with Doxygen, exectute the following command
+```
+make doc
 ```
 
 ### command line options
@@ -62,8 +65,9 @@ The user can use the `GNU Octave` function included in `export.m`
 (it is located in the  folder `script/m`) to generate the .vtu files,
 which can by opened using Paraview. The usage is the following:
 ```
-export(<number of time steps>,<number of processors>)
+export(<final time step>, <number of processes>)
 ```
+with `<final time step>` being the index of the last time step and `<number of processes>` equal to the desired number of processors. 
 Moreover,  the file `rho.m` contains a function that generates a plot
 of the value of the charge density rho over time. The usage is the following:
 ```
