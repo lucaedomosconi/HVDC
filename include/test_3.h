@@ -1,12 +1,13 @@
 /*!
-\file test_2.h
-Test case with uniform sigma and two different values for epsilon, each for half of the domain wrt the z axes
+\file test_3.h
+Test case with oil and paper layers and oil filled cubic butt gaps.
 */
 #include <tmesh_3d.h>
-#include <simple_connectivity_3d_thin.h>
+#include <simple_connectivity_3d_thin.h> /*! Loading library with domain geometry*/
 
-constexpr int NUM_REFINEMENTS = 4;
-constexpr int maxlevel = 4;
+constexpr int NUM_REFINEMENTS = 5;
+constexpr int maxlevel = 6;
+constexpr int minlevel = 4;
 
 constexpr double DELTAT = 50.0;
 constexpr double T = 5000;
@@ -15,15 +16,18 @@ constexpr bool save_sol = true;
 
 // Problem parameters
 constexpr double epsilon_0 = 8.8542e-12;
-constexpr double epsilon_r_1 = 2.0;         // permittivity bottom half
-constexpr double epsilon_r_2 = 4.0;         // permittivity upper half
+constexpr double epsilon_r_1 = 2.0;         // permittivity oil
+constexpr double epsilon_r_2 = 4.0;         // permittivity paper
 constexpr double sigma_ = 3.21e-14;           // conducivity coeff
 
-constexpr size_t N_rhos = 3;
-std::vector<size_t> rho_idx;
-std::vector<std::vector<double>> points{{0.0005,0.0005,0.0},{0.0005,0.0005,0.0005},{0.0005,0.0005,0.001}};
-std::vector<std::vector<double>> tols{{1e-4,1e-4,1e-9},{1e-4,1e-4,1e-9},{1e-4,1e-4,1e-9}};
+constexpr double z_oil = 5e-5;              //thickness oil layer
+constexpr double z_paper = 3e-4;            // thickness paper layer and butt gaps side length
+constexpr double tol = 1e-5;
 
+constexpr size_t N_rhos = 6;
+std::vector<size_t> rho_idx;
+std::vector<std::vector<double>> points{{5e-4,5e-4,0.0},{5e-4,5e-4,z_paper},{5e-4,5e-4,z_oil+z_paper},{5e-4,5e-4,z_oil+2*z_paper},{5e-4,5e-4,2*z_oil+2*z_paper},{5e-4,5e-4,1e-3}};
+std::vector<std::vector<double>> tols{{1e-4,1e-4,tol},{1e-4,1e-4,tol},{1e-4,1e-4,tol},{1e-4,1e-4,tol},{1e-4,1e-4,tol},{1e-4,1e-4,tol}};
 bool extra_refinement = true;
 
 static int
@@ -40,7 +44,7 @@ refinement (tmesh_3d::quadrant_iterator quadrant)
     {
       zcoord = quadrant->p(2, ii);
       
-      if (fabs(zcoord - 0.0005) < 1e-9)
+      if (zcoord > z_paper - tol || zcoord < 2*z_paper+2*z_oil+tol)
         {
           retval = maxlevel - currentlevel;
           break;
@@ -57,27 +61,40 @@ static int
 coarsening (tmesh_3d::quadrant_iterator quadrant)
 {
   int currentlevel = static_cast<int> (quadrant->the_quadrant->level);
-  double zcoord;
-  int retval = currentlevel - NUM_REFINEMENTS;
+  double xcoord,ycoord,zcoord;
+  int retval = currentlevel - minlevel;
   for (int ii = 0; ii < 8; ++ii)
-    {     
+    { 
+      xcoord = quadrant->p(0, ii);
+      ycoord = quadrant->p(1, ii);    
       zcoord = quadrant->p(2, ii);
 
-      if (fabs(zcoord - 0.0005) < 1e-9)
+      if (fabs(zcoord - z_paper) < tol || fabs(zcoord - z_paper-z_oil) < tol || fabs(zcoord - 2*z_paper-z_oil) < tol || fabs(zcoord - 2*z_paper-2*z_oil) < tol || 
+         (xcoord<z_paper && fabs(ycoord-5e-4+z_paper/2)<tol && zcoord>5e-4-z_paper/2 && zcoord<5e-4+z_paper/2) ||
+         (xcoord<z_paper && fabs(ycoord-5e-4-z_paper/2)<tol && zcoord>5e-4-z_paper/2 && zcoord<5e-4+z_paper/2) ||
+         (fabs(xcoord-z_paper)<tol && ycoord>5e-4-z_paper/2 && ycoord<5e-4+z_paper/2 && zcoord>5e-4-z_paper/2 && zcoord<5e-4+z_paper/2))
         {
           retval = 0;
           break;
         }
     }
 
-  if (currentlevel <= NUM_REFINEMENTS)
+  if (currentlevel <= minlevel)
     retval = 0;
       
   return (retval);
 }
 
 double epsilon_fun(const double & x, const double & y, const double & z)
-{return z < 0.0005 ? epsilon_0 * epsilon_r_1 : epsilon_0 * epsilon_r_2;}
+{   
+    if((z > z_paper && z<z_paper+z_oil) || (z>2*z_paper+z_oil && z<2*(z_paper+z_oil)))
+        return  epsilon_0 * epsilon_r_1;
+    
+    if((z > z_paper+z_oil && z<2*z_paper+z_oil) && x<z_paper && (y>5e-4-z_paper/2 && y<5e-4+z_paper/2))
+        return  epsilon_0 * epsilon_r_1;
+    
+    return epsilon_0 * epsilon_r_2;
+}
 
 double sigma_fun(const double & x, const double & y, const double & z)
 {return sigma_ * DELTAT;}
@@ -107,7 +124,7 @@ std::vector<size_t> find_idx(tmesh_3d &tmsh,std::vector<std::vector<double>> &po
           break;
     }
     if(!found)
-        std::cout << "Node " << i << " not found in current rank" << std::endl; 
+        std::cout << "Node " << i+1 << " not found in current rank" << std::endl; 
   }
   return id;
 }

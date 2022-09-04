@@ -1,16 +1,12 @@
-/*!
-\file test_1.h
-Test case with uniform sigma and epsilon in the domain
-*/
 #include <tmesh_3d.h>
 #include <simple_connectivity_3d_thin.h>
 
 constexpr int NUM_REFINEMENTS = 4;
 
-constexpr double DELTAT = 0.5;
-constexpr double T = 5;
-constexpr double tau = 1.0; 
-constexpr bool save_sol = true;
+constexpr double DELTAT = 0.1;
+constexpr double T = 15;
+constexpr double tau = 2.0; 
+constexpr bool save_sol = false;
 
 // Problem parameters
 constexpr double epsilon_0 = 8.8542e-12;
@@ -57,7 +53,9 @@ std::vector<size_t> find_idx(tmesh_3d &tmsh,std::vector<std::vector<double>> &po
 
           if (fabs(quadrant->p(0,ii)-points[i][0])<tols[i][0] && fabs(quadrant->p(1,ii)-points[i][1])<tols[i][1] && fabs(quadrant->p(2,ii)-points[i][2])<tols[i][2]) {
             id[i] = quadrant->t(ii);
+            std::cout << quadrant->p(0,ii) << " " << quadrant->p(1,ii) << " " << quadrant->p(2,ii) << std::endl;
             found = true;
+            std::cout << "Point " << i+1 << ": x= " << quadrant->p(0,ii) << ", y= " << quadrant->p(1,ii) << ", z= " << quadrant->p(2,ii) << std::endl;
             break;
           }
         }
@@ -65,6 +63,8 @@ std::vector<size_t> find_idx(tmesh_3d &tmsh,std::vector<std::vector<double>> &po
         if (found)
           break;
     }
+    if(!found)
+        std::cout << "Node " << i << " not found in current rank" << std::endl; 
   }
   return id;
 }
