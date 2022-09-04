@@ -24,15 +24,15 @@ constexpr double z_oil = 5e-5;              /*!<\brief Thickness oil layer */
 constexpr double z_paper = 3e-4;            /*!<\brief Thickness paper layer and butt gaps side length*/
 constexpr double tol = 1e-5;                /*!<\brief Tolerance value for refinement and point selection */
 
-constexpr size_t N_rhos = 6;
+constexpr size_t N_rhos = 6;                /*!<\brief Number of poiunts to select for output */
 std::vector<size_t> rho_idx;
-std::vector<std::vector<double>> points{{5e-4,5e-4,0.0},{5e-4,5e-4,z_paper},{5e-4,5e-4,z_oil+z_paper},{5e-4,5e-4,z_oil+2*z_paper},{5e-4,5e-4,2*z_oil+2*z_paper},{5e-4,5e-4,1e-3}};
-std::vector<std::vector<double>> tols{{1e-4,1e-4,tol},{1e-4,1e-4,tol},{1e-4,1e-4,tol},{1e-4,1e-4,tol},{1e-4,1e-4,tol},{1e-4,1e-4,tol}};
-bool extra_refinement = true;
+std::vector<std::vector<double>> points{{5e-4,5e-4,0.0},{5e-4,5e-4,z_paper},{5e-4,5e-4,z_oil+z_paper},{5e-4,5e-4,z_oil+2*z_paper},{5e-4,5e-4,2*z_oil+2*z_paper},{5e-4,5e-4,1e-3}}; /*!<\brief Coordinates of the selected points */
+std::vector<std::vector<double>> tols{{1e-4,1e-4,tol},{1e-4,1e-4,tol},{1e-4,1e-4,tol},{1e-4,1e-4,tol},{1e-4,1e-4,tol},{1e-4,1e-4,tol}}; /*!<\brief Tolerance around the selected points */
+bool extra_refinement = true;       /*!<\brief true for all cases except Test 1 */
 
 static int
 uniform_refinement (tmesh_3d::quadrant_iterator q)
-{ return NUM_REFINEMENTS; }
+{ return NUM_REFINEMENTS; }     /*!<\brief Uniform refinement function */
 
 static int
 refinement (tmesh_3d::quadrant_iterator quadrant)
@@ -55,7 +55,7 @@ refinement (tmesh_3d::quadrant_iterator quadrant)
     retval = 0;
       
   return retval;
-}
+}       /*!<\brief Performs local refinement at the interfaces */
 
 static int
 coarsening (tmesh_3d::quadrant_iterator quadrant)
@@ -83,7 +83,7 @@ coarsening (tmesh_3d::quadrant_iterator quadrant)
     retval = 0;
       
   return (retval);
-}
+}       /*!<\brief Performs local coarsening, leaves interfaces refined */
 
 double epsilon_fun(const double & x, const double & y, const double & z)
 {   
@@ -94,10 +94,10 @@ double epsilon_fun(const double & x, const double & y, const double & z)
         return  epsilon_0 * epsilon_r_1;
     
     return epsilon_0 * epsilon_r_2;
-}
+}       /*!<\brief Return the value of epsilon at the point (x,y,z) */
 
 double sigma_fun(const double & x, const double & y, const double & z)
-{return sigma_ * DELTAT;}
+{return sigma_ * DELTAT;}       /*!<\brief Return the value of sigma at the point (x,y,z) */
 
 std::vector<size_t> find_idx(tmesh_3d &tmsh,std::vector<std::vector<double>> &points,std::vector<std::vector<double>> &tols, const size_t &N_rhos)
 {
@@ -127,4 +127,4 @@ std::vector<size_t> find_idx(tmesh_3d &tmsh,std::vector<std::vector<double>> &po
         std::cout << "Node " << i+1 << " not found in current rank" << std::endl; 
   }
   return id;
-}
+}       /*!<\brief Find the global index of the points given by the vector 'points' */
