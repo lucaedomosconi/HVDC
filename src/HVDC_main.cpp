@@ -1,8 +1,21 @@
-/*
-  Copyright (C) 2019 Carlo de Falco
-  This software is distributed under the terms
-  the terms of the GNU/GPL licence v3
-*/
+/*!
+ * @file
+ * @author  Alessandro Lombardi
+ * @version 0.1
+ *
+ * @section LICENSE
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details at
+ * https://www.gnu.org/copyleft/gpl.html
+ */
 
 #include <iostream>
 #include <fstream>
@@ -17,21 +30,18 @@
 #include <quad_operators_3d.h>
 
 //#include<test_1.h>
-#include<test_2.h>
+//#include<test_2.h>
 //#include<test_3.h>
-//#include<test_4.h>
+#include<test_4.h>
 //#include<test_5.h>
-
-
-#define TIC() MPI_Barrier (MPI_COMM_WORLD); if (rank == 0) { tic (); }
-#define TOC(S) MPI_Barrier (MPI_COMM_WORLD); if (rank == 0) { toc (S); }
 
 int
 main (int argc, char **argv)
 {
 
   using q1_vec  = q1_vec<distributed_vector>;
-  /*!
+  
+  /*
   Manegement of solutions ordering: ord0-> phi                 ord1->rho
   Equation ordering: ord0->diffusion-reaction equation         ord1->continuity equation 
   */
@@ -50,14 +60,12 @@ main (int argc, char **argv)
   tmsh.read_connectivity (simple_conn_p, simple_conn_num_vertices,
                           simple_conn_t, simple_conn_num_trees);
 
-
+  //Uniform refinement
   int recursive = 1;
   tmsh.set_refine_marker (uniform_refinement);
   tmsh.refine (recursive);
 
-  /*!
-  Only in test 1 we have uniform refinement, in all other cases we perform additional refinement
-  */
+  //In test 1 we only have uniform refinement, in all other cases we perform additional refinement
   if (extra_refinement) 
   {
     tmsh.set_refine_marker(refinement);
@@ -115,7 +123,6 @@ main (int argc, char **argv)
   q1_vec g1 (ln_nodes);
 
   // Initialize constant (in time) parameters and initial data
-  TIC ();
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
        quadrant != tmsh.end_quadrant_sweep ();
        ++quadrant)
@@ -166,7 +173,6 @@ main (int argc, char **argv)
   zeta0.assemble (replace_op);
   zeta1.assemble (replace_op);
   g0.assemble (replace_op);                      
-  TOC ("compute coefficient");
 
   // Save inital conditions
   sprintf(filename, "model_0_u_0000");
@@ -175,7 +181,8 @@ main (int argc, char **argv)
   tmsh.octbin_export (filename, sold, ord1); 
 
   int count = 0;
- 
+
+  //Choosing the indices for the nodes corresponding to the vales of rho of interest 
   if (rank == 0) {
     rho_out[0]=std::vector<double>(N_rhos+1,0.0);
     rho_idx = find_idx(tmsh,points,tols,N_rhos);
@@ -186,8 +193,8 @@ main (int argc, char **argv)
   {
     count++;
 
+    // Define boundary conditions
     dirichlet_bcs3 bcs0, bcs1;
-    
     bcs0.push_back (std::make_tuple (0, 4, [](double x, double y, double z){return 0.0;})); //bottom
     bcs0.push_back (std::make_tuple (0, 5, [time](double x, double y, double z){return 1.5e4 * (1 - exp(-time/tau));})); //top
 
@@ -196,14 +203,11 @@ main (int argc, char **argv)
       std::cout<<"TIME= "<<time<<std::endl;
 
     // Reset containers
-    TIC();
     A.reset ();
     sol.get_owned_data ().assign (sol.get_owned_data ().size (), 0.0);
     sol.assemble (replace_op);
-    TOC("Resetting")
 
     // Initialize non constant (in time) parameters
-    TIC();
     for (auto quadrant = tmsh.begin_quadrant_sweep ();
     quadrant != tmsh.end_quadrant_sweep ();
     ++quadrant)
@@ -218,83 +222,61 @@ main (int argc, char **argv)
     }
 
     g1.assemble(replace_op);
-    TOC("Update rhs");
 
     // advection_diffusion
-    TIC ();
     bim3a_advection_diffusion (tmsh, epsilon, zero, A, true, ord0, ord0);
     bim3a_advection_diffusion (tmsh, sigma, zero, A, true, ord1, ord0);
 
     // reaction
     bim3a_reaction (tmsh, delta0, zeta0, A, ord0, ord1);
     bim3a_reaction (tmsh, delta1, zeta1, A, ord1, ord1);
-    TOC ("assemble LHS");
 
     //rhs
-    TIC ();
     bim3a_rhs (tmsh, f0, g0, sol, ord0);
     bim3a_rhs (tmsh, f1, g1, sol, ord1);
-    TOC ("assemble RHS");
 
     //boundary conditions
-    TIC ();
     bim3a_dirichlet_bc (tmsh, bcs0, A, sol, ord1, ord0, false);
-    TOC ("apply BCS");
 
     // Communicate matrix and RHS
-    TIC ();
     A.assemble ();
     sol.assemble ();
-    TOC ("communicate A & b");
 
     // Solver analysis
-    TIC ();
     lin_solver->set_lhs_distributed ();
     A.aij (xa, ir, jc, lin_solver->get_index_base ());
     lin_solver->set_distributed_lhs_structure (A.rows (), ir, jc);
     std::cout << "lin_solver->analyze () return value = "<< lin_solver->analyze () << std::endl;
-    TOC ("solver analysis");
 
     // Matrix update
-    TIC ();
     A.aij_update (xa, ir, jc, lin_solver->get_index_base ());
     lin_solver->set_distributed_lhs_data (xa);
-    TOC ("set LHS data");
 
     // Factorization
-    TIC ();
     std::cout << "lin_solver->factorize () = " << lin_solver->factorize () << std::endl;
-    TOC ("solver factorize");
 
     // Set RHS data
-    TIC ();
     lin_solver->set_rhs_distributed (sol);
-    TOC ("set RHS data");
 
     // Solution
-    TIC ();
     std::cout << "lin_solver->solve () = " << lin_solver->solve () << std::endl;
-    TOC ("solver solve");
 
     // Copy solution
-    TIC();
     q1_vec result = lin_solver->get_distributed_solution ();
     for (int idx = sold.get_range_start (); idx < sold.get_range_end (); ++idx)
       sold (idx) = result (idx);
     sold.assemble (replace_op);
-    TOC("Obtaining solution");
     
     // Save solution
     if (save_sol == true)
     {
-      TIC();
       sprintf(filename, "model_0_u_%4.4d",count);
       tmsh.octbin_export (filename, sold, ord0);
       sprintf(filename, "model_0_v_%4.4d",count);
       tmsh.octbin_export (filename, sold, ord1);      
-      TOC("Exporting solution");
     }
-  
+
+    // Save rho values
     if (rank == 0)
     {
       std::vector<double> temp(N_rhos+1);
@@ -306,6 +288,7 @@ main (int argc, char **argv)
     }
   }
   
+  // Print file with rho values
   if (rank == 0)
   {
     std::ofstream outFile("Arho.txt");
@@ -320,7 +303,6 @@ main (int argc, char **argv)
   
   // Close MPI and print report
   MPI_Barrier (MPI_COMM_WORLD);
-  if (rank == 0) { print_timing_report (); }
 
   // Clean linear solver
   lin_solver->cleanup ();
