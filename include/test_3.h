@@ -1,28 +1,28 @@
 /*!
 \file test_3.h
-Test case with oil and paper layers and oil filled cubic butt gaps.
+\brief Test case with oil and paper layers and oil filled cubic butt gaps.
 */
 #include <tmesh_3d.h>
-#include <simple_connectivity_3d_thin.h> /*! Loading library with domain geometry*/
+#include <simple_connectivity_3d_thin.h> // Loading library with domain geometry
 
-constexpr int NUM_REFINEMENTS = 5;
-constexpr int maxlevel = 6;
-constexpr int minlevel = 4;
+constexpr int NUM_REFINEMENTS = 5;      /*!<\brief Level for global refinement */
+constexpr int maxlevel = 6;             /*!<\brief Level for local refinement */
+constexpr int minlevel = 4;             /*!<\brief Level for global coarsening */
 
-constexpr double DELTAT = 50.0;
-constexpr double T = 5000;
-constexpr double tau = 50.0; 
-constexpr bool save_sol = true;
+constexpr double DELTAT = 50.0;         /*!<\brief Temporal time step */
+constexpr double T = 5000;              /*!<\brief Final time of simulation */
+constexpr double tau = 50.0;            /*!<\brief Time constant for boundary conditions */
+constexpr bool save_sol = true;         /*!<\brief If set to 'true' saves data for Paraview visualization */
 
 // Problem parameters
-constexpr double epsilon_0 = 8.8542e-12;
-constexpr double epsilon_r_1 = 2.0;         // permittivity oil
-constexpr double epsilon_r_2 = 4.0;         // permittivity paper
-constexpr double sigma_ = 3.21e-14;           // conducivity coeff
+constexpr double epsilon_0 = 8.8542e-12;    /*!<\brief Permittivity vacuum */
+constexpr double epsilon_r_1 = 2.0;         /*!<\brief Permittivity oil */
+constexpr double epsilon_r_2 = 4.0;         /*!<\brief Permittivity paper */
+constexpr double sigma_ = 3.21e-14;         /*!<\brief Conducivity */
 
-constexpr double z_oil = 5e-5;              //thickness oil layer
-constexpr double z_paper = 3e-4;            // thickness paper layer and butt gaps side length
-constexpr double tol = 1e-5;
+constexpr double z_oil = 5e-5;              /*!<\brief Thickness oil layer */
+constexpr double z_paper = 3e-4;            /*!<\brief Thickness paper layer and butt gaps side length*/
+constexpr double tol = 1e-5;                /*!<\brief Tolerance value for refinement and point selection */
 
 constexpr size_t N_rhos = 6;
 std::vector<size_t> rho_idx;
