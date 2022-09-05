@@ -70,7 +70,7 @@ The usage is the following:
 export_tmesh_data(<final time step>, <number of processes>)
 ```
 with `<final time step>` being the index of the last time step and `<number of processes>` 
-equal to the desired number of processors. 
+equal to the number of processors. 
 Moreover,  the file `rho.m` contains a function that generates a plot
 of the value of the charge density rho over time at the points specified in the .h file. 
 The usage is the following:
