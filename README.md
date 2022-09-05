@@ -67,7 +67,7 @@ which can by opened using Paraview. This function is a wrapper over the function
 provided with bim++, so it is necessary to add the path `script/m` of bim++ to the Octave path. 
 The usage is the following:
 ```
-export_tmesh_data(<final time step>, <number of processes>)
+export_phi_rho(<final time step>, <number of processes>)
 ```
 with `<final time step>` being the index of the last time step and `<number of processes>` 
 equal to the number of processors. 
