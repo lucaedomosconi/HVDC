@@ -61,11 +61,13 @@ test_5.h -> spherical air filled hole
 
 ## Post-processing of Output Files
 
-The user can use the `GNU Octave` function included in `export.m` 
+The user can use the `GNU Octave` function included in `export_phi_rho.m` 
 (it is located in the  folder `script/m`) to generate the .vtu files,
-which can by opened using Paraview. The usage is the following:
+which can by opened using Paraview. This function is a wrapper over the function `export_tmesh_data.m`
+provided with bim++, so it is necessary to add the path `script/m` of bim++ to the Octave path. 
+The usage is the following:
 ```
-export(<final time step>, <number of processes>)
+export_tmesh_data(<final time step>, <number of processes>)
 ```
 with `<final time step>` being the index of the last time step and `<number of processes>` 
 equal to the desired number of processors. 
