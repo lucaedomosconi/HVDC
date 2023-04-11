@@ -1,5 +1,5 @@
 #include <tmesh_3d.h>
-#include <simple_connectivity_3d_thin.h>
+#include <simple_connectivity_3d.h>
 
 constexpr int NUM_REFINEMENTS = 5;
 constexpr int maxlevel = 6;
