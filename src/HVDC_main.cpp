@@ -27,12 +27,12 @@
 #include <bim_sparse_distributed.h>
 #include <bim_timing.h>
 #include <mumps_class.h>
-#include <quad_operators_3d.h>
+#include <quad_operators.h>
 
 //#include<test_1.h>
 //#include<test_2.h>
 //#include<test_3.h>
-#include<test_4.h>
+#include<test_4bis.h>
 //#include<test_5.h>
 
 int
@@ -46,8 +46,8 @@ main (int argc, char **argv)
   Equation ordering: ord0->diffusion-reaction equation         ord1->continuity equation 
   */
   ordering
-    ord0 = [] (tmesh_3d::idx_t gt) -> size_t { return dof_ordering<2, 0> (gt); },
-    ord1 = [] (tmesh_3d::idx_t gt) -> size_t { return dof_ordering<2, 1> (gt); };
+    ord0 = [] (tmesh::idx_t gt) -> size_t { return dof_ordering<2, 0> (gt); },
+    ord1 = [] (tmesh::idx_t gt) -> size_t { return dof_ordering<2, 1> (gt); };
     
   // Initialize MPI
   MPI_Init (&argc, &argv);
@@ -56,7 +56,7 @@ main (int argc, char **argv)
   MPI_Comm_size (MPI_COMM_WORLD, &size);
 
   // Generate the mesh in 3d
-  tmesh_3d tmsh;
+  tmesh tmsh;
   tmsh.read_connectivity (simple_conn_p, simple_conn_num_vertices,
                           simple_conn_t, simple_conn_num_trees);
 
@@ -75,9 +75,9 @@ main (int argc, char **argv)
     tmsh.coarsen(recursive);
   }
 
-  tmesh_3d::idx_t gn_nodes = tmsh.num_global_nodes ();
-  tmesh_3d::idx_t ln_nodes = tmsh.num_owned_nodes ();
-  tmesh_3d::idx_t ln_elements = tmsh.num_local_quadrants (); 
+  tmesh::idx_t gn_nodes = tmsh.num_global_nodes ();
+  tmesh::idx_t ln_nodes = tmsh.num_owned_nodes ();
+  tmesh::idx_t ln_elements = tmsh.num_local_quadrants (); 
 
   // Allocate linear solver
   mumps *lin_solver = new mumps ();
@@ -127,17 +127,17 @@ main (int argc, char **argv)
        quadrant != tmsh.end_quadrant_sweep ();
        ++quadrant)
     {
-      double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)}, zz{quadrant->centroid(2)};  
+      double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)};  
       
-      epsilon[quadrant->get_forest_quad_idx ()] = epsilon_fun(xx,yy,zz);
-      sigma[quadrant->get_forest_quad_idx ()] = sigma_fun(xx,yy,zz);
+      epsilon[quadrant->get_forest_quad_idx ()] = epsilon_fun(xx,yy);
+      sigma[quadrant->get_forest_quad_idx ()] = sigma_fun(xx,yy);
       
       delta0[quadrant->get_forest_quad_idx ()] = -1.0;
       delta1[quadrant->get_forest_quad_idx ()] = 1.0;
       f0[quadrant->get_forest_quad_idx ()] = 0.0;
       f1[quadrant->get_forest_quad_idx ()] = 1.0;
 
-      for (int ii = 0; ii < 8; ++ii)
+      for (int ii = 0; ii < 4; ++ii)
         {
           if (! quadrant->is_hanging (ii))
           {
@@ -146,14 +146,13 @@ main (int argc, char **argv)
             zeta1[quadrant->gt (ii)] = 1.0;
             g0[quadrant->gt (ii)] = 0.;
 
-            double zz=quadrant->p(2,ii);
             sold[ord0(quadrant->gt (ii))] = 0.0;
             sold[ord1(quadrant->gt (ii))] = 0.0;
             sol[ord0(quadrant->gt (ii))] = 0.0;
             sol[ord1(quadrant->gt (ii))] = 0.0;
           }
           else
-            for (int jj = 0; jj < quadrant->num_parents (ii); ++jj)
+            for (int jj = 0; jj < 2; ++jj)
               {
                 zero[quadrant->gparent (jj, ii)] += 0.;
                 zeta0[quadrant->gparent (jj, ii)] += 0.;
@@ -165,9 +164,11 @@ main (int argc, char **argv)
               }
         }
     }
-  
-  bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord0, false);
-  bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord1);
+  tmsh.octbin_export_quadrant ("epsilon_file", epsilon);
+  tmsh.octbin_export_quadrant ("sigma_file", sigma);
+
+  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord0, false);
+  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord1);
 
   zero.assemble (replace_op);
   zeta0.assemble (replace_op);
@@ -194,9 +195,9 @@ main (int argc, char **argv)
     count++;
 
     // Define boundary conditions
-    dirichlet_bcs3 bcs0, bcs1;
-    bcs0.push_back (std::make_tuple (0, 4, [](double x, double y, double z){return 0.0;})); //bottom
-    bcs0.push_back (std::make_tuple (0, 5, [time](double x, double y, double z){return 1.5e4 * (1 - exp(-time/tau));})); //top
+    dirichlet_bcs bcs0, bcs1;
+    bcs0.push_back (std::make_tuple (0, 2, [](double x, double y){return 0.0;})); //bottom
+    bcs0.push_back (std::make_tuple (0, 3, [time](double x, double y){return 1.5e4 * (1 - exp(-time/tau));})); //top
 
     // Print curent time
     if(rank==0)
@@ -212,31 +213,31 @@ main (int argc, char **argv)
     quadrant != tmsh.end_quadrant_sweep ();
     ++quadrant)
     {
-      for (int ii = 0; ii < 8; ++ii)
+      for (int ii = 0; ii < 4; ++ii)
         if (! quadrant->is_hanging (ii))
           g1[quadrant->gt (ii)] = sold[ord1(quadrant->gt (ii))];
           
         else
-          for (int jj = 0; jj < quadrant->num_parents (ii); ++jj)
+          for (int jj = 0; jj < 2; ++jj)
             g1[quadrant->gparent (jj, ii)] += 0.;
     }
 
     g1.assemble(replace_op);
 
     // advection_diffusion
-    bim3a_advection_diffusion (tmsh, epsilon, zero, A, true, ord0, ord0);
-    bim3a_advection_diffusion (tmsh, sigma, zero, A, true, ord1, ord0);
+    bim2a_advection_diffusion (tmsh, epsilon, zero, A, true, ord0, ord0);
+    bim2a_advection_diffusion (tmsh, sigma, zero, A, true, ord1, ord0);
 
     // reaction
-    bim3a_reaction (tmsh, delta0, zeta0, A, ord0, ord1);
-    bim3a_reaction (tmsh, delta1, zeta1, A, ord1, ord1);
+    bim2a_reaction (tmsh, delta0, zeta0, A, ord0, ord1);
+    bim2a_reaction (tmsh, delta1, zeta1, A, ord1, ord1);
 
     //rhs
-    bim3a_rhs (tmsh, f0, g0, sol, ord0);
-    bim3a_rhs (tmsh, f1, g1, sol, ord1);
+    bim2a_rhs (tmsh, f0, g0, sol, ord0);
+    bim2a_rhs (tmsh, f1, g1, sol, ord1);
 
     //boundary conditions
-    bim3a_dirichlet_bc (tmsh, bcs0, A, sol, ord1, ord0, false);
+    bim2a_dirichlet_bc (tmsh, bcs0, A, sol, ord1, ord0, false);
 
     // Communicate matrix and RHS
     A.assemble ();
