@@ -22,6 +22,7 @@
 #include <cmath>
 #include <algorithm>
 #include <octave_file_io.h>
+#include <array>
 
 #include <bim_distributed_vector.h>
 #include <bim_sparse_distributed.h>
@@ -42,13 +43,13 @@ main (int argc, char **argv)
   using q1_vec  = q1_vec<distributed_vector>;
   
   /*
-  Manegement of solutions ordering: ord0-> phi                 ord1->rho
-  Equation ordering: ord0->diffusion-reaction equation         ord1->continuity equation 
+  Manegement of solutions ordering: ord[0]-> phi                 ord[1]->rho
+  Equation ordering: ord[0]->diffusion-reaction equation         ord[1]->continuity equation 
   */
-  ordering
-    ord0 = [] (tmesh::idx_t gt) -> size_t { return dof_ordering<2, 0> (gt); },
-    ord1 = [] (tmesh::idx_t gt) -> size_t { return dof_ordering<2, 1> (gt); };
-    
+ constexpr size_t N_eqs= 2;
+  const std::array<ordering,N_eqs> ord{dof_ordering<N_eqs,0>,
+                            dof_ordering<N_eqs,1>};
+
   // Initialize MPI
   MPI_Init (&argc, &argv);
   int rank, size;
@@ -146,10 +147,10 @@ main (int argc, char **argv)
             zeta1[quadrant->gt (ii)] = 1.0;
             g0[quadrant->gt (ii)] = 0.;
 
-            sold[ord0(quadrant->gt (ii))] = 0.0;
-            sold[ord1(quadrant->gt (ii))] = 0.0;
-            sol[ord0(quadrant->gt (ii))] = 0.0;
-            sol[ord1(quadrant->gt (ii))] = 0.0;
+            sold[ord[0](quadrant->gt (ii))] = 0.0;
+            sold[ord[1](quadrant->gt (ii))] = 0.0;
+            sol[ord[0](quadrant->gt (ii))] = 0.0;
+            sol[ord[1](quadrant->gt (ii))] = 0.0;
           }
           else
             for (int jj = 0; jj < 2; ++jj)
@@ -159,16 +160,16 @@ main (int argc, char **argv)
                 zeta1[quadrant->gparent (jj, ii)] += 0.;
                 g0[quadrant->gparent (jj, ii)] += 0.;
 
-                sold[ord0(quadrant->gparent (jj, ii))] += 0.;
-                sold[ord1(quadrant->gparent (jj, ii))] += 0.;                
+                sold[ord[0](quadrant->gparent (jj, ii))] += 0.;
+                sold[ord[1](quadrant->gparent (jj, ii))] += 0.;                
               }
         }
     }
   tmsh.octbin_export_quadrant ("epsilon_file", epsilon);
   tmsh.octbin_export_quadrant ("sigma_file", sigma);
 
-  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord0, false);
-  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord1);
+  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
+  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[1]);
 
   zero.assemble (replace_op);
   zeta0.assemble (replace_op);
@@ -177,9 +178,9 @@ main (int argc, char **argv)
 
   // Save inital conditions
   sprintf(filename, "model_0_u_0000");
-  tmsh.octbin_export (filename, sold, ord0);
+  tmsh.octbin_export (filename, sold, ord[0]);
   sprintf(filename, "model_0_v_0000");
-  tmsh.octbin_export (filename, sold, ord1); 
+  tmsh.octbin_export (filename, sold, ord[1]); 
 
   int count = 0;
 
@@ -215,7 +216,7 @@ main (int argc, char **argv)
     {
       for (int ii = 0; ii < 4; ++ii)
         if (! quadrant->is_hanging (ii))
-          g1[quadrant->gt (ii)] = sold[ord1(quadrant->gt (ii))];
+          g1[quadrant->gt (ii)] = sold[ord[1](quadrant->gt (ii))];
           
         else
           for (int jj = 0; jj < 2; ++jj)
@@ -225,19 +226,19 @@ main (int argc, char **argv)
     g1.assemble(replace_op);
 
     // advection_diffusion
-    bim2a_advection_diffusion (tmsh, epsilon, zero, A, true, ord0, ord0);
-    bim2a_advection_diffusion (tmsh, sigma, zero, A, true, ord1, ord0);
+    bim2a_advection_diffusion (tmsh, epsilon, zero, A, true, ord[0], ord[0]);
+    bim2a_advection_diffusion (tmsh, sigma, zero, A, true, ord[1], ord[0]);
 
     // reaction
-    bim2a_reaction (tmsh, delta0, zeta0, A, ord0, ord1);
-    bim2a_reaction (tmsh, delta1, zeta1, A, ord1, ord1);
+    bim2a_reaction (tmsh, delta0, zeta0, A, ord[0], ord[1]);
+    bim2a_reaction (tmsh, delta1, zeta1, A, ord[1], ord[1]);
 
     //rhs
-    bim2a_rhs (tmsh, f0, g0, sol, ord0);
-    bim2a_rhs (tmsh, f1, g1, sol, ord1);
+    bim2a_rhs (tmsh, f0, g0, sol, ord[0]);
+    bim2a_rhs (tmsh, f1, g1, sol, ord[1]);
 
     //boundary conditions
-    bim2a_dirichlet_bc (tmsh, bcs0, A, sol, ord1, ord0, false);
+    bim2a_dirichlet_bc (tmsh, bcs0, A, sol, ord[1], ord[0], false);
 
     // Communicate matrix and RHS
     A.assemble ();
@@ -272,9 +273,9 @@ main (int argc, char **argv)
     if (save_sol == true)
     {
       sprintf(filename, "model_0_u_%4.4d",count);
-      tmsh.octbin_export (filename, sold, ord0);
+      tmsh.octbin_export (filename, sold, ord[0]);
       sprintf(filename, "model_0_v_%4.4d",count);
-      tmsh.octbin_export (filename, sold, ord1);      
+      tmsh.octbin_export (filename, sold, ord[1]);      
     }
 
     // Save rho values
@@ -283,7 +284,7 @@ main (int argc, char **argv)
       std::vector<double> temp(N_rhos+1);
       temp[0] = time;
       for (size_t i=1; i < N_rhos+1; i++)
-        temp[i] = sold[ord1(rho_idx[i-1])];
+        temp[i] = sold[ord[1](rho_idx[i-1])];
 
       rho_out[count] = temp;
     }
