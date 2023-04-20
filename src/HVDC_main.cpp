@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <octave_file_io.h>
 #include <array>
+#include <functional>
 
 #include <bim_distributed_vector.h>
 #include <bim_sparse_distributed.h>
@@ -36,6 +37,30 @@
 #include<test_4bis.h>
 //#include<test_5.h>
 
+constexpr size_t N_eqs= 2;
+/*
+template<size_t... args>
+std::array<ordering,N_eqs> makeorder(){
+  return std::array<ordering,N_eqs> {dof_ordering<N_eqs,args>...};
+}
+*/
+template<class>
+struct make_order_struct{};
+
+template<size_t... args>
+struct make_order_struct<std::integer_sequence<size_t,args...>> {
+  static auto fun(){
+    return std::array<ordering,N_eqs> {dof_ordering<N_eqs,args>...};
+  }
+};
+
+template<size_t N>
+auto makeorder(){
+  return make_order_struct<std::make_integer_sequence<size_t,N>>::fun();
+}
+
+
+
 int
 main (int argc, char **argv)
 {
@@ -43,12 +68,15 @@ main (int argc, char **argv)
   using q1_vec  = q1_vec<distributed_vector>;
   
   /*
+<<<<<<< Updated upstream
   Manegement of solutions ordering: ord[0]-> phi                 ord[1]->rho
   Equation ordering: ord[0]->diffusion-reaction equation         ord[1]->continuity equation 
   */
- constexpr size_t N_eqs= 2;
-  const std::array<ordering,N_eqs> ord{dof_ordering<N_eqs,0>,
-                            dof_ordering<N_eqs,1>};
+  
+//  const std::array<ordering,N_eqs> ord{dof_ordering<N_eqs,0>,
+//                                      dof_ordering<N_eqs,1>};
+  const auto ord(makeorder<N_eqs>());
+
 
   // Initialize MPI
   MPI_Init (&argc, &argv);
@@ -109,7 +137,8 @@ main (int argc, char **argv)
   // diffusion
   std::vector<double> epsilon (ln_elements, 0.);
   std::vector<double> sigma (ln_elements, 0.);
-  q1_vec zero (ln_nodes);
+  std::vector<double> zero_std_vect(ln_elements, 0.);
+  q1_vec zero_q1 (ln_nodes);
 
   // reaction
   std::vector<double> delta0 (ln_elements, 0.);
@@ -142,7 +171,7 @@ main (int argc, char **argv)
         {
           if (! quadrant->is_hanging (ii))
           {
-            zero[quadrant->gt (ii)] = 0.;
+            zero_q1[quadrant->gt (ii)] = 0.;
             zeta0[quadrant->gt (ii)] = 1.0;
             zeta1[quadrant->gt (ii)] = 1.0;
             g0[quadrant->gt (ii)] = 0.;
@@ -155,7 +184,7 @@ main (int argc, char **argv)
           else
             for (int jj = 0; jj < 2; ++jj)
               {
-                zero[quadrant->gparent (jj, ii)] += 0.;
+                zero_q1[quadrant->gparent (jj, ii)] += 0.;
                 zeta0[quadrant->gparent (jj, ii)] += 0.;
                 zeta1[quadrant->gparent (jj, ii)] += 0.;
                 g0[quadrant->gparent (jj, ii)] += 0.;
@@ -165,13 +194,13 @@ main (int argc, char **argv)
               }
         }
     }
-  tmsh.octbin_export_quadrant ("epsilon_file", epsilon);
-  tmsh.octbin_export_quadrant ("sigma_file", sigma);
+//  tmsh.octbin_export_quadrant ("epsilon_file", epsilon);
+//  tmsh.octbin_export_quadrant ("sigma_file", sigma);
 
   bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
   bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[1]);
 
-  zero.assemble (replace_op);
+  zero_q1.assemble (replace_op);
   zeta0.assemble (replace_op);
   zeta1.assemble (replace_op);
   g0.assemble (replace_op);                      
@@ -226,9 +255,11 @@ main (int argc, char **argv)
     g1.assemble(replace_op);
 
     // advection_diffusion
-    bim2a_advection_diffusion (tmsh, epsilon, zero, A, true, ord[0], ord[0]);
-    bim2a_advection_diffusion (tmsh, sigma, zero, A, true, ord[1], ord[0]);
 
+    bim2a_advection_diffusion (tmsh, epsilon, zero_q1, A, true, ord[0], ord[0]);
+    bim2a_advection_diffusion (tmsh, sigma, zero_q1, A, true, ord[1], ord[0]);
+
+    
     // reaction
     bim2a_reaction (tmsh, delta0, zeta0, A, ord[0], ord[1]);
     bim2a_reaction (tmsh, delta1, zeta1, A, ord[1], ord[1]);
