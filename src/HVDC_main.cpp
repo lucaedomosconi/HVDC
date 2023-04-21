@@ -37,19 +37,33 @@
 //#include<test_4bis.h>
 //#include<test_5.h>
 
-constexpr size_t N_eqs= 3;
+constexpr size_t N_eqs= 2;
 /*
 template<size_t... args>
 std::array<ordering,N_eqs> makeorder(){
   return std::array<ordering,N_eqs> {dof_ordering<N_eqs,args>...};
 }
+*//*
+template<class>
+std::array<ordering,N_eqs> makeorder_impl();
+
+template<size_t... args>
+std::array<ordering,N_eqs> makeorder_impl<std::integer_sequence<size_t,args...>>(){
+  return std::array<ordering,N_eqs> {dof_ordering<N_eqs,args>...};
+};
+
+template<size_t N>
+auto makeorder(){
+  return makeorder_impl<std::make_integer_sequence<size_t,N>>();
+}
 */
+
 template<class>
 struct make_order_struct{};
 
 template<size_t... args>
 struct make_order_struct<std::integer_sequence<size_t,args...>> {
-  static auto fun(){
+  static std::array<ordering,N_eqs> fun(){
     return std::array<ordering,N_eqs> {dof_ordering<N_eqs,args>...};
   }
 };
@@ -59,8 +73,6 @@ auto makeorder(){
   return make_order_struct<std::make_integer_sequence<size_t,N>>::fun();
 }
 
-
-
 int
 main (int argc, char **argv)
 {
@@ -68,14 +80,13 @@ main (int argc, char **argv)
   using q1_vec  = q1_vec<distributed_vector>;
   
   /*
-<<<<<<< Updated upstream
   Manegement of solutions ordering: ord[0]-> phi                 ord[1]->rho
   Equation ordering: ord[0]->diffusion-reaction equation         ord[1]->continuity equation 
   */
   
 //  const std::array<ordering,N_eqs> ord{dof_ordering<N_eqs,0>,
 //                                      dof_ordering<N_eqs,1>};
-  const auto ord(makeorder<N_eqs>());
+  const std::array<ordering,N_eqs> ord(makeorder<N_eqs>());
 
 
   // Initialize MPI
@@ -112,10 +123,10 @@ main (int argc, char **argv)
   mumps *lin_solver = new mumps ();
 
  // Allocate initial data container
-  q1_vec sold (ln_nodes * 3);
+  q1_vec sold (ln_nodes * 2);
   sold.get_owned_data ().assign (sold.get_owned_data ().size (), 0.0);
 
-  q1_vec sol (ln_nodes * 3);
+  q1_vec sol (ln_nodes * 2);
   sol.get_owned_data ().assign (sol.get_owned_data ().size (), 0.0);
 
   std::vector<double> xa;
@@ -123,7 +134,7 @@ main (int argc, char **argv)
   
   // Declare system matrix
   distributed_sparse_matrix A;
-  A.set_ranges (ln_nodes * 3);
+  A.set_ranges (ln_nodes * 2);
   
   // Buffer for export filename
   char filename[255]="";
