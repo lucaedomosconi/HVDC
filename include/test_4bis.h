@@ -91,14 +91,13 @@ double epsilon_fun(const double & x, const double & y)
     x<y_paper)
         return  epsilon_0;
     return epsilon_0 * epsilon_r_2;
+
 }
 
 double sigma_fun(const double & x, const double & y)
 {
-
   if((y > y_paper+y_oil && y<2*y_paper+y_oil) && x<y_paper)
         return  sigma_2 * DELTAT;
-
   return sigma_1 * DELTAT;
 }
 

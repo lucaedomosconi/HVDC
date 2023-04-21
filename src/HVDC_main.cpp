@@ -31,13 +31,13 @@
 #include <mumps_class.h>
 #include <quad_operators.h>
 
-//#include<test_1.h>
+#include<test_1_2d.h>
 //#include<test_2.h>
 //#include<test_3.h>
-#include<test_4bis.h>
+//#include<test_4bis.h>
 //#include<test_5.h>
 
-constexpr size_t N_eqs= 2;
+constexpr size_t N_eqs= 3;
 /*
 template<size_t... args>
 std::array<ordering,N_eqs> makeorder(){
@@ -112,10 +112,10 @@ main (int argc, char **argv)
   mumps *lin_solver = new mumps ();
 
  // Allocate initial data container
-  q1_vec sold (ln_nodes * 2);
+  q1_vec sold (ln_nodes * 3);
   sold.get_owned_data ().assign (sold.get_owned_data ().size (), 0.0);
 
-  q1_vec sol (ln_nodes * 2);
+  q1_vec sol (ln_nodes * 3);
   sol.get_owned_data ().assign (sol.get_owned_data ().size (), 0.0);
 
   std::vector<double> xa;
@@ -123,7 +123,7 @@ main (int argc, char **argv)
   
   // Declare system matrix
   distributed_sparse_matrix A;
-  A.set_ranges (ln_nodes * 2);
+  A.set_ranges (ln_nodes * 3);
   
   // Buffer for export filename
   char filename[255]="";
@@ -143,6 +143,8 @@ main (int argc, char **argv)
   // reaction
   std::vector<double> delta0 (ln_elements, 0.);
   std::vector<double> delta1 (ln_elements, 0.);
+  std::vector<double> epsilon_inf (ln_elements,0.);
+  std::vector<double> csi_1 (ln_elements, 0.);
   q1_vec zeta0 (ln_nodes);
   q1_vec zeta1 (ln_nodes);
 
@@ -160,6 +162,8 @@ main (int argc, char **argv)
       double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)};  
       
       epsilon[quadrant->get_forest_quad_idx ()] = epsilon_fun(xx,yy);
+      epsilon_inf[quadrant->get_forest_quad_idx ()] = epsilon_inf_fun(xx,yy);
+      csi_1[quadrant->get_forest_quad_idx ()] = csi_1_fun(xx,yy);
       sigma[quadrant->get_forest_quad_idx ()] = sigma_fun(xx,yy);
       
       delta0[quadrant->get_forest_quad_idx ()] = -1.0;

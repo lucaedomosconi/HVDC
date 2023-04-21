@@ -11,6 +11,7 @@ constexpr bool save_sol = true;
 // Problem parameters
 constexpr double epsilon_0 = 8.8542e-12;
 constexpr double epsilon_r = 2.0;         // permittivity
+constexpr double csi1 = 0.02;
 constexpr double sigma_ = 3.21e-14;           // conducivity coeff
 
 constexpr size_t N_rhos = 1;
@@ -37,6 +38,9 @@ double epsilon_fun(const double & x, const double & y)
 
 double epsilon_inf_fun(const double & x, const double & y)
 {return epsilon_r;}
+
+double csi_1_fun(const double & x, const double & y)
+{return csi1;}
 
 double sigma_fun(const double & x, const double & y)
 {return sigma_ * DELTAT;}
