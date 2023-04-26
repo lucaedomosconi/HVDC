@@ -37,7 +37,7 @@
 //#include<test_4bis.h>
 //#include<test_5.h>
 
-constexpr size_t N_eqs= 2;
+constexpr size_t N_eqs= 3;
 /*
 template<size_t... args>
 std::array<ordering,N_eqs> makeorder(){
@@ -123,10 +123,10 @@ main (int argc, char **argv)
   mumps *lin_solver = new mumps ();
 
  // Allocate initial data container
-  q1_vec sold (ln_nodes * 2);
+  q1_vec sold (ln_nodes * N_eqs);
   sold.get_owned_data ().assign (sold.get_owned_data ().size (), 0.0);
 
-  q1_vec sol (ln_nodes * 2);
+  q1_vec sol (ln_nodes * N_eqs);
   sol.get_owned_data ().assign (sol.get_owned_data ().size (), 0.0);
 
   std::vector<double> xa;
@@ -134,7 +134,7 @@ main (int argc, char **argv)
   
   // Declare system matrix
   distributed_sparse_matrix A;
-  A.set_ranges (ln_nodes * 2);
+  A.set_ranges (ln_nodes * N_eqs);
   
   // Buffer for export filename
   char filename[255]="";
@@ -154,8 +154,8 @@ main (int argc, char **argv)
   // reaction
   std::vector<double> delta0 (ln_elements, 0.);
   std::vector<double> delta1 (ln_elements, 0.);
-  std::vector<double> epsilon_inf (ln_elements,0.);
-  std::vector<double> csi_1 (ln_elements, 0.);
+  std::vector<double> reaction_term_p1 (ln_elements,0.);
+  std::vector<double> csi_1_ov_eps_inf (ln_elements,0.);
   q1_vec zeta0 (ln_nodes);
   q1_vec zeta1 (ln_nodes);
 
@@ -164,6 +164,7 @@ main (int argc, char **argv)
   std::vector<double> f1 (ln_elements, 0.);
   q1_vec g0 (ln_nodes);
   q1_vec g1 (ln_nodes);
+  q1_vec gp1 (ln_nodes);
 
   // Initialize constant (in time) parameters and initial data
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
@@ -173,10 +174,12 @@ main (int argc, char **argv)
       double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)};  
       
       epsilon[quadrant->get_forest_quad_idx ()] = epsilon_fun(xx,yy);
-      epsilon_inf[quadrant->get_forest_quad_idx ()] = epsilon_inf_fun(xx,yy);
-      csi_1[quadrant->get_forest_quad_idx ()] = csi_1_fun(xx,yy);
+      reaction_term_p1[quadrant->get_forest_quad_idx ()] =
+        tau_p1 + DELTAT * ( 1 + csi_1_fun(xx,yy) / epsilon_inf_fun(xx,yy) );
+      csi_1_ov_eps_inf[quadrant->get_forest_quad_idx ()] =
+        csi_1_fun(xx,yy) / epsilon_inf_fun(xx,yy);
       sigma[quadrant->get_forest_quad_idx ()] = sigma_fun(xx,yy);
-      
+
       delta0[quadrant->get_forest_quad_idx ()] = -1.0;
       delta1[quadrant->get_forest_quad_idx ()] = 1.0;
       f0[quadrant->get_forest_quad_idx ()] = 0.0;
@@ -193,8 +196,11 @@ main (int argc, char **argv)
 
             sold[ord[0](quadrant->gt (ii))] = 0.0;
             sold[ord[1](quadrant->gt (ii))] = 0.0;
+            sold[ord[2](quadrant->gt (ii))] = 0.0;
+
             sol[ord[0](quadrant->gt (ii))] = 0.0;
             sol[ord[1](quadrant->gt (ii))] = 0.0;
+            sol[ord[2](quadrant->gt (ii))] = 0.0;
           }
           else
             for (int jj = 0; jj < 2; ++jj)
@@ -205,7 +211,8 @@ main (int argc, char **argv)
                 g0[quadrant->gparent (jj, ii)] += 0.;
 
                 sold[ord[0](quadrant->gparent (jj, ii))] += 0.;
-                sold[ord[1](quadrant->gparent (jj, ii))] += 0.;                
+                sold[ord[1](quadrant->gparent (jj, ii))] += 0.;
+                sold[ord[2](quadrant->gparent (jj, ii))] += 0.;
               }
         }
     }
@@ -214,6 +221,7 @@ main (int argc, char **argv)
 
   bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
   bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[1]);
+  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[2]); // true?
 
   zero_q1.assemble (replace_op);
   zeta0.assemble (replace_op);
@@ -221,10 +229,13 @@ main (int argc, char **argv)
   g0.assemble (replace_op);                      
 
   // Save inital conditions
-  sprintf(filename, "model_0_u_0000");
+  sprintf(filename, "model_1_phi_0000");
   tmsh.octbin_export (filename, sold, ord[0]);
-  sprintf(filename, "model_0_v_0000");
-  tmsh.octbin_export (filename, sold, ord[1]); 
+  sprintf(filename, "model_1_rho_0000");
+  tmsh.octbin_export (filename, sold, ord[1]);
+
+  sprintf(filename, "model_1_p1_0000");
+  tmsh.octbin_export (filename, sold, ord[2]);
 
   int count = 0;
 
@@ -258,17 +269,23 @@ main (int argc, char **argv)
     quadrant != tmsh.end_quadrant_sweep ();
     ++quadrant)
     {
+      double local_csi_1_ov_eps_inf = csi_1_ov_eps_inf[quadrant->get_forest_quad_idx ()];
       for (int ii = 0; ii < 4; ++ii)
-        if (! quadrant->is_hanging (ii))
+        if (! quadrant->is_hanging (ii)){
           g1[quadrant->gt (ii)] = sold[ord[1](quadrant->gt (ii))];
-          
+
+          gp1[quadrant->gt (ii)] = tau_p1 * sold[ord[2](quadrant->gt (ii))]
+            + DELTAT * local_csi_1_ov_eps_inf * sold[ord[1](quadrant->gt (ii))];
+        }
         else
-          for (int jj = 0; jj < 2; ++jj)
+          for (int jj = 0; jj < 2; ++jj){
             g1[quadrant->gparent (jj, ii)] += 0.;
+            gp1[quadrant->gparent (jj, ii)] += 0.;
+          }
     }
 
     g1.assemble(replace_op);
-
+    gp1.assemble(replace_op);
     // advection_diffusion
 
     bim2a_advection_diffusion (tmsh, epsilon, zero_q1, A, true, ord[0], ord[0]);
@@ -279,9 +296,13 @@ main (int argc, char **argv)
     bim2a_reaction (tmsh, delta0, zeta0, A, ord[0], ord[1]);
     bim2a_reaction (tmsh, delta1, zeta1, A, ord[1], ord[1]);
 
+    bim2a_reaction (tmsh, reaction_term_p1, zeta1, A, ord[2], ord[2]);
+
     //rhs
     bim2a_rhs (tmsh, f0, g0, sol, ord[0]);
     bim2a_rhs (tmsh, f1, g1, sol, ord[1]);
+    
+    bim2a_rhs (tmsh, f1, gp1, sol, ord[2]);
 
     //boundary conditions
     bim2a_dirichlet_bc (tmsh, bcs0, A, sol, ord[1], ord[0], false);
@@ -318,10 +339,13 @@ main (int argc, char **argv)
     // Save solution
     if (save_sol == true)
     {
-      sprintf(filename, "model_0_u_%4.4d",count);
+      sprintf(filename, "model_1_phi_%4.4d",count);
       tmsh.octbin_export (filename, sold, ord[0]);
-      sprintf(filename, "model_0_v_%4.4d",count);
-      tmsh.octbin_export (filename, sold, ord[1]);      
+      sprintf(filename, "model_1_rho_%4.4d",count);
+      tmsh.octbin_export (filename, sold, ord[1]);
+
+      sprintf(filename, "model_1_p1_%4.4d", count);
+      tmsh.octbin_export (filename,sold, ord[2]);
     }
 
     // Save rho values
