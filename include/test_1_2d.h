@@ -5,7 +5,8 @@ constexpr int NUM_REFINEMENTS = 4;
 
 constexpr double DELTAT = 2.5;
 constexpr double T = 500;
-constexpr double tau = 2.0; 
+constexpr double tau = 2.0;
+constexpr double tau_p1 = 1000.0;
 constexpr bool save_sol = true;
 
 // Problem parameters
@@ -20,6 +21,7 @@ std::vector<std::vector<double>> points{{0.0005,0.0005}};
 std::vector<std::vector<double>> tols{{1e-4,1e-4}};
 
 bool extra_refinement = false;
+
 
 static int
 uniform_refinement (tmesh::quadrant_iterator q)

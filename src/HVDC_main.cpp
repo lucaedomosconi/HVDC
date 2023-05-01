@@ -152,18 +152,18 @@ main (int argc, char **argv)
   q1_vec zero_q1 (ln_nodes);
 
   // reaction
-  std::vector<double> delta0 (ln_elements, 0.);
   std::vector<double> delta1 (ln_elements, 0.);
+  std::vector<double> delta0 (ln_elements, 0.);
   std::vector<double> reaction_term_p1 (ln_elements,0.);
-  std::vector<double> csi_1_ov_eps_inf (ln_elements,0.);
+  std::vector<double> diffusion_term_p1 (ln_elements,0.);
   q1_vec zeta0 (ln_nodes);
   q1_vec zeta1 (ln_nodes);
 
   // rhs
-  std::vector<double> f0 (ln_elements, 0.);
   std::vector<double> f1 (ln_elements, 0.);
-  q1_vec g0 (ln_nodes);
+  std::vector<double> f0 (ln_elements, 0.);
   q1_vec g1 (ln_nodes);
+  q1_vec g0 (ln_nodes);
   q1_vec gp1 (ln_nodes);
 
   // Initialize constant (in time) parameters and initial data
@@ -175,15 +175,15 @@ main (int argc, char **argv)
       
       epsilon[quadrant->get_forest_quad_idx ()] = epsilon_fun(xx,yy);
       reaction_term_p1[quadrant->get_forest_quad_idx ()] =
-        tau_p1 + DELTAT * ( 1 + csi_1_fun(xx,yy) / epsilon_inf_fun(xx,yy) );
-      csi_1_ov_eps_inf[quadrant->get_forest_quad_idx ()] =
-        csi_1_fun(xx,yy) / epsilon_inf_fun(xx,yy);
+        1 + DELTAT / tau_p1;
+      diffusion_term_p1[quadrant->get_forest_quad_idx ()] =
+        - DELTAT / tau_p1 * epsilon_0 * csi_1_fun(xx,yy);
       sigma[quadrant->get_forest_quad_idx ()] = sigma_fun(xx,yy);
 
-      delta0[quadrant->get_forest_quad_idx ()] = -1.0;
-      delta1[quadrant->get_forest_quad_idx ()] = 1.0;
-      f0[quadrant->get_forest_quad_idx ()] = 0.0;
-      f1[quadrant->get_forest_quad_idx ()] = 1.0;
+      delta1[quadrant->get_forest_quad_idx ()] = -1.0;
+      delta0[quadrant->get_forest_quad_idx ()] = 1.0;
+      f1[quadrant->get_forest_quad_idx ()] = 0.0;
+      f0[quadrant->get_forest_quad_idx ()] = 1.0;
 
       for (int ii = 0; ii < 4; ++ii)
         {
@@ -192,7 +192,7 @@ main (int argc, char **argv)
             zero_q1[quadrant->gt (ii)] = 0.;
             zeta0[quadrant->gt (ii)] = 1.0;
             zeta1[quadrant->gt (ii)] = 1.0;
-            g0[quadrant->gt (ii)] = 0.;
+            g1[quadrant->gt (ii)] = 0.;
 
             sold[ord[0](quadrant->gt (ii))] = 0.0;
             sold[ord[1](quadrant->gt (ii))] = 0.0;
@@ -208,7 +208,7 @@ main (int argc, char **argv)
                 zero_q1[quadrant->gparent (jj, ii)] += 0.;
                 zeta0[quadrant->gparent (jj, ii)] += 0.;
                 zeta1[quadrant->gparent (jj, ii)] += 0.;
-                g0[quadrant->gparent (jj, ii)] += 0.;
+                g1[quadrant->gparent (jj, ii)] += 0.;
 
                 sold[ord[0](quadrant->gparent (jj, ii))] += 0.;
                 sold[ord[1](quadrant->gparent (jj, ii))] += 0.;
@@ -226,12 +226,12 @@ main (int argc, char **argv)
   zero_q1.assemble (replace_op);
   zeta0.assemble (replace_op);
   zeta1.assemble (replace_op);
-  g0.assemble (replace_op);                      
+  g1.assemble (replace_op);                      
 
   // Save inital conditions
-  sprintf(filename, "model_1_phi_0000");
-  tmsh.octbin_export (filename, sold, ord[0]);
   sprintf(filename, "model_1_rho_0000");
+  tmsh.octbin_export (filename, sold, ord[0]);
+  sprintf(filename, "model_1_phi_0000");
   tmsh.octbin_export (filename, sold, ord[1]);
 
   sprintf(filename, "model_1_p1_0000");
@@ -252,8 +252,8 @@ main (int argc, char **argv)
 
     // Define boundary conditions
     dirichlet_bcs bcs0, bcs1;
-    bcs0.push_back (std::make_tuple (0, 2, [](double x, double y){return 0.0;})); //bottom
-    bcs0.push_back (std::make_tuple (0, 3, [time](double x, double y){return 1.5e4 * (1 - exp(-time/tau));})); //top
+    bcs0.push_back (std::make_tuple (0, 0, [](double x, double y){return 0.0;})); //bottom
+    bcs0.push_back (std::make_tuple (0, 1, [time](double x, double y){return 1.5e4 * (1 - exp(-time/tau));})); //top
 
     // Print curent time
     if(rank==0)
@@ -269,43 +269,40 @@ main (int argc, char **argv)
     quadrant != tmsh.end_quadrant_sweep ();
     ++quadrant)
     {
-      double local_csi_1_ov_eps_inf = csi_1_ov_eps_inf[quadrant->get_forest_quad_idx ()];
       for (int ii = 0; ii < 4; ++ii)
         if (! quadrant->is_hanging (ii)){
-          g1[quadrant->gt (ii)] = sold[ord[1](quadrant->gt (ii))];
+          g0[quadrant->gt (ii)] = sold[ord[0](quadrant->gt (ii))];
 
-          gp1[quadrant->gt (ii)] = tau_p1 * sold[ord[2](quadrant->gt (ii))]
-            + DELTAT * local_csi_1_ov_eps_inf * sold[ord[1](quadrant->gt (ii))];
+          gp1[quadrant->gt (ii)] = sold[ord[2](quadrant->gt (ii))];
         }
         else
           for (int jj = 0; jj < 2; ++jj){
-            g1[quadrant->gparent (jj, ii)] += 0.;
+            g0[quadrant->gparent (jj, ii)] += 0.;
             gp1[quadrant->gparent (jj, ii)] += 0.;
           }
     }
 
-    g1.assemble(replace_op);
+    g0.assemble(replace_op);
     gp1.assemble(replace_op);
     // advection_diffusion
 
-    bim2a_advection_diffusion (tmsh, epsilon, zero_q1, A, true, ord[0], ord[0]);
-    bim2a_advection_diffusion (tmsh, sigma, zero_q1, A, true, ord[1], ord[0]);
-
+    bim2a_advection_diffusion (tmsh, sigma, zero_q1, A, true, ord[0], ord[1]);
+    bim2a_advection_diffusion (tmsh, epsilon, zero_q1, A, true, ord[1], ord[1]);
+    bim2a_advection_diffusion (tmsh, diffusion_term_p1, zero_q1, A, true, ord[2], ord[1]);
     
     // reaction
-    bim2a_reaction (tmsh, delta0, zeta0, A, ord[0], ord[1]);
-    bim2a_reaction (tmsh, delta1, zeta1, A, ord[1], ord[1]);
-
+    bim2a_reaction (tmsh, delta0, zeta0, A, ord[0], ord[0]);
+    bim2a_reaction (tmsh, delta1, zeta1, A, ord[1], ord[0]);
+    bim2a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[2]);
     bim2a_reaction (tmsh, reaction_term_p1, zeta1, A, ord[2], ord[2]);
 
     //rhs
     bim2a_rhs (tmsh, f0, g0, sol, ord[0]);
     bim2a_rhs (tmsh, f1, g1, sol, ord[1]);
-    
-    bim2a_rhs (tmsh, f1, gp1, sol, ord[2]);
+    bim2a_rhs (tmsh, f0, gp1, sol, ord[2]);
 
     //boundary conditions
-    bim2a_dirichlet_bc (tmsh, bcs0, A, sol, ord[1], ord[0], false);
+    bim2a_dirichlet_bc (tmsh, bcs0, A, sol, ord[0], ord[1], false);
 
     // Communicate matrix and RHS
     A.assemble ();
@@ -339,11 +336,10 @@ main (int argc, char **argv)
     // Save solution
     if (save_sol == true)
     {
-      sprintf(filename, "model_1_phi_%4.4d",count);
-      tmsh.octbin_export (filename, sold, ord[0]);
       sprintf(filename, "model_1_rho_%4.4d",count);
+      tmsh.octbin_export (filename, sold, ord[0]);
+      sprintf(filename, "model_1_phi_%4.4d",count);
       tmsh.octbin_export (filename, sold, ord[1]);
-
       sprintf(filename, "model_1_p1_%4.4d", count);
       tmsh.octbin_export (filename,sold, ord[2]);
     }
@@ -354,7 +350,7 @@ main (int argc, char **argv)
       std::vector<double> temp(N_rhos+1);
       temp[0] = time;
       for (size_t i=1; i < N_rhos+1; i++)
-        temp[i] = sold[ord[1](rho_idx[i-1])];
+        temp[i] = sold[ord[0](rho_idx[i-1])];
 
       rho_out[count] = temp;
     }
