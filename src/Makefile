@@ -19,8 +19,10 @@ include local_settings.mk
 
 all : HVDC_main
 
-%.o : %.cpp
-	$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) $<
+include HVDC_main.d
+
+%.d : %.cpp
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -MM $< -MF $@
 
 HVDC_main : HVDC_main.o $(patsubst %.cpp, %.o, $(wildcard *.cpp))
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $? -o $@ $(LIBS)
@@ -29,6 +31,7 @@ HVDC_main : HVDC_main.o $(patsubst %.cpp, %.o, $(wildcard *.cpp))
 
 clean :
 	$(RM) *.o
+	$(RM) *.d
 
 distclean : clean
 	$(RM) HVDC_main
