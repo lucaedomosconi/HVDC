@@ -308,6 +308,16 @@ main (int argc, char **argv)
     A.assemble ();
     sol.assemble ();
 
+    bim2a_solution_with_ghosts(tmsh,sol,replace_op,ord[0]);
+    bim2a_solution_with_ghosts(tmsh,sol,replace_op,ord[1]);
+    bim2a_solution_with_ghosts(tmsh,sol,replace_op,ord[2]);
+    sprintf(filename, "rhs_0_%4.4d",count-1);
+    tmsh.octbin_export(filename,sol,ord[0]);
+    sprintf(filename, "rhs_1_%4.4d",count-1);
+    tmsh.octbin_export(filename,sol,ord[1]);
+    sprintf(filename, "rhs_2_%4.4d",count-1);
+    tmsh.octbin_export(filename,sol,ord[2]);
+
     // Solver analysis
     lin_solver->set_lhs_distributed ();
     A.aij (xa, ir, jc, lin_solver->get_index_base ());

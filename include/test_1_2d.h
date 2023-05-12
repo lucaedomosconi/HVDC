@@ -6,13 +6,13 @@ constexpr int NUM_REFINEMENTS = 4;
 constexpr double DELTAT = 2.5;
 constexpr double T = 500;
 constexpr double tau = 2.0;
-constexpr double tau_p1 = 1000.0;
+constexpr double tau_p1 = 10.0;
 constexpr bool save_sol = true;
 
 // Problem parameters
 constexpr double epsilon_0 = 8.8542e-12;
 constexpr double epsilon_r = 2.0;         // permittivity
-constexpr double csi1 = 0.02;
+constexpr double csi1 = 0.5;
 constexpr double sigma_ = 3.21e-14;           // conducivity coeff
 
 constexpr size_t N_rhos = 1;
