@@ -220,8 +220,8 @@ main (int argc, char **argv)
 //  tmsh.octbin_export_quadrant ("sigma_file", sigma);
 
   bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
-  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[1]);
-  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[2]); // true?
+  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[1], false);
+  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[2]);
 
   zero_q1.assemble (replace_op);
   zeta0.assemble (replace_op);
@@ -307,7 +307,7 @@ main (int argc, char **argv)
     // Communicate matrix and RHS
     A.assemble ();
     sol.assemble ();
-
+/*
     bim2a_solution_with_ghosts(tmsh,sol,replace_op,ord[0]);
     bim2a_solution_with_ghosts(tmsh,sol,replace_op,ord[1]);
     bim2a_solution_with_ghosts(tmsh,sol,replace_op,ord[2]);
@@ -317,7 +317,7 @@ main (int argc, char **argv)
     tmsh.octbin_export(filename,sol,ord[1]);
     sprintf(filename, "rhs_2_%4.4d",count-1);
     tmsh.octbin_export(filename,sol,ord[2]);
-
+*/
     // Solver analysis
     lin_solver->set_lhs_distributed ();
     A.aij (xa, ir, jc, lin_solver->get_index_base ());
@@ -342,7 +342,11 @@ main (int argc, char **argv)
     for (int idx = sold.get_range_start (); idx < sold.get_range_end (); ++idx)
       sold (idx) = result (idx);
     sold.assemble (replace_op);
-    
+/*    
+    bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
+    bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[1], false);
+    bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[2]); // true?
+*/
     // Save solution
     if (save_sol == true)
     {

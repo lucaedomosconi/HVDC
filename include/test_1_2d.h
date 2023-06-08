@@ -3,8 +3,8 @@
 
 constexpr int NUM_REFINEMENTS = 4;
 
-constexpr double DELTAT = 2.5;
-constexpr double T = 500;
+constexpr double DELTAT = 0.25;
+constexpr double T = 50;
 constexpr double tau = 2.0;
 constexpr double tau_p1 = 10.0;
 constexpr bool save_sol = true;
