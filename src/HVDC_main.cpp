@@ -73,6 +73,128 @@ auto makeorder(){
   return make_order_struct<std::make_integer_sequence<size_t,N>>::fun();
 }
 
+
+void time_step(int &count, tmesh &tmsh, mumps *lin_solver, distributed_sparse_matrix &A,
+                const std::array<ordering,N_eqs> &ord,
+                q1_vec<distributed_vector> &sold, q1_vec<distributed_vector> &sol, std::vector<double> &xa,
+                std::vector<int> &ir, std::vector<int> &jc,
+                std::vector<double> &epsilon, std::vector<double> &sigma,
+                std::vector<double> &zero_std_vect, q1_vec<distributed_vector> &zero_q1,
+                std::vector<double> &delta1, std::vector<double> &delta0,
+                std::vector<double> &reaction_term_p1, std::vector<double> diffusion_term_p1,
+                q1_vec<distributed_vector> &zeta0, q1_vec<distributed_vector> &zeta1,
+                std::vector<double> &f1, std::vector<double> &f0,
+                q1_vec<distributed_vector> g1, q1_vec<distributed_vector> g0, q1_vec<distributed_vector> gp1,
+                char *filename, int rank, double time){
+      count++;
+
+    // Define boundary conditions
+    dirichlet_bcs bcs0, bcs1;
+    bcs0.push_back (std::make_tuple (0, 0, [](double x, double y){return 0.0;})); //bottom
+    bcs0.push_back (std::make_tuple (0, 1, [time](double x, double y){return 1.5e4 * (1 - exp(-time/tau));})); //top
+
+    // Print curent time
+    if(rank==0)
+      std::cout<<"TIME= "<<time<<std::endl;
+
+    // Reset containers
+    A.reset ();
+    sol.get_owned_data ().assign (sol.get_owned_data ().size (), 0.0);
+    sol.assemble (replace_op);
+
+    // Initialize non constant (in time) parameters
+    for (auto quadrant = tmsh.begin_quadrant_sweep ();
+    quadrant != tmsh.end_quadrant_sweep ();
+    ++quadrant)
+    {
+      for (int ii = 0; ii < 4; ++ii)
+        if (! quadrant->is_hanging (ii)){
+          g0[quadrant->gt (ii)] = sold[ord[0](quadrant->gt (ii))];
+
+          gp1[quadrant->gt (ii)] = sold[ord[2](quadrant->gt (ii))];
+        }
+        else
+          for (int jj = 0; jj < 2; ++jj){
+            g0[quadrant->gparent (jj, ii)] += 0.;
+            gp1[quadrant->gparent (jj, ii)] += 0.;
+          }
+    }
+
+    g0.assemble(replace_op);
+    gp1.assemble(replace_op);
+    // advection_diffusion
+
+    bim2a_advection_diffusion (tmsh, sigma, zero_q1, A, true, ord[0], ord[1]);
+    bim2a_advection_diffusion (tmsh, epsilon, zero_q1, A, true, ord[1], ord[1]);
+    bim2a_advection_diffusion (tmsh, diffusion_term_p1, zero_q1, A, true, ord[2], ord[1]);
+    
+    // reaction
+    bim2a_reaction (tmsh, delta0, zeta0, A, ord[0], ord[0]);
+    bim2a_reaction (tmsh, delta1, zeta1, A, ord[1], ord[0]);
+    bim2a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[2]);
+    bim2a_reaction (tmsh, reaction_term_p1, zeta1, A, ord[2], ord[2]);
+
+    //rhs
+    bim2a_rhs (tmsh, f0, g0, sol, ord[0]);
+    bim2a_rhs (tmsh, f1, g1, sol, ord[1]);
+    bim2a_rhs (tmsh, f0, gp1, sol, ord[2]);
+
+    //boundary conditions
+    bim2a_dirichlet_bc (tmsh, bcs0, A, sol, ord[0], ord[1], false);
+
+    // Communicate matrix and RHS
+    A.assemble ();
+    sol.assemble ();
+
+    // Solver analysis
+    lin_solver->set_lhs_distributed ();
+    A.aij (xa, ir, jc, lin_solver->get_index_base ());
+    lin_solver->set_distributed_lhs_structure (A.rows (), ir, jc);
+    std::cout << "lin_solver->analyze () return value = "<< lin_solver->analyze () << std::endl;
+
+    // Matrix update
+    A.aij_update (xa, ir, jc, lin_solver->get_index_base ());
+    lin_solver->set_distributed_lhs_data (xa);
+
+    // Factorization
+    std::cout << "lin_solver->factorize () = " << lin_solver->factorize () << std::endl;
+
+    // Set RHS data
+    lin_solver->set_rhs_distributed (sol);
+
+    // Solution
+    std::cout << "lin_solver->solve () = " << lin_solver->solve () << std::endl;
+
+    // Copy solution
+    q1_vec<distributed_vector> result = lin_solver->get_distributed_solution ();
+    for (int idx = sold.get_range_start (); idx < sold.get_range_end (); ++idx)
+      sold (idx) = result (idx);
+    sold.assemble (replace_op);
+
+    // Save solution
+    if (save_sol == true)
+    {
+      sprintf(filename, "model_1_rho_%4.4d",count);
+      tmsh.octbin_export (filename, sold, ord[0]);
+      sprintf(filename, "model_1_phi_%4.4d",count);
+      tmsh.octbin_export (filename, sold, ord[1]);
+      sprintf(filename, "model_1_p1_%4.4d", count);
+      tmsh.octbin_export (filename,sold, ord[2]);
+    }
+    /*
+    // Save rho values
+    if (rank == 0)
+    {
+      std::vector<double> temp(N_rhos+1);
+      temp[0] = time;
+      for (size_t i=1; i < N_rhos+1; i++)
+        temp[i] = sold[ord[0](rho_idx[i-1])];
+
+      rho_out[count] = temp;
+      
+    }
+    */
+}
 int
 main (int argc, char **argv)
 {
@@ -140,8 +262,8 @@ main (int argc, char **argv)
   char filename[255]="";
 
   //Output rho vector
-  size_t N_timesteps = (size_t) (ceil(T/DELTAT)+1);
-  std::vector<std::vector<double>> rho_out(N_timesteps,std::vector<double>(N_rhos+1));
+  //size_t N_timesteps = (size_t) (ceil(T/DELTAT)+1);
+  //std::vector<std::vector<double>> rho_out(N_timesteps,std::vector<double>(N_rhos+1));
 
   // Compute coefficients
 
@@ -240,136 +362,26 @@ main (int argc, char **argv)
   int count = 0;
 
   //Choosing the indices for the nodes corresponding to the vales of rho of interest 
+  /*
   if (rank == 0) {
     rho_out[0]=std::vector<double>(N_rhos+1,0.0);
     rho_idx = find_idx(tmsh,points,tols,N_rhos);
   }
- 
+  */
   // Time cycle
   for( double time = DELTAT; time <= T; time += DELTAT)
   {
-    count++;
-
-    // Define boundary conditions
-    dirichlet_bcs bcs0, bcs1;
-    bcs0.push_back (std::make_tuple (0, 0, [](double x, double y){return 0.0;})); //bottom
-    bcs0.push_back (std::make_tuple (0, 1, [time](double x, double y){return 1.5e4 * (1 - exp(-time/tau));})); //top
-
-    // Print curent time
-    if(rank==0)
-      std::cout<<"TIME= "<<time<<std::endl;
-
-    // Reset containers
-    A.reset ();
-    sol.get_owned_data ().assign (sol.get_owned_data ().size (), 0.0);
-    sol.assemble (replace_op);
-
-    // Initialize non constant (in time) parameters
-    for (auto quadrant = tmsh.begin_quadrant_sweep ();
-    quadrant != tmsh.end_quadrant_sweep ();
-    ++quadrant)
-    {
-      for (int ii = 0; ii < 4; ++ii)
-        if (! quadrant->is_hanging (ii)){
-          g0[quadrant->gt (ii)] = sold[ord[0](quadrant->gt (ii))];
-
-          gp1[quadrant->gt (ii)] = sold[ord[2](quadrant->gt (ii))];
-        }
-        else
-          for (int jj = 0; jj < 2; ++jj){
-            g0[quadrant->gparent (jj, ii)] += 0.;
-            gp1[quadrant->gparent (jj, ii)] += 0.;
-          }
-    }
-
-    g0.assemble(replace_op);
-    gp1.assemble(replace_op);
-    // advection_diffusion
-
-    bim2a_advection_diffusion (tmsh, sigma, zero_q1, A, true, ord[0], ord[1]);
-    bim2a_advection_diffusion (tmsh, epsilon, zero_q1, A, true, ord[1], ord[1]);
-    bim2a_advection_diffusion (tmsh, diffusion_term_p1, zero_q1, A, true, ord[2], ord[1]);
-    
-    // reaction
-    bim2a_reaction (tmsh, delta0, zeta0, A, ord[0], ord[0]);
-    bim2a_reaction (tmsh, delta1, zeta1, A, ord[1], ord[0]);
-    bim2a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[2]);
-    bim2a_reaction (tmsh, reaction_term_p1, zeta1, A, ord[2], ord[2]);
-
-    //rhs
-    bim2a_rhs (tmsh, f0, g0, sol, ord[0]);
-    bim2a_rhs (tmsh, f1, g1, sol, ord[1]);
-    bim2a_rhs (tmsh, f0, gp1, sol, ord[2]);
-
-    //boundary conditions
-    bim2a_dirichlet_bc (tmsh, bcs0, A, sol, ord[0], ord[1], false);
-
-    // Communicate matrix and RHS
-    A.assemble ();
-    sol.assemble ();
-/*
-    bim2a_solution_with_ghosts(tmsh,sol,replace_op,ord[0]);
-    bim2a_solution_with_ghosts(tmsh,sol,replace_op,ord[1]);
-    bim2a_solution_with_ghosts(tmsh,sol,replace_op,ord[2]);
-    sprintf(filename, "rhs_0_%4.4d",count-1);
-    tmsh.octbin_export(filename,sol,ord[0]);
-    sprintf(filename, "rhs_1_%4.4d",count-1);
-    tmsh.octbin_export(filename,sol,ord[1]);
-    sprintf(filename, "rhs_2_%4.4d",count-1);
-    tmsh.octbin_export(filename,sol,ord[2]);
-*/
-    // Solver analysis
-    lin_solver->set_lhs_distributed ();
-    A.aij (xa, ir, jc, lin_solver->get_index_base ());
-    lin_solver->set_distributed_lhs_structure (A.rows (), ir, jc);
-    std::cout << "lin_solver->analyze () return value = "<< lin_solver->analyze () << std::endl;
-
-    // Matrix update
-    A.aij_update (xa, ir, jc, lin_solver->get_index_base ());
-    lin_solver->set_distributed_lhs_data (xa);
-
-    // Factorization
-    std::cout << "lin_solver->factorize () = " << lin_solver->factorize () << std::endl;
-
-    // Set RHS data
-    lin_solver->set_rhs_distributed (sol);
-
-    // Solution
-    std::cout << "lin_solver->solve () = " << lin_solver->solve () << std::endl;
-
-    // Copy solution
-    q1_vec result = lin_solver->get_distributed_solution ();
-    for (int idx = sold.get_range_start (); idx < sold.get_range_end (); ++idx)
-      sold (idx) = result (idx);
-    sold.assemble (replace_op);
-/*    
-    bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
-    bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[1], false);
-    bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[2]); // true?
-*/
-    // Save solution
-    if (save_sol == true)
-    {
-      sprintf(filename, "model_1_rho_%4.4d",count);
-      tmsh.octbin_export (filename, sold, ord[0]);
-      sprintf(filename, "model_1_phi_%4.4d",count);
-      tmsh.octbin_export (filename, sold, ord[1]);
-      sprintf(filename, "model_1_p1_%4.4d", count);
-      tmsh.octbin_export (filename,sold, ord[2]);
-    }
-
-    // Save rho values
-    if (rank == 0)
-    {
-      std::vector<double> temp(N_rhos+1);
-      temp[0] = time;
-      for (size_t i=1; i < N_rhos+1; i++)
-        temp[i] = sold[ord[0](rho_idx[i-1])];
-
-      rho_out[count] = temp;
-    }
+    time_step(count, tmsh, lin_solver, A, ord,
+                sold, sol, xa, ir, jc,
+                epsilon, sigma,
+                zero_std_vect, zero_q1,
+                delta1,delta0,
+                reaction_term_p1, diffusion_term_p1,
+                zeta0, zeta1,
+                f1, f0,
+                g1, g0, gp1, filename, rank, time);
   }
-  
+  /*
   // Print file with rho values
   if (rank == 0)
   {
@@ -382,7 +394,7 @@ main (int argc, char **argv)
       outFile << "\n";
     }
   }
-  
+  */
   // Close MPI and print report
   MPI_Barrier (MPI_COMM_WORLD);
 
