@@ -74,7 +74,7 @@ auto makeorder(){
 }
 
 
-void time_step(int &count, tmesh &tmsh, mumps *lin_solver, distributed_sparse_matrix &A,
+void time_step(tmesh &tmsh, mumps *lin_solver, distributed_sparse_matrix &A,
                 const std::array<ordering,N_eqs> &ord,
                 q1_vec<distributed_vector> &sold, q1_vec<distributed_vector> &sol, std::vector<double> &xa,
                 std::vector<int> &ir, std::vector<int> &jc,
@@ -84,9 +84,8 @@ void time_step(int &count, tmesh &tmsh, mumps *lin_solver, distributed_sparse_ma
                 std::vector<double> &reaction_term_p1, std::vector<double> diffusion_term_p1,
                 q1_vec<distributed_vector> &zeta0, q1_vec<distributed_vector> &zeta1,
                 std::vector<double> &f1, std::vector<double> &f0,
-                q1_vec<distributed_vector> g1, q1_vec<distributed_vector> g0, q1_vec<distributed_vector> gp1,
-                char *filename, int rank, double time){
-      count++;
+                q1_vec<distributed_vector> &g1, q1_vec<distributed_vector> &g0, q1_vec<distributed_vector> &gp1,
+                char *filename, const int &rank, const double &time, const double &DELTAT){
 
     // Define boundary conditions
     dirichlet_bcs bcs0, bcs1;
@@ -107,6 +106,13 @@ void time_step(int &count, tmesh &tmsh, mumps *lin_solver, distributed_sparse_ma
     quadrant != tmsh.end_quadrant_sweep ();
     ++quadrant)
     {
+      double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)};  
+
+      reaction_term_p1[quadrant->get_forest_quad_idx ()] =
+        1 + DELTAT / tau_p1;
+      diffusion_term_p1[quadrant->get_forest_quad_idx ()] =
+        - DELTAT / tau_p1 * epsilon_0 * csi_1_fun(xx,yy);
+      sigma[quadrant->get_forest_quad_idx ()] = sigma_fun(xx,yy,DELTAT);
       for (int ii = 0; ii < 4; ++ii)
         if (! quadrant->is_hanging (ii)){
           g0[quadrant->gt (ii)] = sold[ord[0](quadrant->gt (ii))];
@@ -171,16 +177,7 @@ void time_step(int &count, tmesh &tmsh, mumps *lin_solver, distributed_sparse_ma
       sold (idx) = result (idx);
     sold.assemble (replace_op);
 
-    // Save solution
-    if (save_sol == true)
-    {
-      sprintf(filename, "model_1_rho_%4.4d",count);
-      tmsh.octbin_export (filename, sold, ord[0]);
-      sprintf(filename, "model_1_phi_%4.4d",count);
-      tmsh.octbin_export (filename, sold, ord[1]);
-      sprintf(filename, "model_1_p1_%4.4d", count);
-      tmsh.octbin_export (filename,sold, ord[2]);
-    }
+    
     /*
     // Save rho values
     if (rank == 0)
@@ -296,12 +293,7 @@ main (int argc, char **argv)
       double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)};  
       
       epsilon[quadrant->get_forest_quad_idx ()] = epsilon_fun(xx,yy);
-      reaction_term_p1[quadrant->get_forest_quad_idx ()] =
-        1 + DELTAT / tau_p1;
-      diffusion_term_p1[quadrant->get_forest_quad_idx ()] =
-        - DELTAT / tau_p1 * epsilon_0 * csi_1_fun(xx,yy);
-      sigma[quadrant->get_forest_quad_idx ()] = sigma_fun(xx,yy);
-
+      
       delta1[quadrant->get_forest_quad_idx ()] = -1.0;
       delta0[quadrant->get_forest_quad_idx ()] = 1.0;
       f1[quadrant->get_forest_quad_idx ()] = 0.0;
@@ -368,19 +360,78 @@ main (int argc, char **argv)
     rho_idx = find_idx(tmsh,points,tols,N_rhos);
   }
   */
+
   // Time cycle
-  for( double time = DELTAT; time <= T; time += DELTAT)
-  {
-    time_step(count, tmsh, lin_solver, A, ord,
-                sold, sol, xa, ir, jc,
+  double toll = 0.0001;
+  double time = 0.0;
+  double DT = 0.25;
+  double error = 0.0;
+  double maxDT = 1000.0;
+  while (time < T){
+    q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
+    time_step(tmsh, lin_solver, A, ord,
+                sold1, sol1, xa, ir, jc,
                 epsilon, sigma,
                 zero_std_vect, zero_q1,
                 delta1,delta0,
                 reaction_term_p1, diffusion_term_p1,
                 zeta0, zeta1,
                 f1, f0,
-                g1, g0, gp1, filename, rank, time);
+                g1, g0, gp1, filename, rank, time + DT, DT);
+    time_step(tmsh, lin_solver, A, ord,
+                sold2, sol2, xa, ir, jc,
+                epsilon, sigma,
+                zero_std_vect, zero_q1,
+                delta1,delta0,
+                reaction_term_p1, diffusion_term_p1,
+                zeta0, zeta1,
+                f1, f0,
+                g1, g0, gp1, filename, rank, time + DT/2, DT/2);
+    time_step(tmsh, lin_solver, A, ord,
+                sold2, sol2, xa, ir, jc,
+                epsilon, sigma,
+                zero_std_vect, zero_q1,
+                delta1,delta0,
+                reaction_term_p1, diffusion_term_p1,
+                zeta0, zeta1,
+                f1, f0,
+                g1, g0, gp1, filename, rank, time + DT, DT/2);
+    
+    q1_vec err = sold2;
+    for (int idx = sold.get_range_start (); idx < sold.get_range_end (); ++idx)
+      err(idx) = sold1(idx) - sold2(idx);
+    err.assemble (replace_op);
+    error = 0.0;
+    for (auto quadrant = tmsh.begin_quadrant_sweep ();
+      quadrant != tmsh.end_quadrant_sweep ();
+      ++quadrant){
+      error += l2_norm(quadrant, err, ord[0]);
+    }
+    MPI_Allreduce(MPI_IN_PLACE,&error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+    //std::cout << "Allreduce" << std::endl;
+    if(rank == 0)
+      std::cout << "error/toll = " << error/toll << std::endl;
+    if(error < toll){
+      time+=DT;
+      DT=std::min(maxDT,DT*std::pow(error/toll,-0.5)*0.9);
+      sold = std::move(sold2);
+      count++;
+      // Save solution
+      if (save_sol == true)
+      {
+        sprintf(filename, "model_1_rho_%4.4d",count);
+        tmsh.octbin_export (filename, sold, ord[0]);
+        sprintf(filename, "model_1_phi_%4.4d",count);
+        tmsh.octbin_export (filename, sold, ord[1]);
+        sprintf(filename, "model_1_p1_%4.4d", count);
+        tmsh.octbin_export (filename,sold, ord[2]);
+      }
+    }
+    else
+      DT/=2;
   }
+  if(rank==0)
+    std::cout << "count = " << count <<std::endl;
   /*
   // Print file with rho values
   if (rank == 0)

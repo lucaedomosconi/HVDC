@@ -3,10 +3,10 @@
 
 constexpr int NUM_REFINEMENTS = 4;
 
-constexpr double DELTAT = 0.25;
+// constexpr double DELTAT = 0.25;
 constexpr double T = 50;
 constexpr double tau = 2.0;
-constexpr double tau_p1 = 10.0;
+constexpr double tau_p1 = 1.0;
 constexpr bool save_sol = true;
 
 // Problem parameters
@@ -44,8 +44,8 @@ double epsilon_inf_fun(const double & x, const double & y)
 double csi_1_fun(const double & x, const double & y)
 {return csi1;}
 
-double sigma_fun(const double & x, const double & y)
-{return sigma_ * DELTAT;}
+double sigma_fun(const double & x, const double & y, const double & DT)
+{return sigma_ * DT;}
 
 std::vector<size_t> find_idx(tmesh &tmsh,std::vector<std::vector<double>> &points,std::vector<std::vector<double>> &tols, const size_t &N_rhos)
 {
