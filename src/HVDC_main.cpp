@@ -85,16 +85,16 @@ void time_step(tmesh &tmsh, mumps *lin_solver, distributed_sparse_matrix &A,
                 q1_vec<distributed_vector> &zeta0, q1_vec<distributed_vector> &zeta1,
                 std::vector<double> &f1, std::vector<double> &f0,
                 q1_vec<distributed_vector> &g1, q1_vec<distributed_vector> &g0, q1_vec<distributed_vector> &gp1,
-                char *filename, const int &rank, const double &time, const double &DELTAT){
+                char *filename, const int rank, const double time, const double DELTAT){
 
     // Define boundary conditions
     dirichlet_bcs bcs0, bcs1;
     bcs0.push_back (std::make_tuple (0, 0, [](double x, double y){return 0.0;})); //bottom
-    bcs0.push_back (std::make_tuple (0, 1, [time](double x, double y){return 1.5e4 * (1 - exp(-time/tau));})); //top
+    bcs0.push_back (std::make_tuple (0, 1, [time,DELTAT](double x, double y){return 1.5e4 * (1 - exp(-(time+DELTAT)/tau));})); //top
 
     // Print curent time
     if(rank==0)
-      std::cout<<"TIME= "<<time<<std::endl;
+      std::cout << "TIME= "<< time + DELTAT <<std::endl;
 
     // Reset containers
     A.reset ();
@@ -192,6 +192,12 @@ void time_step(tmesh &tmsh, mumps *lin_solver, distributed_sparse_matrix &A,
     }
     */
 }
+
+
+
+
+
+
 int
 main (int argc, char **argv)
 {
@@ -362,76 +368,75 @@ main (int argc, char **argv)
   */
 
   // Time cycle
-  double toll = 0.0001;
+  double toll = 0.001;
   double time = 0.0;
+  double time_in_step = 0.0;
   double DT = 0.25;
-  double error = 0.0;
-  double maxDT = 1000.0;
-  while (time < T){
-    q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
-    time_step(tmsh, lin_solver, A, ord,
-                sold1, sol1, xa, ir, jc,
-                epsilon, sigma,
-                zero_std_vect, zero_q1,
-                delta1,delta0,
-                reaction_term_p1, diffusion_term_p1,
-                zeta0, zeta1,
-                f1, f0,
-                g1, g0, gp1, filename, rank, time + DT, DT);
-    time_step(tmsh, lin_solver, A, ord,
-                sold2, sol2, xa, ir, jc,
-                epsilon, sigma,
-                zero_std_vect, zero_q1,
-                delta1,delta0,
-                reaction_term_p1, diffusion_term_p1,
-                zeta0, zeta1,
-                f1, f0,
-                g1, g0, gp1, filename, rank, time + DT/2, DT/2);
-    time_step(tmsh, lin_solver, A, ord,
-                sold2, sol2, xa, ir, jc,
-                epsilon, sigma,
-                zero_std_vect, zero_q1,
-                delta1,delta0,
-                reaction_term_p1, diffusion_term_p1,
-                zeta0, zeta1,
-                f1, f0,
-                g1, g0, gp1, filename, rank, time + DT, DT/2);
-    
-    q1_vec err = sold2;
-    for (int idx = sold.get_range_start (); idx < sold.get_range_end (); ++idx)
-      err(idx) = sold1(idx) - sold2(idx);
-    err.assemble (replace_op);
-    error = 0.0;
-    for (auto quadrant = tmsh.begin_quadrant_sweep ();
-      quadrant != tmsh.end_quadrant_sweep ();
-      ++quadrant){
-      error += l2_norm(quadrant, err, ord[0]);
-    }
-    MPI_Allreduce(MPI_IN_PLACE,&error,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-    //std::cout << "Allreduce" << std::endl;
-    if(rank == 0)
-      std::cout << "error/toll = " << error/toll << std::endl;
-    if(error < toll){
-      time+=DT;
-      DT=std::min(maxDT,DT*std::pow(error/toll,-0.5)*0.9);
-      sold = std::move(sold2);
-      count++;
-      // Save solution
-      if (save_sol == true)
-      {
-        sprintf(filename, "model_1_rho_%4.4d",count);
-        tmsh.octbin_export (filename, sold, ord[0]);
-        sprintf(filename, "model_1_phi_%4.4d",count);
-        tmsh.octbin_export (filename, sold, ord[1]);
-        sprintf(filename, "model_1_p1_%4.4d", count);
-        tmsh.octbin_export (filename,sold, ord[2]);
+  double dt;
+  double eps = 1.0e-10;
+  double err_max;
+  
+  q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
+  while (time < T) {
+    if (rank == 0)
+      std::cout << "____________ COMPUTING FOR TIME = " << time + DT << " ____________" << std::endl;
+    dt = DT;
+    time_in_step = 0.0;
+    while (true) {
+      sold1 = sold; sold2 = sold; sol1 = sol; sol2 = sol;
+      time_step(tmsh, lin_solver, A, ord,
+                  sold1, sol1, xa, ir, jc, epsilon, sigma,
+                  zero_std_vect, zero_q1, delta1,delta0,
+                  reaction_term_p1, diffusion_term_p1,
+                  zeta0, zeta1, f1, f0, g1, g0, gp1,
+                  filename, rank, time + time_in_step, dt);
+      time_step(tmsh, lin_solver, A, ord,
+                  sold2, sol2, xa, ir, jc, epsilon, sigma,
+                  zero_std_vect, zero_q1, delta1,delta0,
+                  reaction_term_p1, diffusion_term_p1,
+                  zeta0, zeta1, f1, f0, g1, g0, gp1,
+                  filename, rank, time + time_in_step, dt/2);
+      time_step(tmsh, lin_solver, A, ord,
+                  sold2, sol2, xa, ir, jc, epsilon, sigma,
+                  zero_std_vect, zero_q1, delta1,delta0,
+                  reaction_term_p1, diffusion_term_p1,
+                  zeta0, zeta1, f1, f0, g1, g0, gp1,
+                  filename, rank, time + time_in_step + dt/2, dt/2);
+      err_max = 0.;
+      for (size_t i = 0; i < sold.local_size(); i++)
+        err_max = std::max(err_max, std::fabs(sold1.get_owned_data()[i] - sold2.get_owned_data()[i]));
+      
+      MPI_Allreduce(MPI_IN_PLACE, &err_max, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+      if (rank == 0)
+        std::cout << "error/toll = " << err_max/toll << std::endl;
+      
+      if (err_max < toll) {
+        time_in_step += dt;
+        sold = std::move(sold2);
+        if (time_in_step > DT - eps) {
+          time += DT;
+          // Save solution
+          if (save_sol == true) {
+            ++count;
+            sprintf(filename, "model_1_rho_%4.4d",count);
+            tmsh.octbin_export (filename, sold, ord[0]);
+            sprintf(filename, "model_1_phi_%4.4d",count);
+            tmsh.octbin_export (filename, sold, ord[1]);
+            sprintf(filename, "model_1_p1_%4.4d", count);
+            tmsh.octbin_export (filename,sold, ord[2]);
+          }
+          break;
+        }
+        // update dt
+        dt = std::min(DT-time_in_step, dt*std::pow(err_max/toll,-0.5)*0.9);
+        
       }
+      else
+        dt/=2;
     }
-    else
-      DT/=2;
   }
-  if(rank==0)
-    std::cout << "count = " << count <<std::endl;
+  
   /*
   // Print file with rho values
   if (rank == 0)
