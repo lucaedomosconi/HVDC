@@ -31,6 +31,7 @@
 #include <mumps_class.h>
 #include <quad_operators.h>
 
+#include <nlohmann/json.hpp>
 #include<test_1_2d.h>
 //#include<test_2.h>
 //#include<test_3.h>
@@ -73,19 +74,20 @@ auto makeorder(){
   return make_order_struct<std::make_integer_sequence<size_t,N>>::fun();
 }
 
+using q1_vec_ = q1_vec<distributed_vector>;
 
-void time_step(tmesh &tmsh, mumps *lin_solver, distributed_sparse_matrix &A,
+void time_step(const int rank, const double time, const double DELTAT,
                 const std::array<ordering,N_eqs> &ord,
-                q1_vec<distributed_vector> &sold, q1_vec<distributed_vector> &sol, std::vector<double> &xa,
-                std::vector<int> &ir, std::vector<int> &jc,
+                tmesh &tmsh, mumps *lin_solver, distributed_sparse_matrix &A,
+                std::vector<double> &xa, std::vector<int> &ir, std::vector<int> &jc,
                 std::vector<double> &epsilon, std::vector<double> &sigma,
-                std::vector<double> &zero_std_vect, q1_vec<distributed_vector> &zero_q1,
+                std::vector<double> &zero_std_vect, q1_vec_ &zero_q1,
                 std::vector<double> &delta1, std::vector<double> &delta0,
                 std::vector<double> &reaction_term_p1, std::vector<double> diffusion_term_p1,
-                q1_vec<distributed_vector> &zeta0, q1_vec<distributed_vector> &zeta1,
+                q1_vec_ &zeta0, q1_vec_ &zeta1,
                 std::vector<double> &f1, std::vector<double> &f0,
-                q1_vec<distributed_vector> &g1, q1_vec<distributed_vector> &g0, q1_vec<distributed_vector> &gp1,
-                char *filename, const int rank, const double time, const double DELTAT){
+                q1_vec_ &g1, q1_vec_ &g0, q1_vec_ &gp1,
+                q1_vec_ &sold, q1_vec_ &sol) {
 
     // Define boundary conditions
     dirichlet_bcs bcs0, bcs1;
@@ -202,8 +204,25 @@ int
 main (int argc, char **argv)
 {
 
-  using q1_vec  = q1_vec<distributed_vector>;
-  
+  using q1_vec = q1_vec<distributed_vector>;
+  using json = nlohmann::json;
+
+  std::ifstream data_file("data.json");
+  json data = json::parse(data_file);
+
+  T = data["T"];
+  tau = data["tau"];
+  tau_p1 = data["tau_p1"];
+  save_sol = data["save_sol"];
+
+  epsilon_0 = data["epsilon_0"];
+  epsilon_inf = data["epsilon_inf"];           // permittivity at infinite frequency
+  csi1 = data["csi1"];
+  sigma_ = data["sigma_"];                     // conducivity coeff
+
+  double DT = data["DT"];
+  double toll = data["toll_of_adaptive_time_step"];
+
   /*
   Manegement of solutions ordering: ord[0]-> phi                 ord[1]->rho
   Equation ordering: ord[0]->diffusion-reaction equation         ord[1]->continuity equation 
@@ -368,10 +387,8 @@ main (int argc, char **argv)
   */
 
   // Time cycle
-  double toll = 0.001;
   double time = 0.0;
   double time_in_step = 0.0;
-  double DT = 0.25;
   double dt;
   double eps = 1.0e-10;
   double err_max;
@@ -384,24 +401,24 @@ main (int argc, char **argv)
     time_in_step = 0.0;
     while (true) {
       sold1 = sold; sold2 = sold; sol1 = sol; sol2 = sol;
-      time_step(tmsh, lin_solver, A, ord,
-                  sold1, sol1, xa, ir, jc, epsilon, sigma,
+      time_step(rank, time + time_in_step, dt,
+                  ord, tmsh, lin_solver, A,
+                  xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
                   reaction_term_p1, diffusion_term_p1,
-                  zeta0, zeta1, f1, f0, g1, g0, gp1,
-                  filename, rank, time + time_in_step, dt);
-      time_step(tmsh, lin_solver, A, ord,
-                  sold2, sol2, xa, ir, jc, epsilon, sigma,
+                  zeta0, zeta1, f1, f0, g1, g0, gp1, sold1, sol1);
+      time_step(rank, time + time_in_step, dt/2,
+                  ord, tmsh, lin_solver, A,
+                  xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
                   reaction_term_p1, diffusion_term_p1,
-                  zeta0, zeta1, f1, f0, g1, g0, gp1,
-                  filename, rank, time + time_in_step, dt/2);
-      time_step(tmsh, lin_solver, A, ord,
-                  sold2, sol2, xa, ir, jc, epsilon, sigma,
+                  zeta0, zeta1, f1, f0, g1, g0, gp1, sold2, sol2);
+      time_step(rank, time + time_in_step + dt/2, dt/2,
+                  ord, tmsh, lin_solver, A,
+                  xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
                   reaction_term_p1, diffusion_term_p1,
-                  zeta0, zeta1, f1, f0, g1, g0, gp1,
-                  filename, rank, time + time_in_step + dt/2, dt/2);
+                  zeta0, zeta1, f1, f0, g1, g0, gp1, sold2, sol2);
       err_max = 0.;
       for (size_t i = 0; i < sold.local_size(); i++)
         err_max = std::max(err_max, std::fabs(sold1.get_owned_data()[i] - sold2.get_owned_data()[i]));

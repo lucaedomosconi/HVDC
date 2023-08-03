@@ -1,19 +1,19 @@
 #include <tmesh.h>
 #include <simple_connectivity_2d.h>
-
+#include <nlohmann/json.hpp>
 constexpr int NUM_REFINEMENTS = 4;
 
 // constexpr double DELTAT = 0.25;
-constexpr double T = 50;
-constexpr double tau = 2.0;
-constexpr double tau_p1 = 1.0;
-constexpr bool save_sol = true;
+double T;
+double tau;
+double tau_p1;
+bool save_sol;
 
 // Problem parameters
-constexpr double epsilon_0 = 8.8542e-12;
-constexpr double epsilon_r = 2.0;         // permittivity
-constexpr double csi1 = 0.5;
-constexpr double sigma_ = 3.21e-14;           // conducivity coeff
+double epsilon_0;
+double epsilon_inf;       // permittivity at infinite frequency
+double csi1;
+double sigma_;            // conducivity coeff
 
 constexpr size_t N_rhos = 1;
 std::vector<size_t> rho_idx;
@@ -36,10 +36,10 @@ coarsening (tmesh::quadrant_iterator q)
 { return NUM_REFINEMENTS; }
 
 double epsilon_fun(const double & x, const double & y)
-{return epsilon_0 * epsilon_r;}
+{return epsilon_0 * epsilon_inf;}
 
 double epsilon_inf_fun(const double & x, const double & y)
-{return epsilon_r;}
+{return epsilon_inf;}
 
 double csi_1_fun(const double & x, const double & y)
 {return csi1;}
