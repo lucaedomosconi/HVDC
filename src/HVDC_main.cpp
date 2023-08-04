@@ -18,6 +18,7 @@
  */
 
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <cmath>
 #include <algorithm>
@@ -214,7 +215,7 @@ main (int argc, char **argv)
   tau = data["tau"];
   tau_p1 = data["tau_p1"];
   save_sol = data["save_sol"];
-
+  
   epsilon_0 = data["epsilon_0"];
   epsilon_inf = data["epsilon_inf"];           // permittivity at infinite frequency
   csi1 = data["csi1"];
@@ -222,6 +223,7 @@ main (int argc, char **argv)
 
   double DT = data["DT"];
   double toll = data["toll_of_adaptive_time_step"];
+  bool save_error = data["save_error"];
 
   /*
   Manegement of solutions ordering: ord[0]-> phi                 ord[1]->rho
@@ -393,6 +395,10 @@ main (int argc, char **argv)
   double eps = 1.0e-10;
   double err_max;
   
+  std::ofstream error_file;
+  error_file.setf(std::ios::fixed);
+  if (rank == 0 && save_error)
+    error_file.open("error.txt");
   q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
   while (time < T) {
     if (rank == 0)
@@ -431,6 +437,8 @@ main (int argc, char **argv)
       if (err_max < toll) {
         time_in_step += dt;
         sold = std::move(sold2);
+        if (rank == 0 && save_error)
+          error_file << "time = " << std::setw(12) << std::setprecision(5) << time + time_in_step << "    max err = " << std::setprecision(7) << err_max << std::endl;
         if (time_in_step > DT - eps) {
           time += DT;
           // Save solution
@@ -453,7 +461,7 @@ main (int argc, char **argv)
         dt/=2;
     }
   }
-  
+  error_file.close();
   /*
   // Print file with rho values
   if (rank == 0)
