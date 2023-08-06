@@ -6,13 +6,13 @@ constexpr int NUM_REFINEMENTS = 4;
 // constexpr double DELTAT = 0.25;
 double T;
 double tau;
-double tau_p1;
+double tau_p1, tau_p2, tau_p3;
 bool save_sol;
 
 // Problem parameters
 double epsilon_0;
 double epsilon_inf;       // permittivity at infinite frequency
-double csi1;
+double csi1, csi2, csi3;
 double sigma_;            // conducivity coeff
 
 constexpr size_t N_rhos = 1;
@@ -43,6 +43,12 @@ double epsilon_inf_fun(const double & x, const double & y)
 
 double csi_1_fun(const double & x, const double & y)
 {return csi1;}
+
+double csi_2_fun(const double & x, const double & y)
+{return csi2;}
+
+double csi_3_fun(const double & x, const double & y)
+{return csi3;}
 
 double sigma_fun(const double & x, const double & y, const double & DT)
 {return sigma_ * DT;}
