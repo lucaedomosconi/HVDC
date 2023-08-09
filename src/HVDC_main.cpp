@@ -255,7 +255,7 @@ main (int argc, char **argv)
   double DT = data["DT"];
   double toll = data["toll_of_adaptive_time_step"];
   bool save_error = data["save_error"];
-
+  bool save_currents = data["save_currents"];
   /*
   Manegement of solutions ordering: ord[0]-> phi                 ord[1]->rho
   Equation ordering: ord[0]->diffusion-reaction equation         ord[1]->continuity equation 
@@ -355,7 +355,7 @@ main (int argc, char **argv)
        ++quadrant)
     {
       double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)};  
-      
+
       epsilon[quadrant->get_forest_quad_idx ()] = epsilon_fun(xx,yy);
       
       delta1[quadrant->get_forest_quad_idx ()] = -1.0;
@@ -444,11 +444,56 @@ main (int argc, char **argv)
   double eps = 1.0e-10;
   double err_max;
   
-  std::ofstream error_file;
+  double pol_charge = 0., pol_charge_old = 0.;
+
+  double J_p;
+  q1_vec p_vec(ln_nodes * 5);
+  p_vec.get_owned_data().assign(p_vec.get_owned_data().size(),0.);
+  
+  for (auto quadrant = tmsh.begin_quadrant_sweep ();
+    quadrant != tmsh.end_quadrant_sweep ();
+    ++quadrant) {
+    for (int ii = 0; ii < 4; ++ii) {
+      if (! quadrant->is_hanging (ii)) {
+        p_vec[ord[0](quadrant->gt(ii))] = 0.;
+        p_vec[ord[1](quadrant->gt(ii))] = 0.;
+        p_vec[ord[2](quadrant->gt(ii))] = 0.;
+        p_vec[ord[3](quadrant->gt(ii))] = 0.;
+        p_vec[ord[4](quadrant->gt(ii))] = 0.;
+      }
+      else
+        for (int jj = 0; jj < 2; ++jj) {
+          p_vec[ord[0](quadrant->gparent (jj, ii))] += 0.;
+          p_vec[ord[1](quadrant->gparent (jj, ii))] += 0.;
+          p_vec[ord[2](quadrant->gparent (jj, ii))] += 0.;
+          p_vec[ord[3](quadrant->gparent (jj, ii))] += 0.;
+          p_vec[ord[4](quadrant->gparent (jj, ii))] += 0.;
+        }
+    }
+  }
+
+  
+  func_quad p1_mass = [&] (tmesh::quadrant_iterator quadrant, tmesh::idx_t idx)
+                       {return sold[ord[2](quadrant->gt (idx))];};
+  func_quad p2_mass = [&] (tmesh::quadrant_iterator quadrant, tmesh::idx_t idx)
+                       {return sold[ord[3](quadrant->gt (idx))];};
+  func_quad p3_mass = [&] (tmesh::quadrant_iterator quadrant, tmesh::idx_t idx)
+                       {return sold[ord[4](quadrant->gt (idx))];};
+  std::ofstream error_file, currents_file;
+  
+  
   error_file.setf(std::ios::fixed);
+
+
   if (rank == 0 && save_error)
     error_file.open("error.txt");
+  if (rank == 0 && save_currents) {
+    currents_file.open("currents_file.txt");
+    currents_file << "time\t\t\tJ_p" << std::endl;
+  }
+
   q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
+  
   while (time < T) {
     if (rank == 0)
       std::cout << "____________ COMPUTING FOR TIME = " << time + DT << " ____________" << std::endl;
@@ -493,6 +538,26 @@ main (int argc, char **argv)
           error_file << "time = " << std::setw(12) << std::setprecision(5) << time + time_in_step << "    max err = " << std::setprecision(7) << err_max << std::endl;
         if (time_in_step > DT - eps) {
           time += DT;
+          if (save_currents) {
+            
+            p_vec.get_owned_data().assign(p_vec.get_owned_data().size(), 0.);
+            p_vec.assemble(replace_op);
+
+            bim2a_boundary_mass(tmsh, 0, 1, p_vec, p1_mass, ord[2]);
+            bim2a_boundary_mass(tmsh, 0, 1, p_vec, p2_mass, ord[3]);
+            bim2a_boundary_mass(tmsh, 0, 1, p_vec, p3_mass, ord[4]);
+          
+            pol_charge = 0.;
+            for (size_t i = 0; i < p_vec.get_owned_data().size(); i++)
+              pol_charge += p_vec.get_owned_data()[i];
+            
+
+            MPI_Allreduce(MPI_IN_PLACE, &pol_charge, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+            J_p = (pol_charge - pol_charge_old) / DT;
+            pol_charge_old = pol_charge;
+            currents_file << std::setw(8) << std::setprecision(5) << time << "\t" << std::setw(8) << std::setprecision(5) << J_p <<std::endl;
+          }
           // Save solution
           if (save_sol == true) {
             ++count;
