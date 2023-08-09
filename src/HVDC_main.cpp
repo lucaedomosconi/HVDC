@@ -39,7 +39,7 @@
 //#include<test_4bis.h>
 //#include<test_5.h>
 
-constexpr size_t N_eqs= 5;
+
 /*
 template<size_t... args>
 std::array<ordering,N_eqs> makeorder(){
@@ -60,23 +60,23 @@ auto makeorder(){
 }
 */
 
-template<class>
+template<size_t N,class>
 struct make_order_struct{};
 
-template<size_t... args>
-struct make_order_struct<std::integer_sequence<size_t,args...>> {
-  static std::array<ordering,N_eqs> fun(){
-    return std::array<ordering,N_eqs> {dof_ordering<N_eqs,args>...};
+template<size_t N, size_t... args>
+struct make_order_struct<N, std::integer_sequence<size_t, args...>> {
+  static auto fun() -> std::array<ordering, N> {
+    return std::array<ordering, N> {dof_ordering<N, args>...};
   }
 };
 
 template<size_t N>
 auto makeorder(){
-  return make_order_struct<std::make_integer_sequence<size_t,N>>::fun();
+  return make_order_struct<N,std::make_integer_sequence<size_t,N>>::fun();
 }
 
 using q1_vec_ = q1_vec<distributed_vector>;
-
+template <size_t N_eqs>
 void time_step(const int rank, const double time, const double DELTAT,
                 const std::array<ordering,N_eqs> &ord,
                 tmesh &tmsh, mumps *lin_solver, distributed_sparse_matrix &A,
@@ -263,8 +263,10 @@ main (int argc, char **argv)
   
 //  const std::array<ordering,N_eqs> ord{dof_ordering<N_eqs,0>,
 //                                      dof_ordering<N_eqs,1>};
-  const std::array<ordering,N_eqs> ord(makeorder<N_eqs>());
-
+  constexpr size_t N_eqs= 5;
+  constexpr size_t N_polcur = 3;
+  const std::array<ordering,5> ord(makeorder<5>());
+  const std::array<ordering,3> ord_c(makeorder<3>());
 
   // Initialize MPI
   MPI_Init (&argc, &argv);
@@ -447,7 +449,7 @@ main (int argc, char **argv)
   double pol_charge = 0., pol_charge_old = 0.;
 
   double J_p;
-  q1_vec p_vec(ln_nodes * 5);
+  q1_vec p_vec(ln_nodes * N_polcur);
   p_vec.get_owned_data().assign(p_vec.get_owned_data().size(),0.);
   
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
@@ -455,19 +457,15 @@ main (int argc, char **argv)
     ++quadrant) {
     for (int ii = 0; ii < 4; ++ii) {
       if (! quadrant->is_hanging (ii)) {
-        p_vec[ord[0](quadrant->gt(ii))] = 0.;
-        p_vec[ord[1](quadrant->gt(ii))] = 0.;
-        p_vec[ord[2](quadrant->gt(ii))] = 0.;
-        p_vec[ord[3](quadrant->gt(ii))] = 0.;
-        p_vec[ord[4](quadrant->gt(ii))] = 0.;
+        p_vec[ord_c[0](quadrant->gt(ii))] = 0.;
+        p_vec[ord_c[1](quadrant->gt(ii))] = 0.;
+        p_vec[ord_c[2](quadrant->gt(ii))] = 0.;
       }
       else
         for (int jj = 0; jj < 2; ++jj) {
-          p_vec[ord[0](quadrant->gparent (jj, ii))] += 0.;
-          p_vec[ord[1](quadrant->gparent (jj, ii))] += 0.;
-          p_vec[ord[2](quadrant->gparent (jj, ii))] += 0.;
-          p_vec[ord[3](quadrant->gparent (jj, ii))] += 0.;
-          p_vec[ord[4](quadrant->gparent (jj, ii))] += 0.;
+          p_vec[ord_c[0](quadrant->gparent (jj, ii))] += 0.;
+          p_vec[ord_c[1](quadrant->gparent (jj, ii))] += 0.;
+          p_vec[ord_c[2](quadrant->gparent (jj, ii))] += 0.;
         }
     }
   }
@@ -501,21 +499,21 @@ main (int argc, char **argv)
     time_in_step = 0.0;
     while (true) {
       sold1 = sold; sold2 = sold; sol1 = sol; sol2 = sol;
-      time_step(rank, time + time_in_step, dt,
+      time_step<N_eqs>(rank, time + time_in_step, dt,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
                   zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold1, sol1);
-      time_step(rank, time + time_in_step, dt/2,
+      time_step<N_eqs>(rank, time + time_in_step, dt/2,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
                   zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold2, sol2);
-      time_step(rank, time + time_in_step + dt/2, dt/2,
+      time_step<N_eqs>(rank, time + time_in_step + dt/2, dt/2,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
@@ -543,12 +541,12 @@ main (int argc, char **argv)
             p_vec.get_owned_data().assign(p_vec.get_owned_data().size(), 0.);
             p_vec.assemble(replace_op);
 
-            bim2a_boundary_mass(tmsh, 0, 1, p_vec, p1_mass, ord[2]);
-            bim2a_boundary_mass(tmsh, 0, 1, p_vec, p2_mass, ord[3]);
-            bim2a_boundary_mass(tmsh, 0, 1, p_vec, p3_mass, ord[4]);
+            bim2a_boundary_mass(tmsh, 0, 1, p_vec, p1_mass, ord_c[0]);
+            bim2a_boundary_mass(tmsh, 0, 1, p_vec, p2_mass, ord_c[1]);
+            bim2a_boundary_mass(tmsh, 0, 1, p_vec, p3_mass, ord_c[2]);
           
             pol_charge = 0.;
-            for (size_t i = 0; i < p_vec.get_owned_data().size(); i++)
+            for (size_t i = 0; i < p_vec.local_size(); i++)
               pol_charge += p_vec.get_owned_data()[i];
             
 
@@ -568,9 +566,9 @@ main (int argc, char **argv)
             sprintf(filename, "model_1_p1_%4.4d", count);
             tmsh.octbin_export (filename,sold, ord[2]);
             sprintf(filename, "model_1_p2_%4.4d", count);
-            tmsh.octbin_export (filename,sold, ord[2]);
+            tmsh.octbin_export (filename,sold, ord[3]);
             sprintf(filename, "model_1_p3_%4.4d", count);
-            tmsh.octbin_export (filename,sold, ord[2]);
+            tmsh.octbin_export (filename,sold, ord[4]);
           }
           break;
         }
