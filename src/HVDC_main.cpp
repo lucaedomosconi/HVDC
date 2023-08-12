@@ -487,13 +487,16 @@ main (int argc, char **argv)
   }
 
   q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
-  
+
+  dt = DT;
+
   while (time < T) {
     if (rank == 0)
       std::cout << "____________ COMPUTING FOR TIME = " << time + DT << " ____________" << std::endl;
-    dt = DT;
     time_in_step = 0.0;
     while (true) {
+      if(rank == 0)
+        std::cout << "dt = " << dt << std::endl;
       sold1 = sold; sold2 = sold; sol1 = sol; sol2 = sol;
       time_step<N_eqs>(rank, time + time_in_step, dt, test,
                   ord, tmsh, lin_solver, A,
@@ -569,8 +572,10 @@ main (int argc, char **argv)
           break;
         }
         // update dt
-        dt = std::min(DT-time_in_step, dt*std::pow(err_max/toll,-0.5)*0.9);
-        
+        if (DT - time_in_step < dt*std::pow(err_max/toll,-0.5)*0.9)
+          dt = DT-time_in_step;
+        else
+          dt = std::min((DT - time_in_step) / 2, dt*std::pow(err_max/toll,-0.5)*0.9);
       }
       else
         dt /= 2;
