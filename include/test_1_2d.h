@@ -1,25 +1,28 @@
+#ifndef TEST_PARAMS
+#define TEST_PARAMS
+
 #include <tmesh.h>
 #include <simple_connectivity_2d.h>
 #include <nlohmann/json.hpp>
-constexpr int NUM_REFINEMENTS = 4;
+extern const int NUM_REFINEMENTS;
 
 // constexpr double DELTAT = 0.25;
-double T;
-double tau;
-double tau_p1, tau_p2, tau_p3;
-bool save_sol;
+extern double T;
+extern double tau;
+extern double tau_p1, tau_p2, tau_p3;
+extern bool save_sol;
 
 // Problem parameters
-double epsilon_0;
-double epsilon_inf;       // permittivity at infinite frequency
-double csi1, csi2, csi3;
-double sigma_;            // conducivity coeff
+extern double epsilon_0;
+extern double epsilon_inf;       // permittivity at infinite frequency
+extern double csi1, csi2, csi3;
+extern double sigma_;            // conducivity coeff
 
 constexpr size_t N_rhos = 1;
 std::vector<size_t> rho_idx;
 std::vector<std::vector<double>> points{{0.0005,0.0005}};
 std::vector<std::vector<double>> tols{{1e-4,1e-4}};
-
+/*
 bool extra_refinement = false;
 
 
@@ -83,3 +86,6 @@ std::vector<size_t> find_idx(tmesh &tmsh,std::vector<std::vector<double>> &point
   }
   return id;
 }
+*/
+
+#endif

@@ -1,6 +1,6 @@
 /*!
  * @file
- * @author  Alessandro Lombardi
+ * @authors  Alessandro Lombardi, Luca Mosconi
  * @version 0.1
  *
  * @section LICENSE
@@ -33,13 +33,13 @@
 #include <quad_operators.h>
 
 #include <nlohmann/json.hpp>
-#include<test_1_2d.h>
+
 //#include<test_2.h>
 //#include<test_3.h>
 //#include<test_4bis.h>
 //#include<test_5.h>
-
-
+#include "plugins/factory.h"
+#include <dlfcn.h>
 /*
 template<size_t... args>
 std::array<ordering,N_eqs> makeorder(){
@@ -60,6 +60,20 @@ auto makeorder(){
 }
 */
 
+extern const int NUM_REFINEMENTS;
+extern double T;
+extern double tau;
+extern double tau_p1, tau_p2, tau_p3;
+extern bool save_sol;
+
+		// Problem parameters
+extern double epsilon_0;
+extern double epsilon_inf;       // permittivity at infinite frequency
+extern double csi1, csi2, csi3;
+extern double sigma_;            // conducivity coeff
+
+
+
 template<size_t N,class>
 struct make_order_struct{};
 
@@ -78,6 +92,7 @@ auto makeorder(){
 using q1_vec_ = q1_vec<distributed_vector>;
 template <size_t N_eqs>
 void time_step(const int rank, const double time, const double DELTAT,
+                std::unique_ptr<tests::generic_test> const &test,
                 const std::array<ordering,N_eqs> &ord,
                 tmesh &tmsh, mumps *lin_solver, distributed_sparse_matrix &A,
                 std::vector<double> &xa, std::vector<int> &ir, std::vector<int> &jc,
@@ -123,12 +138,12 @@ void time_step(const int rank, const double time, const double DELTAT,
       reaction_term_p3[quadrant->get_forest_quad_idx ()] =
         1 + DELTAT / tau_p3;
       diffusion_term_p1[quadrant->get_forest_quad_idx ()] =
-        - DELTAT / tau_p1 * epsilon_0 * csi_1_fun(xx,yy);
+        - DELTAT / tau_p1 * epsilon_0 * test->csi_1_fun(xx,yy);
       diffusion_term_p2[quadrant->get_forest_quad_idx ()] =
-        - DELTAT / tau_p2 * epsilon_0 * csi_2_fun(xx,yy);
+        - DELTAT / tau_p2 * epsilon_0 * test->csi_2_fun(xx,yy);
       diffusion_term_p3[quadrant->get_forest_quad_idx ()] =
-        - DELTAT / tau_p3 * epsilon_0 * csi_3_fun(xx,yy);
-      sigma[quadrant->get_forest_quad_idx ()] = sigma_fun(xx,yy,DELTAT);
+        - DELTAT / tau_p3 * epsilon_0 * test->csi_3_fun(xx,yy);
+      sigma[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,DELTAT);
       for (int ii = 0; ii < 4; ++ii)
         if (! quadrant->is_hanging (ii)){
           g0[quadrant->gt (ii)] = sold[ord[0](quadrant->gt (ii))];
@@ -207,22 +222,7 @@ void time_step(const int rank, const double time, const double DELTAT,
       sold (idx) = result (idx);
     sold.assemble (replace_op);
 
-    
-    /*
-    // Save rho values
-    if (rank == 0)
-    {
-      std::vector<double> temp(N_rhos+1);
-      temp[0] = time;
-      for (size_t i=1; i < N_rhos+1; i++)
-        temp[i] = sold[ord[0](rho_idx[i-1])];
-
-      rho_out[count] = temp;
-      
-    }
-    */
 }
-
 
 
 
@@ -238,24 +238,33 @@ main (int argc, char **argv)
   std::ifstream data_file("data.json");
   json data = json::parse(data_file);
 
-  T = data["T"];
-  tau = data["tau"];
-  tau_p1 = data["tau_p1"];
-  tau_p2 = data["tau_p2"];
-  tau_p3 = data["tau_p3"];
-  save_sol = data["save_sol"];
+  std::string test_name = data["test_name"];
+  T = data[test_name]["T"];
+  tau = data[test_name]["tau"];
+  tau_p1 = data[test_name]["tau_p1"];
+  tau_p2 = data[test_name]["tau_p2"];
+  tau_p3 = data[test_name]["tau_p3"];
+  save_sol = data[test_name]["save_sol"];
   
-  epsilon_0 = data["epsilon_0"];
-  epsilon_inf = data["epsilon_inf"];           // permittivity at infinite frequency
-  csi1 = data["csi1"];
-  csi2 = data["csi2"];
-  csi3 = data["csi3"];
-  sigma_ = data["sigma_"];                     // conducivity coeff
+  epsilon_0 = data[test_name]["epsilon_0"];
+  epsilon_inf = data[test_name]["epsilon_inf"];           // permittivity at infinite frequency
+  csi1 = data[test_name]["csi1"];
+  csi2 = data[test_name]["csi2"];
+  csi3 = data[test_name]["csi3"];
+  sigma_ = data[test_name]["sigma_"];                     // conducivity coeff
 
-  double DT = data["DT"];
-  double toll = data["toll_of_adaptive_time_step"];
-  bool save_error = data["save_error"];
-  bool save_currents = data["save_currents"];
+  double DT = data[test_name]["DT"];
+  double toll = data[test_name]["toll_of_adaptive_time_step"];
+  bool save_error = data[test_name]["save_error"];
+  bool save_currents = data[test_name]["save_currents"];
+
+  void *dl_p = dlopen("libTests.so", RTLD_NOW);
+//  std::cout << dlerror() << std::endl; // uncomment this line only to debug!
+  auto where = tests::factory.find(test_name);
+  std::unique_ptr<tests::generic_test> const& test = (where->second)();
+//  std::cout << test->works() << std::endl;
+
+
   /*
   Manegement of solutions ordering: ord[0]-> phi                 ord[1]->rho
   Equation ordering: ord[0]->diffusion-reaction equation         ord[1]->continuity equation 
@@ -281,16 +290,16 @@ main (int argc, char **argv)
 
   //Uniform refinement
   int recursive = 1;
-  tmsh.set_refine_marker (uniform_refinement);
+  tmsh.set_refine_marker ([&test](tmesh::quadrant_iterator q) {return test->uniform_refinement(q);});
   tmsh.refine (recursive);
 
   //In test 1 we only have uniform refinement, in all other cases we perform additional refinement
-  if (extra_refinement) 
+  if (test->extra_refinement) 
   {
-    tmsh.set_refine_marker(refinement);
+    tmsh.set_refine_marker([&test](tmesh::quadrant_iterator q) {return test->refinement(q);});
     tmsh.refine (recursive);
 
-    tmsh.set_coarsen_marker(coarsening);
+    tmsh.set_coarsen_marker([&test](tmesh::quadrant_iterator q) {return test->coarsening(q);});
     tmsh.coarsen(recursive);
   }
 
@@ -358,7 +367,7 @@ main (int argc, char **argv)
     {
       double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)};  
 
-      epsilon[quadrant->get_forest_quad_idx ()] = epsilon_fun(xx,yy);
+      epsilon[quadrant->get_forest_quad_idx ()] = test->epsilon_fun(xx,yy);
       
       delta1[quadrant->get_forest_quad_idx ()] = -1.0;
       delta0[quadrant->get_forest_quad_idx ()] = 1.0;
@@ -431,14 +440,6 @@ main (int argc, char **argv)
 
   int count = 0;
 
-  //Choosing the indices for the nodes corresponding to the vales of rho of interest 
-  /*
-  if (rank == 0) {
-    rho_out[0]=std::vector<double>(N_rhos+1,0.0);
-    rho_idx = find_idx(tmsh,points,tols,N_rhos);
-  }
-  */
-
   // Time cycle
   double time = 0.0;
   double time_in_step = 0.0;
@@ -499,21 +500,21 @@ main (int argc, char **argv)
     time_in_step = 0.0;
     while (true) {
       sold1 = sold; sold2 = sold; sol1 = sol; sol2 = sol;
-      time_step<N_eqs>(rank, time + time_in_step, dt,
+      time_step<N_eqs>(rank, time + time_in_step, dt, test,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
                   zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold1, sol1);
-      time_step<N_eqs>(rank, time + time_in_step, dt/2,
+      time_step<N_eqs>(rank, time + time_in_step, dt/2, test,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
                   zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold2, sol2);
-      time_step<N_eqs>(rank, time + time_in_step + dt/2, dt/2,
+      time_step<N_eqs>(rank, time + time_in_step + dt/2, dt/2, test,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
@@ -554,7 +555,7 @@ main (int argc, char **argv)
 
             J_p = (pol_charge - pol_charge_old) / DT;
             pol_charge_old = pol_charge;
-            currents_file << std::setw(8) << std::setprecision(5) << time << "\t" << std::setw(8) << std::setprecision(5) << J_p <<std::endl;
+            currents_file << std::setw(8) << std::setprecision(5) << time << "\t\t" << std::setw(8) << std::setprecision(5) << J_p <<std::endl;
           }
           // Save solution
           if (save_sol == true) {
@@ -577,24 +578,12 @@ main (int argc, char **argv)
         
       }
       else
-        dt/=2;
+        dt /= 2;
     }
   }
   error_file.close();
-  /*
-  // Print file with rho values
-  if (rank == 0)
-  {
-    std::ofstream outFile("Arho.txt");
-    outFile << N_rhos+1 << "\t" << N_timesteps << "\n";
+  currents_file.close();
 
-    for (const auto &e : rho_out) {
-      for (size_t i=0; i < N_rhos+1; i++)
-        outFile << e[i] << "\t";
-      outFile << "\n";
-    }
-  }
-  */
   // Close MPI and print report
   MPI_Barrier (MPI_COMM_WORLD);
 
