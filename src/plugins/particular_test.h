@@ -2,25 +2,34 @@
 #define PARTICULAR_TEST_HPP
 #include "factory.h"
 #include "generic_test.h"
-
+using json = nlohmann::json;
 
 namespace tests{
 
   class test1 : public generic_test {
     public:
 
-      bool works() {return true;} const
+			test1() {extra_refinement = false;}
+			
+			void import_params(const json &data) const {
+				epsilon_inf = data["test1"]["epsilon_inf"];
+				csi1 = data["test1"]["csi1"];
+				csi2 = data["test1"]["csi2"];
+				csi3 = data["test1"]["csi3"];
+				sigma_ = data["test1"]["sigma_"];
+				return;
+			}
 
-			bool extra_refinement = false;
+      bool works() override {return true;} 
 
 			int	uniform_refinement (tmesh::quadrant_iterator q) const
-				{ return NUM_REFINEMENTS; }
+				{ return NUM_REFINEMENTS+1; }
 
 			int refinement (tmesh::quadrant_iterator q) const
-				{ return NUM_REFINEMENTS; }
+				{ return NUM_REFINEMENTS+1; }
 
 			int coarsening (tmesh::quadrant_iterator q) const
-				{ return NUM_REFINEMENTS; }
+				{ return NUM_REFINEMENTS+1; }
 				
 			double epsilon_fun(const double & x, const double & y) const
 				{return epsilon_0 * epsilon_inf;}

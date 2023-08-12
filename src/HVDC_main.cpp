@@ -68,9 +68,7 @@ extern bool save_sol;
 
 		// Problem parameters
 extern double epsilon_0;
-extern double epsilon_inf;       // permittivity at infinite frequency
-extern double csi1, csi2, csi3;
-extern double sigma_;            // conducivity coeff
+
 
 
 
@@ -237,8 +235,10 @@ main (int argc, char **argv)
 
   std::ifstream data_file("data.json");
   json data = json::parse(data_file);
-
+  void *dl_p = dlopen("libTests.so", RTLD_NOW);
+  
   std::string test_name = data["test_name"];
+  
   T = data[test_name]["T"];
   tau = data[test_name]["tau"];
   tau_p1 = data[test_name]["tau_p1"];
@@ -247,24 +247,19 @@ main (int argc, char **argv)
   save_sol = data[test_name]["save_sol"];
   
   epsilon_0 = data[test_name]["epsilon_0"];
-  epsilon_inf = data[test_name]["epsilon_inf"];           // permittivity at infinite frequency
-  csi1 = data[test_name]["csi1"];
-  csi2 = data[test_name]["csi2"];
-  csi3 = data[test_name]["csi3"];
-  sigma_ = data[test_name]["sigma_"];                     // conducivity coeff
 
   double DT = data[test_name]["DT"];
   double toll = data[test_name]["toll_of_adaptive_time_step"];
   bool save_error = data[test_name]["save_error"];
   bool save_currents = data[test_name]["save_currents"];
 
-  void *dl_p = dlopen("libTests.so", RTLD_NOW);
+  
 //  std::cout << dlerror() << std::endl; // uncomment this line only to debug!
   auto where = tests::factory.find(test_name);
   std::unique_ptr<tests::generic_test> const& test = (where->second)();
 //  std::cout << test->works() << std::endl;
-
-
+  test->import_params(data);
+  data_file.close();
   /*
   Manegement of solutions ordering: ord[0]-> phi                 ord[1]->rho
   Equation ordering: ord[0]->diffusion-reaction equation         ord[1]->continuity equation 
