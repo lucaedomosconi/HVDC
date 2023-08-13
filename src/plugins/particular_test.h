@@ -4,9 +4,11 @@
 #include "generic_test.h"
 using json = nlohmann::json;
 
+
 double epsilon_inf_1;       // permittivity at infinite frequency
 double csi1, csi2, csi3;
 double sigma_;            // conducivity coeff
+
 
 namespace tests{
 
@@ -24,7 +26,7 @@ namespace tests{
 				return;
 			}
 
-      bool works() override {return true;} 
+      bool works() const {return true;} 
 
 			int	uniform_refinement (tmesh::quadrant_iterator q) const
 				{ return NUM_REFINEMENTS; }

@@ -22,7 +22,7 @@ namespace tests{
     public:
 			virtual void import_params(const json &data) const = 0;
 			
-      virtual bool works() = 0;
+      virtual bool works() const = 0;
 
 			bool extra_refinement;
 
