@@ -443,9 +443,15 @@ main (int argc, char **argv)
   double err_max;
   
   double pol_charge = 0., pol_charge_old = 0.;
-
-  double J_p;
+  double I_c;
+  double I_p_inf;
+  double I_p_k;
+  double E_flux, E_flux_old = 0.;
+  q1_vec Jx_vec(ln_nodes);
+  q1_vec Ex_vec(ln_nodes);
   q1_vec p_vec(ln_nodes * N_polcur);
+  Jx_vec.get_owned_data().assign(Jx_vec.get_owned_data().size(),0.);
+  Ex_vec.get_owned_data().assign(Ex_vec.get_owned_data().size(),0.);
   p_vec.get_owned_data().assign(p_vec.get_owned_data().size(),0.);
   
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
@@ -453,12 +459,16 @@ main (int argc, char **argv)
     ++quadrant) {
     for (int ii = 0; ii < 4; ++ii) {
       if (! quadrant->is_hanging (ii)) {
+        Jx_vec[quadrant->gt(ii)] = 0.;
+        Ex_vec[quadrant->gt(ii)] = 0.;
         p_vec[ord_c[0](quadrant->gt(ii))] = 0.;
         p_vec[ord_c[1](quadrant->gt(ii))] = 0.;
         p_vec[ord_c[2](quadrant->gt(ii))] = 0.;
       }
       else
         for (int jj = 0; jj < 2; ++jj) {
+          Jx_vec[quadrant->gparent (jj, ii)] += 0.;
+          Ex_vec[quadrant->gparent (jj, ii)] += 0.;
           p_vec[ord_c[0](quadrant->gparent (jj, ii))] += 0.;
           p_vec[ord_c[1](quadrant->gparent (jj, ii))] += 0.;
           p_vec[ord_c[2](quadrant->gparent (jj, ii))] += 0.;
@@ -466,13 +476,21 @@ main (int argc, char **argv)
     }
   }
 
-  
-  func_quad p1_mass = [&] (tmesh::quadrant_iterator quadrant, tmesh::idx_t idx)
-                       {return sold[ord[2](quadrant->gt (idx))];};
-  func_quad p2_mass = [&] (tmesh::quadrant_iterator quadrant, tmesh::idx_t idx)
-                       {return sold[ord[3](quadrant->gt (idx))];};
-  func_quad p3_mass = [&] (tmesh::quadrant_iterator quadrant, tmesh::idx_t idx)
-                       {return sold[ord[4](quadrant->gt (idx))];};
+  func_quad Jx_mass = [&] (tmesh::quadrant_iterator q, tmesh::idx_t idx){
+    return test->sigma_fun(q->centroid(0),q->centroid(1),1.)*(sold[ord[1](q->gt(1))]+sold[ord[1](q->gt(3))]-sold[ord[1](q->gt(0))]-sold[ord[1](q->gt(2))])/(q->p(0,1)-q->p(0,0))/2;
+  };
+  func_quad Ex_mass = [&] (tmesh::quadrant_iterator q, tmesh::idx_t idx){
+    return test->epsilon_fun(q->centroid(0),q->centroid(1))*(sold[ord[1](q->gt(1))]+sold[ord[1](q->gt(3))]-sold[ord[1](q->gt(0))]-sold[ord[1](q->gt(2))])/(q->p(0,1)-q->p(0,0))/2;
+  };
+  func_quad p1_mass = [&] (tmesh::quadrant_iterator q, tmesh::idx_t idx){
+    return (q->p(0,1)-q->p(0,0))*(sold[ord[2](q->gt(1))] + sold[ord[2](q->gt(3))])/4;
+  };
+  func_quad p2_mass = [&] (tmesh::quadrant_iterator q, tmesh::idx_t idx){
+    return (q->p(0,1)-q->p(0,0))*(sold[ord[3](q->gt(1))] + sold[ord[3](q->gt(3))])/4;
+  };
+  func_quad p3_mass = [&] (tmesh::quadrant_iterator q, tmesh::idx_t idx){
+    return (q->p(0,1)-q->p(0,0))*(sold[ord[4](q->gt(1))] + sold[ord[4](q->gt(3))])/4;
+  };
   std::ofstream error_file, currents_file;
   
   
@@ -483,7 +501,7 @@ main (int argc, char **argv)
     error_file.open("error.txt");
   if (rank == 0 && save_currents) {
     currents_file.open("currents_file.txt");
-    currents_file << "time\t\t\tJ_p" << std::endl;
+    currents_file << std::setw(12) << "time" << std::setw(16) << "I_c" << std::setw(16) << "I_p_inf" << std::setw(16) << "I_p_k" << std::endl;
   }
 
   q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
@@ -537,23 +555,39 @@ main (int argc, char **argv)
           time += DT;
           if (save_currents) {
             
+            Jx_vec.get_owned_data().assign(Jx_vec.get_owned_data().size(), 0.);
+            Jx_vec.assemble(replace_op);
+            Ex_vec.get_owned_data().assign(Ex_vec.get_owned_data().size(), 0.);
+            Ex_vec.assemble(replace_op);
             p_vec.get_owned_data().assign(p_vec.get_owned_data().size(), 0.);
             p_vec.assemble(replace_op);
 
+            bim2a_boundary_mass(tmsh, 0, 1, Jx_vec, Jx_mass);
+            bim2a_boundary_mass(tmsh, 0, 1, Ex_vec, Ex_mass);
             bim2a_boundary_mass(tmsh, 0, 1, p_vec, p1_mass, ord_c[0]);
             bim2a_boundary_mass(tmsh, 0, 1, p_vec, p2_mass, ord_c[1]);
             bim2a_boundary_mass(tmsh, 0, 1, p_vec, p3_mass, ord_c[2]);
-          
+
+            I_c = 0.;
+            E_flux = 0.;
             pol_charge = 0.;
+
+            for (size_t i = 0; i < Jx_vec.local_size(); i++)
+              I_c += Jx_vec.get_owned_data()[i];
+            for (size_t i = 0; i < Ex_vec.local_size(); i++)
+              E_flux += Ex_vec.get_owned_data()[i];
             for (size_t i = 0; i < p_vec.local_size(); i++)
               pol_charge += p_vec.get_owned_data()[i];
-            
 
+
+            MPI_Allreduce(MPI_IN_PLACE, &I_c, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(MPI_IN_PLACE, &E_flux, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
             MPI_Allreduce(MPI_IN_PLACE, &pol_charge, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-            J_p = (pol_charge - pol_charge_old) / DT;
+            I_p_inf = (E_flux - E_flux_old) / DT;
+            I_p_k = (pol_charge - pol_charge_old) / DT;
             pol_charge_old = pol_charge;
-            currents_file << std::setw(8) << std::setprecision(5) << time << "\t\t" << std::setw(8) << std::setprecision(5) << J_p <<std::endl;
+            E_flux_old = E_flux;
+            currents_file << std::setw(12) << std::setprecision(5) << time << std::setw(16) << std::setprecision(5) << I_c << std::setw(16) << std::setprecision(5) << I_p_inf << std::setw(16) << std::setprecision(5) << I_p_k << std::endl;
           }
           // Save solution
           if (save_sol == true) {
