@@ -23,9 +23,9 @@ all : $(plugs) HVDC_main
 
 include HVDC_main.d
 
-libTests.so : libfactory.so plugins/particular_test.cpp plugins/particular_test.h plugins/generic_test.h
-	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/particular_test.cpp
-	g++ $(CXXFLAGS) $(LDFLAGS) -shared particular_test.o -o libTests.so
+libTests.so : libfactory.so plugins/tests.cpp plugins/tests.h plugins/generic_test.h
+	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/tests.cpp
+	g++ $(CXXFLAGS) $(LDFLAGS) -shared tests.o -o libTests.so
 
 libfactory.so : plugins/factory.cpp plugins/factory.h plugins/generic_test.h
 	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/factory.cpp

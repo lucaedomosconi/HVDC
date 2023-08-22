@@ -18,6 +18,7 @@
  */
 
 #include <iostream>
+#include <sstream>
 #include <iomanip>
 #include <fstream>
 #include <cmath>
@@ -86,7 +87,32 @@ template<size_t N>
 auto makeorder(){
   return make_order_struct<N,std::make_integer_sequence<size_t,N>>::fun();
 }
-
+void json_export(std::ifstream &is, std::ofstream &os) {
+  json J;
+  std::vector<std::string> variable_names;
+  std::string prove;
+  size_t num_var = 0;
+  std::string line;
+  std::getline(is, line);
+  std::stringstream sstream(line);
+  while (!sstream.eof()){
+    variable_names.push_back("");
+    sstream >> variable_names[num_var];
+    J[variable_names[num_var]] = std::vector<double>();
+    num_var++;
+  }
+  double num;
+  size_t count;
+  
+  while(!is.eof()){
+    for(size_t i = 0; i < num_var; ++i){
+      if (is >> num)
+        J[variable_names[i]].push_back(num);
+    }
+  }
+  os << std::setw(4) << J;
+  return;
+}
 using q1_vec_ = q1_vec<distributed_vector>;
 template <size_t N_eqs>
 void time_step(const int rank, const double time, const double DELTAT,
@@ -429,9 +455,9 @@ main (int argc, char **argv)
   sprintf(filename, "model_1_p1_0000");
   tmsh.octbin_export (filename, sold, ord[2]);
   sprintf(filename, "model_1_p2_0000");
-  tmsh.octbin_export (filename, sold, ord[2]);
+  tmsh.octbin_export (filename, sold, ord[3]);
   sprintf(filename, "model_1_p3_0000");
-  tmsh.octbin_export (filename, sold, ord[2]);
+  tmsh.octbin_export (filename, sold, ord[4]);
 
   int count = 0;
 
@@ -494,14 +520,15 @@ main (int argc, char **argv)
   std::ofstream error_file, currents_file;
   
   
-  error_file.setf(std::ios::fixed);
 
 
-  if (rank == 0 && save_error)
+  if (rank == 0 && save_error) {
     error_file.open("error.txt");
+    error_file << std::setw(20) << "time" << std::setw(20) << "max_error" << std::endl;
+  }
   if (rank == 0 && save_currents) {
     currents_file.open("currents_file.txt");
-    currents_file << std::setw(12) << "time" << std::setw(16) << "I_c" << std::setw(16) << "I_p_inf" << std::setw(16) << "I_p_k" << std::endl;
+    currents_file << std::setw(20) << "time" << std::setw(20) << "I_c" << std::setw(20) << "I_p_inf" << std::setw(20) << "I_p_k" << std::endl;
   }
 
   q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
@@ -550,7 +577,7 @@ main (int argc, char **argv)
         time_in_step += dt;
         sold = std::move(sold2);
         if (rank == 0 && save_error)
-          error_file << "time = " << std::setw(12) << std::setprecision(5) << time + time_in_step << "    max err = " << std::setprecision(7) << err_max << std::endl;
+          error_file << std::setw(20) << std::setprecision(5) << time + time_in_step << std::setw(20) << std::setprecision(7) << err_max << std::endl;
         if (time_in_step > DT - eps) {
           time += DT;
           if (save_currents) {
@@ -587,7 +614,7 @@ main (int argc, char **argv)
             I_p_k = (pol_charge - pol_charge_old) / DT;
             pol_charge_old = pol_charge;
             E_flux_old = E_flux;
-            currents_file << std::setw(12) << std::setprecision(5) << time << std::setw(16) << std::setprecision(5) << I_c << std::setw(16) << std::setprecision(5) << I_p_inf << std::setw(16) << std::setprecision(5) << I_p_k << std::endl;
+            currents_file << std::setw(20) << std::setprecision(5) << time << std::setw(20) << std::setprecision(5) << I_c << std::setw(20) << std::setprecision(5) << I_p_inf << std::setw(20) << std::setprecision(5) << I_p_k << std::endl;
           }
           // Save solution
           if (save_sol == true) {
@@ -615,9 +642,28 @@ main (int argc, char **argv)
         dt /= 2;
     }
   }
-  error_file.close();
-  currents_file.close();
-
+  if (rank==0){
+    error_file.close();
+    currents_file.close();
+    if(save_currents) {
+      std::ifstream curr_file;
+      std::ofstream curr_file_json;
+      curr_file.open("currents_file.txt");
+      curr_file_json.open("currents_file.json");
+      json_export(curr_file, curr_file_json);
+      curr_file.close();
+      curr_file_json.close();
+    }
+    if(save_error) {
+      std::ifstream err_file;
+      std::ofstream err_file_json;
+      err_file.open("error.txt");
+      err_file_json.open("error.json");
+      json_export(err_file, err_file_json);
+      err_file.close();
+      err_file_json.close();
+    }
+  }
   // Close MPI and print report
   MPI_Barrier (MPI_COMM_WORLD);
 
