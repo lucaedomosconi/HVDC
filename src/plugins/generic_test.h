@@ -11,8 +11,9 @@ using json = nlohmann::json;
 const int NUM_REFINEMENTS = 4;
 double T;
 double tau;
-double tau_p1, tau_p2, tau_p3;
+double tau_p1, tau_p2, tau_p3, tau_a;
 bool save_sol;
+double E_tr;
 // Problem parameters
 double epsilon_0;
 
@@ -42,7 +43,7 @@ namespace tests{
 
 			virtual double csi_3_fun(const double & x, const double & y) const = 0;
 
-			virtual double sigma_fun(const double & x, const double & y, const double & DT) const = 0;
+			virtual double sigma_fun(const double & x, const double & y, const double & a_local, const double & grad_phi_module, const double & DT) const = 0;
 
   };
 }

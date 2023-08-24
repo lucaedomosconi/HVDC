@@ -69,9 +69,9 @@ extern bool save_sol;
 
 		// Problem parameters
 extern double epsilon_0;
-
-
-
+constexpr bool fixed_sigma = false;
+extern double tau_a;
+extern double E_tr;
 
 template<size_t N,class>
 struct make_order_struct{};
@@ -87,6 +87,8 @@ template<size_t N>
 auto makeorder(){
   return make_order_struct<N,std::make_integer_sequence<size_t,N>>::fun();
 }
+
+
 void json_export(std::ifstream &is, std::ofstream &os) {
   json J;
   std::vector<std::string> variable_names;
@@ -126,13 +128,14 @@ void time_step(const int rank, const double time, const double DELTAT,
                 std::vector<double> &reaction_term_p1,
                 std::vector<double> &reaction_term_p2,
                 std::vector<double> &reaction_term_p3,
+                std::vector<double> &reaction_term_a,
                 std::vector<double> &diffusion_term_p1,
                 std::vector<double> &diffusion_term_p2,
                 std::vector<double> &diffusion_term_p3,
                 q1_vec_ &zeta0, q1_vec_ &zeta1,
                 std::vector<double> &f1, std::vector<double> &f0,
-                q1_vec_ &g1, q1_vec_ &g0, q1_vec_ &gp1, q1_vec_ &gp2, q1_vec_ &gp3,
-                q1_vec_ &sold, q1_vec_ &sol) {
+                q1_vec_ &g1, q1_vec_ &g0,  q1_vec_ &gphi, q1_vec_ &gp1, q1_vec_ &gp2, q1_vec_ &gp3, q1_vec_ &ga1,
+                gradient<q1_vec_> &grad_recovered, q1_vec_ &sold, q1_vec_ &sol) {
 
     // Define boundary conditions
     dirichlet_bcs bcs0, bcs1;
@@ -167,11 +170,29 @@ void time_step(const int rank, const double time, const double DELTAT,
         - DELTAT / tau_p2 * epsilon_0 * test->csi_2_fun(xx,yy);
       diffusion_term_p3[quadrant->get_forest_quad_idx ()] =
         - DELTAT / tau_p3 * epsilon_0 * test->csi_3_fun(xx,yy);
-      sigma[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,DELTAT);
-      for (int ii = 0; ii < 4; ++ii)
+      if constexpr (fixed_sigma) 
+        sigma[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,0.,0.,DELTAT);
+      else {
+        double grad_phi_module = std::pow(std::pow((sold[ord[1](quadrant->gt(1))]+sold[ord[1](quadrant->gt(3))]-sold[ord[1](quadrant->gt(0))]-sold[ord[1](quadrant->gt(2))])/(quadrant->p(0,1)-quadrant->p(0,0))/2,2)
+                                        + std::pow((sold[ord[1](quadrant->gt(2))]+sold[ord[1](quadrant->gt(3))]-sold[ord[1](quadrant->gt(0))]-sold[ord[1](quadrant->gt(1))])/(quadrant->p(0,1)-quadrant->p(0,0))/2,2),0.5);
+        double a_local = 0.25*(sold[ord[5](quadrant->gt(0))] + sold[ord[5](quadrant->gt(1))] + sold[ord[5](quadrant->gt(2))] + sold[ord[5](quadrant->gt(3))]);
+        sigma[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,a_local,grad_phi_module,DELTAT);
+        reaction_term_a[quadrant->get_forest_quad_idx ()] = 1 + DELTAT / tau_a;
+      }
+      if constexpr (!fixed_sigma)
+        for (auto n_quadrant = quadrant->begin_neighbor_sweep();
+            n_quadrant != quadrant->end_neighbor_sweep(); ++n_quadrant) {
+          for (int ii = 0; ii < 4; ++ii) {
+            if (!n_quadrant->is_hanging(ii))
+              gphi[n_quadrant->gt (ii)] = sold[ord[1](n_quadrant->gt (ii))];
+            else
+              for (int jj = 0; jj < 2; ++jj)
+                gphi[n_quadrant->gparent(jj, ii)] += 0;
+          }
+        }
+      for (int ii = 0; ii < 4; ++ii) {
         if (! quadrant->is_hanging (ii)){
           g0[quadrant->gt (ii)] = sold[ord[0](quadrant->gt (ii))];
-
           gp1[quadrant->gt (ii)] = sold[ord[2](quadrant->gt (ii))];
           gp2[quadrant->gt (ii)] = sold[ord[3](quadrant->gt (ii))];
           gp3[quadrant->gt (ii)] = sold[ord[4](quadrant->gt (ii))];
@@ -183,12 +204,32 @@ void time_step(const int rank, const double time, const double DELTAT,
             gp2[quadrant->gparent (jj, ii)] += 0.;
             gp3[quadrant->gparent (jj, ii)] += 0.;
           }
+      }
     }
 
     g0.assemble(replace_op);
     gp1.assemble(replace_op);
     gp2.assemble(replace_op);
     gp3.assemble(replace_op);
+    
+    if constexpr (!fixed_sigma) {
+      gphi.assemble(replace_op);
+      grad_recovered = bim2c_quadtree_pde_recovered_gradient(tmsh, gphi);
+      for (auto quadrant = tmsh.begin_quadrant_sweep ();
+            quadrant != tmsh.end_quadrant_sweep (); ++quadrant) {
+        for (int ii = 0; ii < 4; ii++) {
+          if (! quadrant-> is_hanging (ii))
+            ga1[quadrant->gt (ii)] = sold[ord[5](quadrant->gt (ii))]
+                  + DELTAT / tau_a * (std::pow(std::pow(std::get<0>(grad_recovered)[quadrant->gt (ii)],2)
+                            + std::pow(std::get<1>(grad_recovered)[quadrant->gt (ii)],2),0.5) < E_tr);
+          else
+            for (int jj; jj < 2; ++jj)
+              ga1[quadrant->gparent (jj, ii)] += 0.;
+        }
+      }
+      ga1.assemble(replace_op);
+    }
+
     // advection_diffusion
 
     bim2a_advection_diffusion (tmsh, sigma, zero_q1, A, true, ord[0], ord[1]);
@@ -206,14 +247,16 @@ void time_step(const int rank, const double time, const double DELTAT,
     bim2a_reaction (tmsh, reaction_term_p1, zeta1, A, ord[2], ord[2]);
     bim2a_reaction (tmsh, reaction_term_p1, zeta1, A, ord[3], ord[3]);
     bim2a_reaction (tmsh, reaction_term_p1, zeta1, A, ord[4], ord[4]);
-
+    if constexpr (!fixed_sigma) 
+      bim2a_reaction (tmsh, reaction_term_a, zeta1, A, ord[5], ord[5]);
     //rhs
     bim2a_rhs (tmsh, f0, g0, sol, ord[0]);
     bim2a_rhs (tmsh, f1, g1, sol, ord[1]);
     bim2a_rhs (tmsh, f0, gp1, sol, ord[2]);
     bim2a_rhs (tmsh, f0, gp1, sol, ord[3]);
     bim2a_rhs (tmsh, f0, gp1, sol, ord[4]);
-
+    if constexpr (!fixed_sigma) 
+      bim2a_rhs (tmsh, f0, ga1, sol, ord[5]);
     //boundary conditions
     bim2a_dirichlet_bc (tmsh, bcs0, A, sol, ord[0], ord[1], false);
 
@@ -263,25 +306,25 @@ main (int argc, char **argv)
   json data = json::parse(data_file);
   void *dl_p = dlopen("libTests.so", RTLD_NOW);
   
-  std::string test_name = data["test_name"];
+  std::string test_to_run = data["test_to_run"];
   
-  T = data[test_name]["T"];
-  tau = data[test_name]["tau"];
-  tau_p1 = data[test_name]["tau_p1"];
-  tau_p2 = data[test_name]["tau_p2"];
-  tau_p3 = data[test_name]["tau_p3"];
-  save_sol = data[test_name]["save_sol"];
+  T = data[test_to_run]["T"];
+  tau = data[test_to_run]["tau"];
+  tau_p1 = data[test_to_run]["tau_p1"];
+  tau_p2 = data[test_to_run]["tau_p2"];
+  tau_p3 = data[test_to_run]["tau_p3"];
+  save_sol = data[test_to_run]["save_sol"];
   
-  epsilon_0 = data[test_name]["epsilon_0"];
+  epsilon_0 = data[test_to_run]["epsilon_0"];
 
-  double DT = data[test_name]["DT"];
-  double toll = data[test_name]["toll_of_adaptive_time_step"];
-  bool save_error = data[test_name]["save_error"];
-  bool save_currents = data[test_name]["save_currents"];
+  double DT = data[test_to_run]["DT"];
+  double toll = data[test_to_run]["toll_of_adaptive_time_step"];
+  bool save_error = data[test_to_run]["save_error"];
+  bool save_currents = data[test_to_run]["save_currents"];
 
   
 //  std::cout << dlerror() << std::endl; // uncomment this line only to debug!
-  auto where = tests::factory.find(test_name);
+  auto where = tests::factory.find(test_to_run);
   std::unique_ptr<tests::generic_test> const& test = (where->second)();
 //  std::cout << test->works() << std::endl;
   test->import_params(data);
@@ -293,9 +336,10 @@ main (int argc, char **argv)
   
 //  const std::array<ordering,N_eqs> ord{dof_ordering<N_eqs,0>,
 //                                      dof_ordering<N_eqs,1>};
-  constexpr size_t N_eqs= 5;
+  
+  constexpr size_t N_eqs = fixed_sigma ? 5 : 6;
+  const std::array<ordering,N_eqs> ord(makeorder<N_eqs>());
   constexpr size_t N_polcur = 3;
-  const std::array<ordering,5> ord(makeorder<5>());
   const std::array<ordering,3> ord_c(makeorder<3>());
 
   // Initialize MPI
@@ -369,6 +413,7 @@ main (int argc, char **argv)
   std::vector<double> reaction_term_p1 (ln_elements,0.);
   std::vector<double> reaction_term_p2 (ln_elements,0.);
   std::vector<double> reaction_term_p3 (ln_elements,0.);
+  std::vector<double> reaction_term_a (ln_elements,0.);
   q1_vec zeta0 (ln_nodes);
   q1_vec zeta1 (ln_nodes);
 
@@ -380,6 +425,9 @@ main (int argc, char **argv)
   q1_vec gp1 (ln_nodes);
   q1_vec gp2 (ln_nodes);
   q1_vec gp3 (ln_nodes);
+  q1_vec ga1 (ln_nodes);
+  q1_vec gphi (ln_nodes);
+  gradient<q1_vec> grad_recovered = std::make_pair(q1_vec(ln_nodes), q1_vec(ln_nodes));
 
   // Initialize constant (in time) parameters and initial data
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
@@ -409,12 +457,19 @@ main (int argc, char **argv)
             sold[ord[2](quadrant->gt (ii))] = 0.0;
             sold[ord[3](quadrant->gt (ii))] = 0.0;
             sold[ord[4](quadrant->gt (ii))] = 0.0;
+            if constexpr (!fixed_sigma) {
+              sold[ord[5](quadrant->gt (ii))] = 0.0;
+              std::get<0>(grad_recovered)[quadrant->gt (ii)] = 0.0;
+              std::get<1>(grad_recovered)[quadrant->gt (ii)] = 0.0;
+            }
 
             sol[ord[0](quadrant->gt (ii))] = 0.0;
             sol[ord[1](quadrant->gt (ii))] = 0.0;
             sol[ord[2](quadrant->gt (ii))] = 0.0;
             sol[ord[3](quadrant->gt (ii))] = 0.0;
             sol[ord[4](quadrant->gt (ii))] = 0.0;
+            if constexpr (!fixed_sigma)
+              sol[ord[5](quadrant->gt (ii))] = 0.0;
           }
           else
             for (int jj = 0; jj < 2; ++jj)
@@ -429,6 +484,19 @@ main (int argc, char **argv)
                 sold[ord[2](quadrant->gparent (jj, ii))] += 0.;
                 sold[ord[3](quadrant->gparent (jj, ii))] += 0.;
                 sold[ord[4](quadrant->gparent (jj, ii))] += 0.;
+                if constexpr (!fixed_sigma) {
+                  sold[ord[5](quadrant->gparent (jj, ii))] += 0.0;
+                  std::get<0>(grad_recovered)[quadrant->gparent (jj, ii)] += 0.0;
+                  std::get<1>(grad_recovered)[quadrant->gparent (jj, ii)] += 0.0;
+                }
+                sol[ord[0](quadrant->gparent (jj, ii))] += 0.0;
+                sol[ord[1](quadrant->gparent (jj, ii))] += 0.0;
+                sol[ord[2](quadrant->gparent (jj, ii))] += 0.0;
+                sol[ord[3](quadrant->gparent (jj, ii))] += 0.0;
+                sol[ord[4](quadrant->gparent (jj, ii))] += 0.0;
+                if constexpr (!fixed_sigma) {
+                  sol[ord[5](quadrant->gparent (jj, ii))] += 0.0;
+                }
               }
         }
     }
@@ -439,7 +507,12 @@ main (int argc, char **argv)
   bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[1], false);
   bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[2], false);
   bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[3], false);
-  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[4]);
+  if constexpr (fixed_sigma)
+    bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[4]);
+  else {
+    bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[4], false);
+    bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[5]);
+  }
 
   zero_q1.assemble (replace_op);
   zeta0.assemble (replace_op);
@@ -447,17 +520,34 @@ main (int argc, char **argv)
   g1.assemble (replace_op);                      
 
   // Save inital conditions
-  sprintf(filename, "model_1_rho_0000");
-  tmsh.octbin_export (filename, sold, ord[0]);
-  sprintf(filename, "model_1_phi_0000");
-  tmsh.octbin_export (filename, sold, ord[1]);
+  if constexpr (fixed_sigma) {
+    sprintf(filename, "output/model_1_rho_0000");
+    tmsh.octbin_export (filename, sold, ord[0]);
+    sprintf(filename, "output/model_1_phi_0000");
+    tmsh.octbin_export (filename, sold, ord[1]);
 
-  sprintf(filename, "model_1_p1_0000");
-  tmsh.octbin_export (filename, sold, ord[2]);
-  sprintf(filename, "model_1_p2_0000");
-  tmsh.octbin_export (filename, sold, ord[3]);
-  sprintf(filename, "model_1_p3_0000");
-  tmsh.octbin_export (filename, sold, ord[4]);
+    sprintf(filename, "output/model_1_p1_0000");
+    tmsh.octbin_export (filename, sold, ord[2]);
+    sprintf(filename, "output/model_1_p2_0000");
+    tmsh.octbin_export (filename, sold, ord[3]);
+    sprintf(filename, "output/model_1_p3_0000");
+    tmsh.octbin_export (filename, sold, ord[4]);
+  }
+  else {
+    sprintf(filename, "output/model_2_rho_0000");
+    tmsh.octbin_export (filename, sold, ord[0]);
+    sprintf(filename, "output/model_2_phi_0000");
+    tmsh.octbin_export (filename, sold, ord[1]);
+
+    sprintf(filename, "output/model_2_p1_0000");
+    tmsh.octbin_export (filename, sold, ord[2]);
+    sprintf(filename, "output/model_2_p2_0000");
+    tmsh.octbin_export (filename, sold, ord[3]);
+    sprintf(filename, "output/model_2_p3_0000");
+    tmsh.octbin_export (filename, sold, ord[4]);
+    sprintf(filename, "output/model_2_a_0000");
+    tmsh.octbin_export (filename, sold, ord[5]);
+  }
 
   int count = 0;
 
@@ -503,7 +593,7 @@ main (int argc, char **argv)
   }
 
   func_quad Jx_mass = [&] (tmesh::quadrant_iterator q, tmesh::idx_t idx){
-    return test->sigma_fun(q->centroid(0),q->centroid(1),1.)*(sold[ord[1](q->gt(1))]+sold[ord[1](q->gt(3))]-sold[ord[1](q->gt(0))]-sold[ord[1](q->gt(2))])/(q->p(0,1)-q->p(0,0))/2;
+    return test->sigma_fun(q->centroid(0),q->centroid(1),0.,0.,1.)*(sold[ord[1](q->gt(1))]+sold[ord[1](q->gt(3))]-sold[ord[1](q->gt(0))]-sold[ord[1](q->gt(2))])/(q->p(0,1)-q->p(0,0))/2;
   };
   func_quad Ex_mass = [&] (tmesh::quadrant_iterator q, tmesh::idx_t idx){
     return test->epsilon_fun(q->centroid(0),q->centroid(1))*(sold[ord[1](q->gt(1))]+sold[ord[1](q->gt(3))]-sold[ord[1](q->gt(0))]-sold[ord[1](q->gt(2))])/(q->p(0,1)-q->p(0,0))/2;
@@ -547,26 +637,26 @@ main (int argc, char **argv)
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
-                  reaction_term_p1, reaction_term_p2, reaction_term_p3,
+                  reaction_term_p1, reaction_term_p2, reaction_term_p3, reaction_term_a,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
-                  zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold1, sol1);
+                  zeta0, zeta1, f1, f0, g1, g0, gphi, gp1, gp2, gp3, ga1, grad_recovered, sold1, sol1);
       time_step<N_eqs>(rank, time + time_in_step, dt/2, test,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
-                  reaction_term_p1, reaction_term_p2, reaction_term_p3,
+                  reaction_term_p1, reaction_term_p2, reaction_term_p3, reaction_term_a,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
-                  zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold2, sol2);
+                  zeta0, zeta1, f1, f0, g1, g0, gphi, gp1, gp2, gp3, ga1, grad_recovered, sold2, sol2);
       time_step<N_eqs>(rank, time + time_in_step + dt/2, dt/2, test,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
-                  reaction_term_p1, reaction_term_p2, reaction_term_p3,
+                  reaction_term_p1, reaction_term_p2, reaction_term_p3, reaction_term_a,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
-                  zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold2, sol2);
+                  zeta0, zeta1, f1, f0, g1, g0, gphi, gp1, gp2, gp3, ga1, grad_recovered, sold2, sol2);
       err_max = 0.;
-      for (size_t i = 0; i < sold.local_size(); i++)
-        err_max = std::max(err_max, std::fabs(sold1.get_owned_data()[i] - sold2.get_owned_data()[i]));
+      for (size_t i = 0; i < sold.local_size() / N_eqs; i++)
+        err_max = std::max(err_max, std::fabs(sold1.get_owned_data()[i*N_eqs+1] - sold2.get_owned_data()[i*N_eqs+1]));
       
       MPI_Allreduce(MPI_IN_PLACE, &err_max, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 
@@ -619,16 +709,32 @@ main (int argc, char **argv)
           // Save solution
           if (save_sol == true) {
             ++count;
-            sprintf(filename, "model_1_rho_%4.4d",count);
-            tmsh.octbin_export (filename, sold, ord[0]);
-            sprintf(filename, "model_1_phi_%4.4d",count);
-            tmsh.octbin_export (filename, sold, ord[1]);
-            sprintf(filename, "model_1_p1_%4.4d", count);
-            tmsh.octbin_export (filename,sold, ord[2]);
-            sprintf(filename, "model_1_p2_%4.4d", count);
-            tmsh.octbin_export (filename,sold, ord[3]);
-            sprintf(filename, "model_1_p3_%4.4d", count);
-            tmsh.octbin_export (filename,sold, ord[4]);
+            if constexpr (fixed_sigma) {
+              sprintf(filename, "output/model_1_rho_%4.4d",count);
+              tmsh.octbin_export (filename, sold, ord[0]);
+              sprintf(filename, "output/model_1_phi_%4.4d",count);
+              tmsh.octbin_export (filename, sold, ord[1]);
+              sprintf(filename, "output/model_1_p1_%4.4d", count);
+              tmsh.octbin_export (filename,sold, ord[2]);
+              sprintf(filename, "output/model_1_p2_%4.4d", count);
+              tmsh.octbin_export (filename,sold, ord[3]);
+              sprintf(filename, "output/model_1_p3_%4.4d", count);
+              tmsh.octbin_export (filename,sold, ord[4]);
+            }
+            else {
+              sprintf(filename, "output/model_2_rho_%4.4d",count);
+              tmsh.octbin_export (filename, sold, ord[0]);
+              sprintf(filename, "output/model_2_phi_%4.4d",count);
+              tmsh.octbin_export (filename, sold, ord[1]);
+              sprintf(filename, "output/model_2_p1_%4.4d", count);
+              tmsh.octbin_export (filename,sold, ord[2]);
+              sprintf(filename, "output/model_2_p2_%4.4d", count);
+              tmsh.octbin_export (filename,sold, ord[3]);
+              sprintf(filename, "output/model_2_p3_%4.4d", count);
+              tmsh.octbin_export (filename,sold, ord[4]);
+              sprintf(filename, "output/model_2_a_%4.4d", count);
+              tmsh.octbin_export (filename,sold, ord[5]);
+            }
           }
           break;
         }
