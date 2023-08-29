@@ -118,7 +118,8 @@ template <size_t N_eqs>
 void time_step(const int rank, const double time, const double DELTAT,
                 std::unique_ptr<tests::generic_test> const &test,
                 const std::array<ordering,N_eqs> &ord,
-                tmesh &tmsh, mumps *lin_solver, distributed_sparse_matrix &A,
+                tmesh &tmsh, mumps *lin_solver,
+                distributed_sparse_matrix &A,
                 std::vector<double> &xa, std::vector<int> &ir, std::vector<int> &jc,
                 std::vector<double> &epsilon, std::vector<double> &sigma,
                 std::vector<double> &zero_std_vect, q1_vec_ &zero_q1,
@@ -137,7 +138,7 @@ void time_step(const int rank, const double time, const double DELTAT,
     // Define boundary conditions
     dirichlet_bcs bcs0, bcs1;
     bcs0.push_back (std::make_tuple (0, 0, [](double x, double y){return 0.0;})); //bottom
-    bcs0.push_back (std::make_tuple (0, 1, [time,DELTAT](double x, double y){return 1.5e4 * (1 - exp(-(time+DELTAT)/tau));})); //top
+    bcs0.push_back (std::make_tuple (0, 1, [time,DELTAT](double x, double y){return (time+DELTAT) < 15 ? 1.5e4 * (1 - exp(-(time+DELTAT)/tau)) : 0;})); //top
 
     // Print curent time
     if(rank==0)
@@ -204,15 +205,15 @@ void time_step(const int rank, const double time, const double DELTAT,
     bim2a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[3]);
     bim2a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[4]);
     bim2a_reaction (tmsh, reaction_term_p1, zeta1, A, ord[2], ord[2]);
-    bim2a_reaction (tmsh, reaction_term_p1, zeta1, A, ord[3], ord[3]);
-    bim2a_reaction (tmsh, reaction_term_p1, zeta1, A, ord[4], ord[4]);
+    bim2a_reaction (tmsh, reaction_term_p2, zeta1, A, ord[3], ord[3]);
+    bim2a_reaction (tmsh, reaction_term_p3, zeta1, A, ord[4], ord[4]);
 
     //rhs
     bim2a_rhs (tmsh, f0, g0, sol, ord[0]);
     bim2a_rhs (tmsh, f1, g1, sol, ord[1]);
     bim2a_rhs (tmsh, f0, gp1, sol, ord[2]);
-    bim2a_rhs (tmsh, f0, gp1, sol, ord[3]);
-    bim2a_rhs (tmsh, f0, gp1, sol, ord[4]);
+    bim2a_rhs (tmsh, f0, gp2, sol, ord[3]);
+    bim2a_rhs (tmsh, f0, gp3, sol, ord[4]);
 
     //boundary conditions
     bim2a_dirichlet_bc (tmsh, bcs0, A, sol, ord[0], ord[1], false);
@@ -275,6 +276,7 @@ main (int argc, char **argv)
   epsilon_0 = data[test_name]["epsilon_0"];
 
   double DT = data[test_name]["DT"];
+  double dt = data[test_name]["dt"];
   double toll = data[test_name]["toll_of_adaptive_time_step"];
   bool save_error = data[test_name]["save_error"];
   bool save_currents = data[test_name]["save_currents"];
@@ -295,8 +297,9 @@ main (int argc, char **argv)
 //                                      dof_ordering<N_eqs,1>};
   constexpr size_t N_eqs= 5;
   constexpr size_t N_polcur = 3;
-  const std::array<ordering,5> ord(makeorder<5>());
-  const std::array<ordering,3> ord_c(makeorder<3>());
+  const std::array<ordering,N_eqs> ord(makeorder<N_eqs>());
+  const std::array<ordering,N_polcur> ord_c(makeorder<N_polcur>());
+  const std::array<ordering,2> ord_displ_curr(makeorder<2>());
 
   // Initialize MPI
   MPI_Init (&argc, &argv);
@@ -344,7 +347,11 @@ main (int argc, char **argv)
   // Declare system matrix
   distributed_sparse_matrix A;
   A.set_ranges (ln_nodes * N_eqs);
-  
+
+  // Declare matrix to compute currents
+  distributed_sparse_matrix B;
+  B.set_ranges (ln_nodes *2);
+
   // Buffer for export filename
   char filename[255]="";
 
@@ -375,11 +382,16 @@ main (int argc, char **argv)
   // rhs
   std::vector<double> f1 (ln_elements, 0.);
   std::vector<double> f0 (ln_elements, 0.);
+  std::vector<double> sigmaB (ln_elements, 0.);
   q1_vec g1 (ln_nodes);
   q1_vec g0 (ln_nodes);
   q1_vec gp1 (ln_nodes);
   q1_vec gp2 (ln_nodes);
   q1_vec gp3 (ln_nodes);
+
+  q1_vec Bsol1 (ln_nodes * 2);
+  q1_vec Bsol2 (ln_nodes * 2);
+  q1_vec Ivec1 (ln_nodes * 2), Ivec2 (ln_nodes *2);
 
   // Initialize constant (in time) parameters and initial data
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
@@ -394,6 +406,7 @@ main (int argc, char **argv)
       delta0[quadrant->get_forest_quad_idx ()] = 1.0;
       f1[quadrant->get_forest_quad_idx ()] = 0.0;
       f0[quadrant->get_forest_quad_idx ()] = 1.0;
+      sigmaB[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,1.);
 
       for (int ii = 0; ii < 4; ++ii)
         {
@@ -415,6 +428,11 @@ main (int argc, char **argv)
             sol[ord[2](quadrant->gt (ii))] = 0.0;
             sol[ord[3](quadrant->gt (ii))] = 0.0;
             sol[ord[4](quadrant->gt (ii))] = 0.0;
+
+            Ivec1[ord_displ_curr[0](quadrant->gt (ii))] = 0.0;
+            Ivec1[ord_displ_curr[1](quadrant->gt (ii))] = 0.0;
+            Ivec2[ord_displ_curr[0](quadrant->gt (ii))] = 0.0;
+            Ivec2[ord_displ_curr[1](quadrant->gt (ii))] = 0.0;
           }
           else
             for (int jj = 0; jj < 2; ++jj)
@@ -429,6 +447,11 @@ main (int argc, char **argv)
                 sold[ord[2](quadrant->gparent (jj, ii))] += 0.;
                 sold[ord[3](quadrant->gparent (jj, ii))] += 0.;
                 sold[ord[4](quadrant->gparent (jj, ii))] += 0.;
+
+                Ivec1[ord_displ_curr[0](quadrant->gparent (jj, ii))] += 0.;
+                Ivec1[ord_displ_curr[1](quadrant->gparent (jj, ii))] += 0.;
+                Ivec2[ord_displ_curr[0](quadrant->gparent (jj, ii))] += 0.;
+                Ivec2[ord_displ_curr[1](quadrant->gparent (jj, ii))] += 0.;
               }
         }
     }
@@ -444,7 +467,7 @@ main (int argc, char **argv)
   zero_q1.assemble (replace_op);
   zeta0.assemble (replace_op);
   zeta1.assemble (replace_op);
-  g1.assemble (replace_op);                      
+  g1.assemble (replace_op);
 
   // Save inital conditions
   sprintf(filename, "model_1_rho_0000");
@@ -464,12 +487,14 @@ main (int argc, char **argv)
   // Time cycle
   double time = 0.0;
   double time_in_step = 0.0;
-  double dt;
   double eps = 1.0e-10;
   double err_max;
   
-  double pol_charge = 0., pol_charge_old = 0.;
+  std::array<double,3> pol_charges, pol_charges_old;
+  pol_charges_old.fill(0.);
+
   double I_c;
+  double I_despl, I_d1, I_d2;
   double I_p_inf;
   double I_p_k;
   double E_flux, E_flux_old = 0.;
@@ -528,12 +553,16 @@ main (int argc, char **argv)
   }
   if (rank == 0 && save_currents) {
     currents_file.open("currents_file.txt");
-    currents_file << std::setw(20) << "time" << std::setw(20) << "I_c" << std::setw(20) << "I_p_inf" << std::setw(20) << "I_p_k" << std::endl;
+    currents_file << std::setw(20) << "time"
+                  << std::setw(20) << "I_c"
+                  << std::setw(20) << "I_p_inf"
+                  << std::setw(20) << "I_p_1"
+                  << std::setw(20) << "I_p_2"
+                  << std::setw(20) << "I_p_3"
+                  << std::setw(20) << "I_despl" << std::endl;
   }
 
   q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
-
-  dt = DT;
 
   while (time < T) {
     if (rank == 0)
@@ -565,11 +594,70 @@ main (int argc, char **argv)
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
                   zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold2, sol2);
       err_max = 0.;
-      for (size_t i = 0; i < sold.local_size(); i++)
+
+      for (auto quadrant = tmsh.begin_quadrant_sweep ();
+          quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
+        for (int ii = 0; ii < 4; ii++) {
+          if (!quadrant->is_hanging(ii)) {
+            Bsol1[ord_displ_curr[0](quadrant->gt (ii))] =
+              (sold1[ord[0](quadrant->gt (ii))] - sold[ord[0](quadrant->gt (ii))]) / dt;
+            Bsol2[ord_displ_curr[0](quadrant->gt (ii))] =
+              (sold2[ord[0](quadrant->gt (ii))] - sold[ord[0](quadrant->gt (ii))]) / dt;
+            Bsol1[ord_displ_curr[1](quadrant->gt (ii))] = sold1[ord[1](quadrant->gt (ii))];
+            Bsol2[ord_displ_curr[1](quadrant->gt (ii))] = sold2[ord[1](quadrant->gt (ii))];
+          }
+          else
+            for (int jj = 0; jj < 2; ++jj)
+            {
+              Bsol1[ord_displ_curr[0](quadrant->gparent (jj, ii))] += 0.;
+              Bsol2[ord_displ_curr[0](quadrant->gparent (jj, ii))] += 0.;
+              Bsol1[ord_displ_curr[1](quadrant->gparent (jj, ii))] += 0.;
+              Bsol2[ord_displ_curr[1](quadrant->gparent (jj, ii))] += 0.;
+            }
+        }
+      
+      Bsol1.assemble(replace_op);
+      Bsol2.assemble(replace_op);
+      Ivec1.get_owned_data().assign(Ivec1.get_owned_data().size(), 0.);
+      Ivec2.get_owned_data().assign(Ivec2.get_owned_data().size(), 0.);
+      Ivec1.assemble(replace_op);
+      Ivec2.assemble(replace_op);
+
+      B.reset();
+      bim2a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
+      bim2a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
+      Ivec1 = B*Bsol1;
+      B.reset();
+      bim2a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
+      bim2a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
+      Ivec2 = B*Bsol2;
+      Ivec1.assemble(replace_op);
+      Ivec2.assemble(replace_op);
+
+      I_d1 = 0.; I_d2 = 0.;
+      for (auto quadrant = tmsh.begin_quadrant_sweep ();
+          quadrant != tmsh.end_quadrant_sweep (); ++quadrant) {
+        for (int ii = 0; ii < 4; ii++) {
+          if (quadrant->e(ii) == 1) {
+            I_d1 += Ivec1[ord_displ_curr[0](quadrant->gt (ii))]/2;
+            I_d2 += Ivec2[ord_displ_curr[0](quadrant->gt (ii))]/2;
+          }
+          /*for (int jj = 0; jj < 4; jj++)
+            if (quadrant->e(jj) == 2 || quadrant->e(jj) == 3)
+              I_d1 += Ivec1[ord_displ_curr[0](quadrant->gt (ii))]/2;*/
+        }
+      }
+      std::cout << rank << "    " << I_d1 << "   " << I_d2 << std::endl;
+      MPI_Allreduce(MPI_IN_PLACE, &I_d1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &I_d2, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+      I_despl = I_d2;
+      err_max = std::fabs((I_d2-I_d1) / I_d2);
+      /*for (size_t i = 0; i < sold.local_size(); i++)
         err_max = std::max(err_max, std::fabs(sold1.get_owned_data()[i] - sold2.get_owned_data()[i]));
       
       MPI_Allreduce(MPI_IN_PLACE, &err_max, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-
+      */
       if (rank == 0)
         std::cout << "error/toll = " << err_max/toll << std::endl;
       
@@ -597,24 +685,32 @@ main (int argc, char **argv)
 
             I_c = 0.;
             E_flux = 0.;
-            pol_charge = 0.;
+            pol_charges.fill(0.);
 
             for (size_t i = 0; i < Jx_vec.local_size(); i++)
               I_c += Jx_vec.get_owned_data()[i];
             for (size_t i = 0; i < Ex_vec.local_size(); i++)
               E_flux += Ex_vec.get_owned_data()[i];
-            for (size_t i = 0; i < p_vec.local_size(); i++)
-              pol_charge += p_vec.get_owned_data()[i];
+            for (size_t i = 0; i < p_vec.local_size() / N_polcur; i++) {
+              pol_charges[0] += p_vec.get_owned_data()[i*N_polcur];
+              pol_charges[1] += p_vec.get_owned_data()[i*N_polcur+1];
+              pol_charges[2] += p_vec.get_owned_data()[i*N_polcur+2];
+            }
 
 
             MPI_Allreduce(MPI_IN_PLACE, &I_c, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
             MPI_Allreduce(MPI_IN_PLACE, &E_flux, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-            MPI_Allreduce(MPI_IN_PLACE, &pol_charge, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(MPI_IN_PLACE, pol_charges.data(), 3, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
             I_p_inf = (E_flux - E_flux_old) / DT;
-            I_p_k = (pol_charge - pol_charge_old) / DT;
-            pol_charge_old = pol_charge;
             E_flux_old = E_flux;
-            currents_file << std::setw(20) << std::setprecision(5) << time << std::setw(20) << std::setprecision(5) << I_c << std::setw(20) << std::setprecision(5) << I_p_inf << std::setw(20) << std::setprecision(5) << I_p_k << std::endl;
+            currents_file << std::setw(20) << std::setprecision(5) << time
+                          << std::setw(20) << std::setprecision(5) << I_c
+                          << std::setw(20) << std::setprecision(5) << I_p_inf
+                          << std::setw(20) << std::setprecision(5) << (pol_charges[0] - pol_charges_old[0]) / DT
+                          << std::setw(20) << std::setprecision(5) << (pol_charges[1] - pol_charges_old[1]) / DT
+                          << std::setw(20) << std::setprecision(5) << (pol_charges[2] - pol_charges_old[2]) / DT
+                          << std::setw(20) << std::setprecision(5) << I_despl << std::endl;
+            pol_charges_old = pol_charges;
           }
           // Save solution
           if (save_sol == true) {
