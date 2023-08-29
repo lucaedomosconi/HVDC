@@ -31,7 +31,7 @@
 #include <bim_sparse_distributed.h>
 #include <bim_timing.h>
 #include <mumps_class.h>
-#include <quad_operators.h>
+#include <quad_operators_3d.h>
 
 #include <nlohmann/json.hpp>
 
@@ -118,7 +118,7 @@ template <size_t N_eqs>
 void time_step(const int rank, const double time, const double DELTAT,
                 std::unique_ptr<tests::generic_test> const &test,
                 const std::array<ordering,N_eqs> &ord,
-                tmesh &tmsh, mumps *lin_solver,
+                tmesh_3d &tmsh, mumps *lin_solver,
                 distributed_sparse_matrix &A,
                 std::vector<double> &xa, std::vector<int> &ir, std::vector<int> &jc,
                 std::vector<double> &epsilon, std::vector<double> &sigma,
@@ -136,9 +136,9 @@ void time_step(const int rank, const double time, const double DELTAT,
                 q1_vec_ &sold, q1_vec_ &sol) {
 
     // Define boundary conditions
-    dirichlet_bcs bcs0, bcs1;
-    bcs0.push_back (std::make_tuple (0, 0, [](double x, double y){return 0.0;})); //bottom
-    bcs0.push_back (std::make_tuple (0, 1, [time,DELTAT](double x, double y){return (time+DELTAT) < 15 ? 1.5e4 * (1 - exp(-(time+DELTAT)/tau)) : 0;})); //top
+    dirichlet_bcs3 bcs0, bcs1;
+    bcs0.push_back (std::make_tuple (0, 4, [](double x, double y, double z){return 0.0;})); //bottom
+    bcs0.push_back (std::make_tuple (0, 5, [time,DELTAT](double x, double y, double z){return (time+DELTAT) < 15 ? 1.5e4 * (1 - exp(-(time+DELTAT)/tau)) : 0;})); //top
 
     // Print curent time
     if(rank==0)
@@ -154,7 +154,7 @@ void time_step(const int rank, const double time, const double DELTAT,
     quadrant != tmsh.end_quadrant_sweep ();
     ++quadrant)
     {
-      double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)};  
+      double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)}, zz{quadrant->centroid(2)};  
 
       reaction_term_p1[quadrant->get_forest_quad_idx ()] =
         1 + DELTAT / tau_p1;
@@ -163,13 +163,13 @@ void time_step(const int rank, const double time, const double DELTAT,
       reaction_term_p3[quadrant->get_forest_quad_idx ()] =
         1 + DELTAT / tau_p3;
       diffusion_term_p1[quadrant->get_forest_quad_idx ()] =
-        - DELTAT / tau_p1 * epsilon_0 * test->csi_1_fun(xx,yy);
+        - DELTAT / tau_p1 * epsilon_0 * test->csi_1_fun(xx,yy,zz);
       diffusion_term_p2[quadrant->get_forest_quad_idx ()] =
-        - DELTAT / tau_p2 * epsilon_0 * test->csi_2_fun(xx,yy);
+        - DELTAT / tau_p2 * epsilon_0 * test->csi_2_fun(xx,yy,zz);
       diffusion_term_p3[quadrant->get_forest_quad_idx ()] =
-        - DELTAT / tau_p3 * epsilon_0 * test->csi_3_fun(xx,yy);
-      sigma[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,DELTAT);
-      for (int ii = 0; ii < 4; ++ii)
+        - DELTAT / tau_p3 * epsilon_0 * test->csi_3_fun(xx,yy,zz);
+      sigma[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,DELTAT);
+      for (int ii = 0; ii < 8; ++ii)
         if (! quadrant->is_hanging (ii)){
           g0[quadrant->gt (ii)] = sold[ord[0](quadrant->gt (ii))];
 
@@ -178,7 +178,7 @@ void time_step(const int rank, const double time, const double DELTAT,
           gp3[quadrant->gt (ii)] = sold[ord[4](quadrant->gt (ii))];
         }
         else
-          for (int jj = 0; jj < 2; ++jj){
+          for (int jj = 0; quadrant->num_parents (ii); ++jj){
             g0[quadrant->gparent (jj, ii)] += 0.;
             gp1[quadrant->gparent (jj, ii)] += 0.;
             gp2[quadrant->gparent (jj, ii)] += 0.;
@@ -192,31 +192,31 @@ void time_step(const int rank, const double time, const double DELTAT,
     gp3.assemble(replace_op);
     // advection_diffusion
 
-    bim2a_advection_diffusion (tmsh, sigma, zero_q1, A, true, ord[0], ord[1]);
-    bim2a_advection_diffusion (tmsh, epsilon, zero_q1, A, true, ord[1], ord[1]);
-    bim2a_advection_diffusion (tmsh, diffusion_term_p1, zero_q1, A, true, ord[2], ord[1]);
-    bim2a_advection_diffusion (tmsh, diffusion_term_p2, zero_q1, A, true, ord[3], ord[1]);
-    bim2a_advection_diffusion (tmsh, diffusion_term_p3, zero_q1, A, true, ord[4], ord[1]);
+    bim3a_advection_diffusion (tmsh, sigma, zero_q1, A, true, ord[0], ord[1]);
+    bim3a_advection_diffusion (tmsh, epsilon, zero_q1, A, true, ord[1], ord[1]);
+    bim3a_advection_diffusion (tmsh, diffusion_term_p1, zero_q1, A, true, ord[2], ord[1]);
+    bim3a_advection_diffusion (tmsh, diffusion_term_p2, zero_q1, A, true, ord[3], ord[1]);
+    bim3a_advection_diffusion (tmsh, diffusion_term_p3, zero_q1, A, true, ord[4], ord[1]);
     
     // reaction
-    bim2a_reaction (tmsh, delta0, zeta0, A, ord[0], ord[0]);
-    bim2a_reaction (tmsh, delta1, zeta1, A, ord[1], ord[0]);
-    bim2a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[2]);
-    bim2a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[3]);
-    bim2a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[4]);
-    bim2a_reaction (tmsh, reaction_term_p1, zeta1, A, ord[2], ord[2]);
-    bim2a_reaction (tmsh, reaction_term_p2, zeta1, A, ord[3], ord[3]);
-    bim2a_reaction (tmsh, reaction_term_p3, zeta1, A, ord[4], ord[4]);
+    bim3a_reaction (tmsh, delta0, zeta0, A, ord[0], ord[0]);
+    bim3a_reaction (tmsh, delta1, zeta1, A, ord[1], ord[0]);
+    bim3a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[2]);
+    bim3a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[3]);
+    bim3a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[4]);
+    bim3a_reaction (tmsh, reaction_term_p1, zeta1, A, ord[2], ord[2]);
+    bim3a_reaction (tmsh, reaction_term_p2, zeta1, A, ord[3], ord[3]);
+    bim3a_reaction (tmsh, reaction_term_p3, zeta1, A, ord[4], ord[4]);
 
     //rhs
-    bim2a_rhs (tmsh, f0, g0, sol, ord[0]);
-    bim2a_rhs (tmsh, f1, g1, sol, ord[1]);
-    bim2a_rhs (tmsh, f0, gp1, sol, ord[2]);
-    bim2a_rhs (tmsh, f0, gp2, sol, ord[3]);
-    bim2a_rhs (tmsh, f0, gp3, sol, ord[4]);
+    bim3a_rhs (tmsh, f0, g0, sol, ord[0]);
+    bim3a_rhs (tmsh, f1, g1, sol, ord[1]);
+    bim3a_rhs (tmsh, f0, gp1, sol, ord[2]);
+    bim3a_rhs (tmsh, f0, gp2, sol, ord[3]);
+    bim3a_rhs (tmsh, f0, gp3, sol, ord[4]);
 
     //boundary conditions
-    bim2a_dirichlet_bc (tmsh, bcs0, A, sol, ord[0], ord[1], false);
+    bim3a_dirichlet_bc (tmsh, bcs0, A, sol, ord[0], ord[1], false);
 
     // Communicate matrix and RHS
     A.assemble ();
@@ -308,28 +308,28 @@ main (int argc, char **argv)
   MPI_Comm_size (MPI_COMM_WORLD, &size);
 
   // Generate the mesh in 3d
-  tmesh tmsh;
+  tmesh_3d tmsh;
   tmsh.read_connectivity (simple_conn_p, simple_conn_num_vertices,
                           simple_conn_t, simple_conn_num_trees);
 
   //Uniform refinement
   int recursive = 1;
-  tmsh.set_refine_marker ([&test](tmesh::quadrant_iterator q) {return test->uniform_refinement(q);});
+  tmsh.set_refine_marker ([&test](tmesh_3d::quadrant_iterator q) {return test->uniform_refinement(q);});
   tmsh.refine (recursive);
 
   //In test 1 we only have uniform refinement, in all other cases we perform additional refinement
   if (test->extra_refinement) 
   {
-    tmsh.set_refine_marker([&test](tmesh::quadrant_iterator q) {return test->refinement(q);});
+    tmsh.set_refine_marker([&test](tmesh_3d::quadrant_iterator q) {return test->refinement(q);});
     tmsh.refine (recursive);
 
-    tmsh.set_coarsen_marker([&test](tmesh::quadrant_iterator q) {return test->coarsening(q);});
+    tmsh.set_coarsen_marker([&test](tmesh_3d::quadrant_iterator q) {return test->coarsening(q);});
     tmsh.coarsen(recursive);
   }
 
-  tmesh::idx_t gn_nodes = tmsh.num_global_nodes ();
-  tmesh::idx_t ln_nodes = tmsh.num_owned_nodes ();
-  tmesh::idx_t ln_elements = tmsh.num_local_quadrants (); 
+  tmesh_3d::idx_t gn_nodes = tmsh.num_global_nodes ();
+  tmesh_3d::idx_t ln_nodes = tmsh.num_owned_nodes ();
+  tmesh_3d::idx_t ln_elements = tmsh.num_local_quadrants (); 
 
   // Allocate linear solver
   mumps *lin_solver = new mumps ();
@@ -398,17 +398,17 @@ main (int argc, char **argv)
        quadrant != tmsh.end_quadrant_sweep ();
        ++quadrant)
     {
-      double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)};  
+      double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)}, zz{quadrant->centroid(2)};  
 
-      epsilon[quadrant->get_forest_quad_idx ()] = test->epsilon_fun(xx,yy);
+      epsilon[quadrant->get_forest_quad_idx ()] = test->epsilon_fun(xx,yy,zz);
       
       delta1[quadrant->get_forest_quad_idx ()] = -1.0;
       delta0[quadrant->get_forest_quad_idx ()] = 1.0;
       f1[quadrant->get_forest_quad_idx ()] = 0.0;
       f0[quadrant->get_forest_quad_idx ()] = 1.0;
-      sigmaB[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,1.);
+      sigmaB[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,1.);
 
-      for (int ii = 0; ii < 4; ++ii)
+      for (int ii = 0; ii < 8; ++ii)
         {
           if (! quadrant->is_hanging (ii))
           {
@@ -435,7 +435,7 @@ main (int argc, char **argv)
             Ivec2[ord_displ_curr[1](quadrant->gt (ii))] = 0.0;
           }
           else
-            for (int jj = 0; jj < 2; ++jj)
+            for (int jj = 0; jj < quadrant->num_parents (ii); ++jj)
               {
                 zero_q1[quadrant->gparent (jj, ii)] += 0.;
                 zeta0[quadrant->gparent (jj, ii)] += 0.;
@@ -458,11 +458,11 @@ main (int argc, char **argv)
 //  tmsh.octbin_export_quadrant ("epsilon_file", epsilon);
 //  tmsh.octbin_export_quadrant ("sigma_file", sigma);
 
-  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
-  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[1], false);
-  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[2], false);
-  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[3], false);
-  bim2a_solution_with_ghosts (tmsh, sold, replace_op, ord[4]);
+  bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
+  bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[1], false);
+  bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[2], false);
+  bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[3], false);
+  bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[4]);
 
   zero_q1.assemble (replace_op);
   zeta0.assemble (replace_op);
@@ -508,7 +508,7 @@ main (int argc, char **argv)
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
     quadrant != tmsh.end_quadrant_sweep ();
     ++quadrant) {
-    for (int ii = 0; ii < 4; ++ii) {
+    for (int ii = 0; ii < 8; ++ii) {
       if (! quadrant->is_hanging (ii)) {
         Jx_vec[quadrant->gt(ii)] = 0.;
         Ex_vec[quadrant->gt(ii)] = 0.;
@@ -517,7 +517,7 @@ main (int argc, char **argv)
         p_vec[ord_c[2](quadrant->gt(ii))] = 0.;
       }
       else
-        for (int jj = 0; jj < 2; ++jj) {
+        for (int jj = 0; jj < quadrant->num_parents (ii); ++jj) {
           Jx_vec[quadrant->gparent (jj, ii)] += 0.;
           Ex_vec[quadrant->gparent (jj, ii)] += 0.;
           p_vec[ord_c[0](quadrant->gparent (jj, ii))] += 0.;
@@ -527,20 +527,24 @@ main (int argc, char **argv)
     }
   }
 
-  func_quad Jx_mass = [&] (tmesh::quadrant_iterator q, tmesh::idx_t idx){
-    return test->sigma_fun(q->centroid(0),q->centroid(1),1.)*(sold[ord[1](q->gt(1))]+sold[ord[1](q->gt(3))]-sold[ord[1](q->gt(0))]-sold[ord[1](q->gt(2))])/(q->p(0,1)-q->p(0,0))/2;
+  func3_quad Jx_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
+    return test->sigma_fun(q->centroid(0),q->centroid(1),q->centroid(2),1.)*
+        (sold[ord[1](q->gt(4))] + sold[ord[1](q->gt(5))] + sold[ord[1](q->gt(6))] + sold[ord[1](q->gt(7))]
+        -sold[ord[1](q->gt(0))] - sold[ord[1](q->gt(1))] - sold[ord[1](q->gt(2))] - sold[ord[1](q->gt(3))])/(q->p(2,4)-q->p(2,0))/4;
   };
-  func_quad Ex_mass = [&] (tmesh::quadrant_iterator q, tmesh::idx_t idx){
-    return test->epsilon_fun(q->centroid(0),q->centroid(1))*(sold[ord[1](q->gt(1))]+sold[ord[1](q->gt(3))]-sold[ord[1](q->gt(0))]-sold[ord[1](q->gt(2))])/(q->p(0,1)-q->p(0,0))/2;
+  func3_quad Ex_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
+    return test->epsilon_fun(q->centroid(0),q->centroid(1),q->centroid(2))*
+        (sold[ord[1](q->gt(4))] + sold[ord[1](q->gt(5))] + sold[ord[1](q->gt(6))] + sold[ord[1](q->gt(7))]
+        -sold[ord[1](q->gt(0))] - sold[ord[1](q->gt(1))] - sold[ord[1](q->gt(2))] - sold[ord[1](q->gt(3))])/(q->p(2,4)-q->p(2,0))/4;
   };
-  func_quad p1_mass = [&] (tmesh::quadrant_iterator q, tmesh::idx_t idx){
-    return (q->p(0,1)-q->p(0,0))*(sold[ord[2](q->gt(1))] + sold[ord[2](q->gt(3))])/4;
+  func3_quad p1_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
+    return (q->p(2,4)-q->p(2,0))*(sold[ord[2](q->gt(4))] + sold[ord[2](q->gt(5))] + sold[ord[2](q->gt(6))] + sold[ord[2](q->gt(7))])/8;
   };
-  func_quad p2_mass = [&] (tmesh::quadrant_iterator q, tmesh::idx_t idx){
-    return (q->p(0,1)-q->p(0,0))*(sold[ord[3](q->gt(1))] + sold[ord[3](q->gt(3))])/4;
+  func3_quad p2_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
+    return (q->p(2,4)-q->p(2,0))*(sold[ord[3](q->gt(4))] + sold[ord[3](q->gt(5))] + sold[ord[3](q->gt(6))] + sold[ord[3](q->gt(7))])/8;
   };
-  func_quad p3_mass = [&] (tmesh::quadrant_iterator q, tmesh::idx_t idx){
-    return (q->p(0,1)-q->p(0,0))*(sold[ord[4](q->gt(1))] + sold[ord[4](q->gt(3))])/4;
+  func3_quad p3_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
+    return (q->p(2,4)-q->p(2,0))*(sold[ord[4](q->gt(4))] + sold[ord[4](q->gt(5))] + sold[ord[4](q->gt(6))] + sold[ord[4](q->gt(7))])/8;
   };
   std::ofstream error_file, currents_file;
   
@@ -597,7 +601,7 @@ main (int argc, char **argv)
 
       for (auto quadrant = tmsh.begin_quadrant_sweep ();
           quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
-        for (int ii = 0; ii < 4; ii++) {
+        for (int ii = 0; ii < 8; ii++) {
           if (!quadrant->is_hanging(ii)) {
             Bsol1[ord_displ_curr[0](quadrant->gt (ii))] =
               (sold1[ord[0](quadrant->gt (ii))] - sold[ord[0](quadrant->gt (ii))]) / dt;
@@ -607,7 +611,7 @@ main (int argc, char **argv)
             Bsol2[ord_displ_curr[1](quadrant->gt (ii))] = sold2[ord[1](quadrant->gt (ii))];
           }
           else
-            for (int jj = 0; jj < 2; ++jj)
+            for (int jj = 0; jj < quadrant->num_parents (ii); ++jj)
             {
               Bsol1[ord_displ_curr[0](quadrant->gparent (jj, ii))] += 0.;
               Bsol2[ord_displ_curr[0](quadrant->gparent (jj, ii))] += 0.;
@@ -615,7 +619,7 @@ main (int argc, char **argv)
               Bsol2[ord_displ_curr[1](quadrant->gparent (jj, ii))] += 0.;
             }
         }
-      
+
       Bsol1.assemble(replace_op);
       Bsol2.assemble(replace_op);
       Ivec1.get_owned_data().assign(Ivec1.get_owned_data().size(), 0.);
@@ -624,23 +628,24 @@ main (int argc, char **argv)
       Ivec2.assemble(replace_op);
 
       B.reset();
-      bim2a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
-      bim2a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
+      bim3a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
+      bim3a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
       Ivec1 = B*Bsol1;
       B.reset();
-      bim2a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
-      bim2a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
+      bim3a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
+      bim3a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
       Ivec2 = B*Bsol2;
-      Ivec1.assemble(replace_op);
-      Ivec2.assemble(replace_op);
+//Why trying to assemble fails?
+//      Ivec1.assemble(replace_op);
+//      Ivec2.assemble(replace_op);
 
       I_d1 = 0.; I_d2 = 0.;
       for (auto quadrant = tmsh.begin_quadrant_sweep ();
           quadrant != tmsh.end_quadrant_sweep (); ++quadrant) {
-        for (int ii = 0; ii < 4; ii++) {
-          if (quadrant->e(ii) == 1) {
-            I_d1 += Ivec1[ord_displ_curr[0](quadrant->gt (ii))]/2;
-            I_d2 += Ivec2[ord_displ_curr[0](quadrant->gt (ii))]/2;
+        for (int ii = 0; ii < 8; ii++) {
+          if (quadrant->e(ii) == 5) {
+            I_d1 += Ivec1[ord_displ_curr[0](quadrant->gt (ii))]/4;
+            I_d2 += Ivec2[ord_displ_curr[0](quadrant->gt (ii))]/4;
           }
           /*for (int jj = 0; jj < 4; jj++)
             if (quadrant->e(jj) == 2 || quadrant->e(jj) == 3)
@@ -677,11 +682,11 @@ main (int argc, char **argv)
             p_vec.get_owned_data().assign(p_vec.get_owned_data().size(), 0.);
             p_vec.assemble(replace_op);
 
-            bim2a_boundary_mass(tmsh, 0, 1, Jx_vec, Jx_mass);
-            bim2a_boundary_mass(tmsh, 0, 1, Ex_vec, Ex_mass);
-            bim2a_boundary_mass(tmsh, 0, 1, p_vec, p1_mass, ord_c[0]);
-            bim2a_boundary_mass(tmsh, 0, 1, p_vec, p2_mass, ord_c[1]);
-            bim2a_boundary_mass(tmsh, 0, 1, p_vec, p3_mass, ord_c[2]);
+            bim3a_boundary_mass(tmsh, 0, 5, Jx_vec, Jx_mass);
+            bim3a_boundary_mass(tmsh, 0, 5, Ex_vec, Ex_mass);
+            bim3a_boundary_mass(tmsh, 0, 5, p_vec, p1_mass, ord_c[0]);
+            bim3a_boundary_mass(tmsh, 0, 5, p_vec, p2_mass, ord_c[1]);
+            bim3a_boundary_mass(tmsh, 0, 5, p_vec, p3_mass, ord_c[2]);
 
             I_c = 0.;
             E_flux = 0.;

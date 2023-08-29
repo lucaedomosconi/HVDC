@@ -26,28 +26,28 @@ namespace tests{
 				return;
 			}
 
-			int	uniform_refinement (tmesh::quadrant_iterator q) const
+			int	uniform_refinement (tmesh_3d::quadrant_iterator q) const
 				{ return NUM_REFINEMENTS; }
 
-			int refinement (tmesh::quadrant_iterator q) const
+			int refinement (tmesh_3d::quadrant_iterator q) const
 				{ return NUM_REFINEMENTS; }
 
-			int coarsening (tmesh::quadrant_iterator q) const
+			int coarsening (tmesh_3d::quadrant_iterator q) const
 				{ return NUM_REFINEMENTS; }
 				
-			double epsilon_fun(const double & x, const double & y) const
+			double epsilon_fun(const double & x, const double & y, const double & z) const
 				{return epsilon_0 * epsilon_inf_1;}
 
-			double csi_1_fun(const double & x, const double & y) const
+			double csi_1_fun(const double & x, const double & y, const double & z) const
 				{return csi1;}
 
-			double csi_2_fun(const double & x, const double & y) const
+			double csi_2_fun(const double & x, const double & y, const double & z) const
 				{return csi2;}
 
-			double csi_3_fun(const double & x, const double & y) const
+			double csi_3_fun(const double & x, const double & y, const double & z) const
 				{return csi3;}
 
-			double sigma_fun(const double & x, const double & y, const double & DT) const
+			double sigma_fun(const double & x, const double & y, const double & z, const double & DT) const
 				{return sigma_ * DT;}
   };
 
@@ -66,10 +66,10 @@ namespace tests{
 				return;
 			}
 
-			int	uniform_refinement (tmesh::quadrant_iterator q) const
+			int	uniform_refinement (tmesh_3d::quadrant_iterator q) const
 				{ return NUM_REFINEMENTS; }
 
-			int refinement (tmesh::quadrant_iterator q) const
+			int refinement (tmesh_3d::quadrant_iterator q) const
 				{
 					int currentlevel = static_cast<int> (q->the_quadrant->level);
   				double xcoord;
@@ -91,7 +91,7 @@ namespace tests{
   				return retval;
 				}
 
-			int coarsening (tmesh::quadrant_iterator q) const
+			int coarsening (tmesh_3d::quadrant_iterator q) const
 				{
 				  int currentlevel = static_cast<int> (q->the_quadrant->level);
   				double xcoord;
@@ -113,19 +113,19 @@ namespace tests{
   				return (retval);
 				}
 				
-			double epsilon_fun(const double & x, const double & y) const
+			double epsilon_fun(const double & x, const double & y, const double & z) const
 				{return x < 0.0005 ? epsilon_0 * epsilon_inf_1 : epsilon_0 * epsilon_inf_2;}
 
-			double csi_1_fun(const double & x, const double & y) const
+			double csi_1_fun(const double & x, const double & y, const double & z) const
 				{return csi1;}
 
-			double csi_2_fun(const double & x, const double & y) const
+			double csi_2_fun(const double & x, const double & y, const double & z) const
 				{return csi2;}
 
-			double csi_3_fun(const double & x, const double & y) const
+			double csi_3_fun(const double & x, const double & y, const double & z) const
 				{return csi3;}
 
-			double sigma_fun(const double & x, const double & y, const double & DT) const
+			double sigma_fun(const double & x, const double & y, const double & z, const double & DT) const
 				{return sigma_ * DT;}
   };
 }

@@ -1,7 +1,7 @@
 #ifndef GENERIC_TEST_HPP
 #define GENERIC_TEST_HPP
-#include <tmesh.h>
-#include <simple_connectivity_2d.h>
+#include <tmesh_3d.h>
+#include <simple_connectivity_3d.h>
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <string>
@@ -24,21 +24,21 @@ namespace tests{
 
 			bool extra_refinement;
 
-			virtual int	uniform_refinement (tmesh::quadrant_iterator q) const = 0;
+			virtual int	uniform_refinement (tmesh_3d::quadrant_iterator q) const = 0;
 
-			virtual int refinement (tmesh::quadrant_iterator q) const = 0;
+			virtual int refinement (tmesh_3d::quadrant_iterator q) const = 0;
 			
-			virtual int coarsening (tmesh::quadrant_iterator q) const = 0;
+			virtual int coarsening (tmesh_3d::quadrant_iterator q) const = 0;
 
-			virtual double epsilon_fun(const double & x, const double & y) const = 0;
+			virtual double epsilon_fun(const double & x, const double & y, const double & z) const = 0;
 
-			virtual double csi_1_fun(const double & x, const double & y) const = 0;
+			virtual double csi_1_fun(const double & x, const double & y, const double & z) const = 0;
 
-			virtual double csi_2_fun(const double & x, const double & y) const = 0;
+			virtual double csi_2_fun(const double & x, const double & y, const double & z) const = 0;
 
-			virtual double csi_3_fun(const double & x, const double & y) const = 0;
+			virtual double csi_3_fun(const double & x, const double & y, const double & z) const = 0;
 
-			virtual double sigma_fun(const double & x, const double & y, const double & DT) const = 0;
+			virtual double sigma_fun(const double & x, const double & y, const double & z, const double & DT) const = 0;
 
   };
 }
