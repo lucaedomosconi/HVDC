@@ -8,7 +8,7 @@
 using json = nlohmann::json;
 
 
-const int NUM_REFINEMENTS = 4;
+extern const int NUM_REFINEMENTS;
 double T;
 double tau;
 double tau_p1, tau_p2, tau_p3, tau_a;
@@ -22,8 +22,6 @@ namespace tests{
 	class generic_test {
     public:
 			virtual void import_params(const json &data) const = 0;
-			
-      virtual bool works() const = 0;
 
 			bool extra_refinement;
 
@@ -34,8 +32,6 @@ namespace tests{
 			virtual int coarsening (tmesh::quadrant_iterator q) const = 0;
 
 			virtual double epsilon_fun(const double & x, const double & y) const = 0;
-
-			virtual double epsilon_inf_1_fun(const double & x, const double & y) const = 0;
 
 			virtual double csi_1_fun(const double & x, const double & y) const = 0;
 
