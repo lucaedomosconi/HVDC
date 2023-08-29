@@ -564,7 +564,7 @@ main (int argc, char **argv)
 
   q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
 
-  while (time < T) {
+  while (time < T - eps) {
     if (rank == 0)
       std::cout << "____________ COMPUTING FOR TIME = " << time + DT << " ____________" << std::endl;
     time_in_step = 0.0;
