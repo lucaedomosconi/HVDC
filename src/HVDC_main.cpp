@@ -87,6 +87,7 @@ template<size_t N>
 auto makeorder(){
   return make_order_struct<N,std::make_integer_sequence<size_t,N>>::fun();
 }
+
 void json_export(std::ifstream &is, std::ofstream &os) {
   json J;
   std::vector<std::string> variable_names;
@@ -470,16 +471,16 @@ main (int argc, char **argv)
   g1.assemble (replace_op);
 
   // Save inital conditions
-  sprintf(filename, "model_1_rho_0000");
+  sprintf(filename, "output/model_1_rho_0000");
   tmsh.octbin_export (filename, sold, ord[0]);
-  sprintf(filename, "model_1_phi_0000");
+  sprintf(filename, "output/model_1_phi_0000");
   tmsh.octbin_export (filename, sold, ord[1]);
 
-  sprintf(filename, "model_1_p1_0000");
+  sprintf(filename, "output/model_1_p1_0000");
   tmsh.octbin_export (filename, sold, ord[2]);
-  sprintf(filename, "model_1_p2_0000");
+  sprintf(filename, "output/model_1_p2_0000");
   tmsh.octbin_export (filename, sold, ord[3]);
-  sprintf(filename, "model_1_p3_0000");
+  sprintf(filename, "output/model_1_p3_0000");
   tmsh.octbin_export (filename, sold, ord[4]);
 
   int count = 0;
@@ -657,7 +658,7 @@ main (int argc, char **argv)
       MPI_Allreduce(MPI_IN_PLACE, &I_d2, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
       I_despl = I_d2;
-      err_max = std::fabs((I_d2-I_d1) / I_d2);
+      err_max = std::fabs((I_d2-I_d1) / (I_d2 + 1.0e-50));
       /*for (size_t i = 0; i < sold.local_size(); i++)
         err_max = std::max(err_max, std::fabs(sold1.get_owned_data()[i] - sold2.get_owned_data()[i]));
       
@@ -720,15 +721,15 @@ main (int argc, char **argv)
           // Save solution
           if (save_sol == true) {
             ++count;
-            sprintf(filename, "model_1_rho_%4.4d",count);
+            sprintf(filename, "output/model_1_rho_%4.4d",count);
             tmsh.octbin_export (filename, sold, ord[0]);
-            sprintf(filename, "model_1_phi_%4.4d",count);
+            sprintf(filename, "output/model_1_phi_%4.4d",count);
             tmsh.octbin_export (filename, sold, ord[1]);
-            sprintf(filename, "model_1_p1_%4.4d", count);
+            sprintf(filename, "output/model_1_p1_%4.4d", count);
             tmsh.octbin_export (filename,sold, ord[2]);
-            sprintf(filename, "model_1_p2_%4.4d", count);
+            sprintf(filename, "output/model_1_p2_%4.4d", count);
             tmsh.octbin_export (filename,sold, ord[3]);
-            sprintf(filename, "model_1_p3_%4.4d", count);
+            sprintf(filename, "output/model_1_p3_%4.4d", count);
             tmsh.octbin_export (filename,sold, ord[4]);
           }
           break;
