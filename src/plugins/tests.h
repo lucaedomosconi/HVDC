@@ -5,10 +5,10 @@
 using json = nlohmann::json;
 
 const int NUM_REFINEMENTS = 4;
-double epsilon_inf_1, epsilon_inf_2;       // permittivity at infinite frequency
+double epsilon_inf_1, epsilon_inf_2;		// permittivity at infinite frequency
 double csi1, csi2, csi3;
-double sigma_;            // conducivity coeff
-constexpr int maxlevel = 6;
+double sigma_;            					// conducivity coeff
+constexpr int maxlevel = 5;
 
 namespace tests{
 
@@ -72,45 +72,45 @@ namespace tests{
 			int refinement (tmesh_3d::quadrant_iterator q) const
 				{
 					int currentlevel = static_cast<int> (q->the_quadrant->level);
-  				double xcoord;
-  				int retval = 0;
-  				for (int ii = 0; ii < 4; ++ii)
-  				  {
-  				    xcoord = q->p(0, ii);
+  					double zcoord;
+  					int retval = 0;
+  					for (int ii = 0; ii < 8; ++ii)
+  					  {
+  					    zcoord = q->p(2, ii);
 
-  				    if (fabs(xcoord - 0.0005) < 1e-9)
-  				      {
-  				        retval = maxlevel - currentlevel;
-  				        break;
-  				      }
-  				  }
+  					    if (fabs(zcoord - 0.0005) < 1e-9)
+  					      {
+  					        retval = maxlevel - currentlevel;
+  					        break;
+  					      }
+  					  }
 
-  				if (currentlevel >= maxlevel)
-  				  retval = 0;
+  					if (currentlevel >= maxlevel)
+  						retval = 0;
 
-  				return retval;
+  					return retval;
 				}
 
 			int coarsening (tmesh_3d::quadrant_iterator q) const
 				{
-				  int currentlevel = static_cast<int> (q->the_quadrant->level);
-  				double xcoord;
-  				int retval = currentlevel - NUM_REFINEMENTS;
-  				for (int ii = 0; ii < 4; ++ii)
-    				{     
-	      			xcoord = q->p(0, ii);
+					int currentlevel = static_cast<int> (q->the_quadrant->level);
+  					double zcoord;
+  					int retval = currentlevel - NUM_REFINEMENTS;
+  					for (int ii = 0; ii < 8; ++ii)
+    					{     
+	      					zcoord = q->p(2, ii);
 
-      				if (fabs(xcoord - 0.0005) < 1e-9)
-        			{
-	          		retval = 0;
-          			break;
-        			}
-    				}
+      						if (fabs(zcoord - 0.0005) < 1e-9)
+        					{
+	          					retval = 0;
+          						break;
+        					}
+    					}
 
-				  if (currentlevel <= NUM_REFINEMENTS)
-		    	retval = 0;
+					if (currentlevel <= NUM_REFINEMENTS)
+		    			retval = 0;
       
-  				return (retval);
+  					return (retval);
 				}
 				
 			double epsilon_fun(const double & x, const double & y, const double & z) const

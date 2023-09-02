@@ -25,6 +25,8 @@
 #include <algorithm>
 #include <octave_file_io.h>
 #include <array>
+#include <vector>
+#include <unordered_set>
 #include <functional>
 
 #include <bim_distributed_vector.h>
@@ -88,25 +90,24 @@ auto makeorder(){
   return make_order_struct<N,std::make_integer_sequence<size_t,N>>::fun();
 }
 
-void json_export(std::ifstream &is, std::ofstream &os) {
+void json_export (std::ifstream &is, std::ofstream &os) {
   json J;
   std::vector<std::string> variable_names;
-  std::string prove;
   size_t num_var = 0;
   std::string line;
   std::getline(is, line);
-  std::stringstream sstream(line);
-  while (!sstream.eof()){
+  std::stringstream header(line);
+  while (!header.eof()){
     variable_names.push_back("");
-    sstream >> variable_names[num_var];
+    header >> variable_names[num_var];
     J[variable_names[num_var]] = std::vector<double>();
     num_var++;
   }
+
   double num;
   size_t count;
-  
-  while(!is.eof()){
-    for(size_t i = 0; i < num_var; ++i){
+  while (!is.eof()){
+    for (size_t i = 0; i < num_var; ++i){
       if (is >> num)
         J[variable_names[i]].push_back(num);
     }
@@ -114,9 +115,10 @@ void json_export(std::ifstream &is, std::ofstream &os) {
   os << std::setw(4) << J;
   return;
 }
+
 using q1_vec_ = q1_vec<distributed_vector>;
 template <size_t N_eqs>
-void time_step(const int rank, const double time, const double DELTAT,
+void time_step (const int rank, const double time, const double DELTAT,
                 std::unique_ptr<tests::generic_test> const &test,
                 const std::array<ordering,N_eqs> &ord,
                 tmesh_3d &tmsh, mumps *lin_solver,
@@ -142,7 +144,7 @@ void time_step(const int rank, const double time, const double DELTAT,
     bcs0.push_back (std::make_tuple (0, 5, [time,DELTAT](double x, double y, double z){return (time+DELTAT) < 15 ? 1.5e4 * (1 - exp(-(time+DELTAT)/tau)) : 0;})); //top
 
     // Print curent time
-    if(rank==0)
+    if (rank==0)
       std::cout << "TIME= "<< time + DELTAT <<std::endl;
 
     // Reset containers
@@ -170,21 +172,21 @@ void time_step(const int rank, const double time, const double DELTAT,
       diffusion_term_p3[quadrant->get_forest_quad_idx ()] =
         - DELTAT / tau_p3 * epsilon_0 * test->csi_3_fun(xx,yy,zz);
       sigma[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,DELTAT);
-      for (int ii = 0; ii < 8; ++ii)
+      for (int ii = 0; ii < 8; ++ii) {
         if (! quadrant->is_hanging (ii)){
           g0[quadrant->gt (ii)] = sold[ord[0](quadrant->gt (ii))];
-
           gp1[quadrant->gt (ii)] = sold[ord[2](quadrant->gt (ii))];
           gp2[quadrant->gt (ii)] = sold[ord[3](quadrant->gt (ii))];
           gp3[quadrant->gt (ii)] = sold[ord[4](quadrant->gt (ii))];
         }
         else
-          for (int jj = 0; quadrant->num_parents (ii); ++jj){
+          for (int jj = 0; jj < quadrant->num_parents (ii); ++jj){
             g0[quadrant->gparent (jj, ii)] += 0.;
             gp1[quadrant->gparent (jj, ii)] += 0.;
             gp2[quadrant->gparent (jj, ii)] += 0.;
             gp3[quadrant->gparent (jj, ii)] += 0.;
           }
+      }
     }
 
     g0.assemble(replace_op);
@@ -290,12 +292,14 @@ main (int argc, char **argv)
   test->import_params(data);
   data_file.close();
   /*
-  Manegement of solutions ordering: ord[0]-> phi                 ord[1]->rho
-  Equation ordering: ord[0]->diffusion-reaction equation         ord[1]->continuity equation 
+  Manegement of solutions ordering:   Equation ordering:
+  ord[0]-> rho                        ord[0]-> continuity equation
+  ord[1]-> phi                        ord[1]-> diffusion-reaction equation
+  ord[2]-> p1                         ord[2]-> p1 equation
+  ord[3]-> p2                         ord[3]-> p2 equation
+  ord[4]-> p3                         ord[4]-> p3 equation
   */
   
-//  const std::array<ordering,N_eqs> ord{dof_ordering<N_eqs,0>,
-//                                      dof_ordering<N_eqs,1>};
   constexpr size_t N_eqs= 5;
   constexpr size_t N_polcur = 3;
   const std::array<ordering,N_eqs> ord(makeorder<N_eqs>());
@@ -393,7 +397,8 @@ main (int argc, char **argv)
   q1_vec Bsol1 (ln_nodes * 2);
   q1_vec Bsol2 (ln_nodes * 2);
   q1_vec Ivec1 (ln_nodes * 2), Ivec2 (ln_nodes *2);
-
+  std::unordered_set<size_t> Ivec_index{};
+  size_t size_of_Ivec_index;
   // Initialize constant (in time) parameters and initial data
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
        quadrant != tmsh.end_quadrant_sweep ();
@@ -528,6 +533,7 @@ main (int argc, char **argv)
     }
   }
 
+// lambda functions to use for currents computation (simple method)
   func3_quad Jx_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
     return test->sigma_fun(q->centroid(0),q->centroid(1),q->centroid(2),1.)*
         (sold[ord[1](q->gt(4))] + sold[ord[1](q->gt(5))] + sold[ord[1](q->gt(6))] + sold[ord[1](q->gt(7))]
@@ -551,10 +557,11 @@ main (int argc, char **argv)
   
   
 
-
+// print header of output files
   if (rank == 0 && save_error) {
     error_file.open("error.txt");
-    error_file << std::setw(20) << "time" << std::setw(20) << "max_error" << std::endl;
+    error_file << std::setw(20) << "time"
+               << std::setw(20) << "max_error" << std::endl;
   }
   if (rank == 0 && save_currents) {
     currents_file.open("currents_file.txt");
@@ -569,6 +576,14 @@ main (int argc, char **argv)
 
   q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
 
+// store indexes of nodes on border where to estimate current
+  for (auto quadrant = tmsh.begin_quadrant_sweep ();
+      quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
+    for (int ii = 0; ii < 8; ii++)
+      if (quadrant->e(ii) == 5)
+        Ivec_index.insert(ord_displ_curr[0](quadrant->gt (ii)));
+
+// time cycle
   while (time < T - eps) {
     if (rank == 0)
       std::cout << "____________ COMPUTING FOR TIME = " << time + DT << " ____________" << std::endl;
@@ -641,17 +656,9 @@ main (int argc, char **argv)
 //      Ivec2.assemble(replace_op);
 
       I_d1 = 0.; I_d2 = 0.;
-      for (auto quadrant = tmsh.begin_quadrant_sweep ();
-          quadrant != tmsh.end_quadrant_sweep (); ++quadrant) {
-        for (int ii = 0; ii < 8; ii++) {
-          if (quadrant->e(ii) == 5) {
-            I_d1 += Ivec1[ord_displ_curr[0](quadrant->gt (ii))]/4;
-            I_d2 += Ivec2[ord_displ_curr[0](quadrant->gt (ii))]/4;
-          }
-          /*for (int jj = 0; jj < 4; jj++)
-            if (quadrant->e(jj) == 2 || quadrant->e(jj) == 3)
-              I_d1 += Ivec1[ord_displ_curr[0](quadrant->gt (ii))]/2;*/
-        }
+      for (auto it = Ivec_index.cbegin(); it != Ivec_index.cend(); it++) {
+        I_d1 += Ivec1[*it];
+        I_d2 += Ivec2[*it];
       }
       std::cout << rank << "    " << I_d1 << "   " << I_d2 << std::endl;
       MPI_Allreduce(MPI_IN_PLACE, &I_d1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -732,6 +739,7 @@ main (int argc, char **argv)
             sprintf(filename, "output/model_1_p3_%4.4d", count);
             tmsh.octbin_export (filename,sold, ord[4]);
           }
+          dt *= std::pow(err_max/toll,-0.5)*0.9;
           break;
         }
         // update dt
