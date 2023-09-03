@@ -114,7 +114,7 @@ namespace tests{
 				}
 				
 			double epsilon_fun(const double & x, const double & y, const double & z) const
-				{return x < 0.0005 ? epsilon_0 * epsilon_inf_1 : epsilon_0 * epsilon_inf_2;}
+				{return z < 0.0005 ? epsilon_0 * epsilon_inf_1 : epsilon_0 * epsilon_inf_2;}
 
 			double csi_1_fun(const double & x, const double & y, const double & z) const
 				{return csi1;}
