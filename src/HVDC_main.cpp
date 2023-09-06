@@ -65,6 +65,7 @@ auto makeorder(){
 
 extern const int NUM_REFINEMENTS;
 extern double T;
+extern double T_discharge;
 extern double tau;
 extern double tau_p1, tau_p2, tau_p3;
 extern bool save_sol;
@@ -141,7 +142,7 @@ void time_step (const int rank, const double time, const double DELTAT,
     // Define boundary conditions
     dirichlet_bcs3 bcs0, bcs1;
     bcs0.push_back (std::make_tuple (0, 4, [](double x, double y, double z){return 0.0;})); //bottom
-    bcs0.push_back (std::make_tuple (0, 5, [time,DELTAT](double x, double y, double z){return (time+DELTAT) < 15 ? 1.5e4 * (1 - exp(-(time+DELTAT)/tau)) : 0;})); //top
+    bcs0.push_back (std::make_tuple (0, 5, [time,DELTAT](double x, double y, double z){return (time+DELTAT) < T_discharge ? 1.5e4 * (1 - exp(-(time+DELTAT)/tau)) : 0;})); //top
 
     // Print curent time
     if (rank==0)
@@ -278,11 +279,19 @@ main (int argc, char **argv)
   
   epsilon_0 = data[test_name]["epsilon_0"];
 
+  double time = 0.; int count = 0;
+  bool start_solution_from_file = data[test_name]["start_solution_from_file"];
+  if (start_solution_from_file) {
+    time = data[test_name]["initial_time"];
+    count = data[test_name]["count"];
+  }
+  T_discharge = data[test_name]["T_discharge"];
   double DT = data[test_name]["DT"];
   double dt = data[test_name]["dt"];
   double toll = data[test_name]["toll_of_adaptive_time_step"];
   bool save_error = data[test_name]["save_error"];
   bool save_currents = data[test_name]["save_currents"];
+  bool save_displ_current = data[test_name]["save_displ_current"];
   bool compute_2_contacts = data[test_name]["compute_2_contacts"];
   
 //  std::cout << dlerror() << std::endl; // uncomment this line only to debug!
@@ -399,6 +408,12 @@ main (int argc, char **argv)
   q1_vec Ivec1 (ln_nodes * 2), Ivec2 (ln_nodes *2);
   std::unordered_set<size_t> Ivec_index1{};
   std::unordered_set<size_t> Ivec_index2{};
+  
+  //setup streamings
+  std::ofstream error_file, currents_file, I_displ_file;
+  std::fstream current_solution;
+  if (start_solution_from_file)
+    current_solution.open("current_solution_rank_" + std::to_string(rank), std::fstream::in);
 
   // Initialize constant (in time) parameters and initial data
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
@@ -464,6 +479,13 @@ main (int argc, char **argv)
     }
 //  tmsh.octbin_export_quadrant ("epsilon_file", epsilon);
 //  tmsh.octbin_export_quadrant ("sigma_file", sigma);
+  if (start_solution_from_file) {
+    for (auto it = sold.get_owned_data().begin(); it != sold.get_owned_data().end(); ++it)
+      current_solution >> *it;
+      current_solution.close();
+  }
+  current_solution.open("current_solution_rank_" + std::to_string(rank), std::fstream::out);
+    
 
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[1], false);
@@ -489,10 +511,9 @@ main (int argc, char **argv)
   sprintf(filename, "output/model_1_p3_0000");
   tmsh.octbin_export (filename, sold, ord[4]);
 
-  int count = 0;
+  
 
   // Time cycle
-  double time = 0.0;
   double time_in_step = 0.0;
   double eps = 1.0e-10;
   double err_max;
@@ -501,7 +522,7 @@ main (int argc, char **argv)
   pol_charges_old.fill(0.);
 
   double I_c;
-  double I_despl1, I_despl2, I_d1_c1, I_d2_c1, I_d1_c2, I_d2_c2;
+  double I_displ1, I_displ2, I_d1_c1, I_d2_c1, I_d1_c2, I_d2_c2;
   double I_p_inf;
   double I_p_k;
   double E_flux, E_flux_old = 0.;
@@ -559,45 +580,66 @@ main (int argc, char **argv)
   func3_quad p3_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
     return (q->p(2,4)-q->p(2,0))*(sold[ord[4](q->gt(4))] + sold[ord[4](q->gt(5))] + sold[ord[4](q->gt(6))] + sold[ord[4](q->gt(7))])/8;
   };
-  std::ofstream error_file, currents_file;
   
-  
-
 // print header of output files
   if (rank == 0 && save_error) {
-    error_file.open("error.txt");
-    error_file << std::setw(20) << "time"
-               << std::setw(20) << "error/tol" << std::endl;
+    if (!start_solution_from_file) {
+      error_file.open("error.txt");
+      error_file << std::setw(20) << "time"
+                 << std::setw(20) << "error/tol" << std::endl;
+    }
+    else
+      error_file.open("error.txt", std::fstream::app);
   }
   if (rank == 0 && save_currents) {
-    currents_file.open("currents_file.txt");
-    if (! compute_2_contacts)
-      currents_file << std::setw(20) << "time"
-                    << std::setw(20) << "I_c"
-                    << std::setw(20) << "I_p_inf"
-                    << std::setw(20) << "I_p_1"
-                    << std::setw(20) << "I_p_2"
-                    << std::setw(20) << "I_p_3"
-                    << std::setw(20) << "I_despl"
-                    << std::setw(20) << "free_charge" 
-                    << std::setw(20) << "P_1_charge" 
-                    << std::setw(20) << "P_2_charge" 
-                    << std::setw(20) << "P_3_charge" << std::endl;
-    else
-      currents_file << std::setw(20) << "time"
-                    << std::setw(20) << "I_c"
-                    << std::setw(20) << "I_p_inf"
-                    << std::setw(20) << "I_p_1"
-                    << std::setw(20) << "I_p_2"
-                    << std::setw(20) << "I_p_3"
-                    << std::setw(20) << "I_despl1"
-                    << std::setw(20) << "I_despl2"
-                    << std::setw(20) << "free_charge" 
-                    << std::setw(20) << "P_1_charge" 
-                    << std::setw(20) << "P_2_charge" 
-                    << std::setw(20) << "P_3_charge" << std::endl;
+    if (!start_solution_from_file) {
+      currents_file.open("currents_file.txt");
+      if (! compute_2_contacts) {
+        currents_file << std::setw(20) << "time"
+                      << std::setw(20) << "I_c"
+                      << std::setw(20) << "I_p_inf"
+                      << std::setw(20) << "I_p_1"
+                      << std::setw(20) << "I_p_2"
+                      << std::setw(20) << "I_p_3"
+                      << std::setw(20) << "I_displ"
+                      << std::setw(20) << "free_charge" 
+                      << std::setw(20) << "P_1_charge" 
+                      << std::setw(20) << "P_2_charge" 
+                      << std::setw(20) << "P_3_charge" << std::endl;
+      }
+      else {
+        currents_file << std::setw(20) << "time"
+                      << std::setw(20) << "I_c"
+                      << std::setw(20) << "I_p_inf"
+                      << std::setw(20) << "I_p_1"
+                      << std::setw(20) << "I_p_2"
+                      << std::setw(20) << "I_p_3"
+                      << std::setw(20) << "I_displ1"
+                      << std::setw(20) << "I_displ2"
+                      << std::setw(20) << "free_charge" 
+                      << std::setw(20) << "P_1_charge" 
+                      << std::setw(20) << "P_2_charge" 
+                      << std::setw(20) << "P_3_charge" << std::endl;
+      }
+    }
+    else {
+      currents_file.open("currents_file.txt", std::fstream::app);
+    }
   }
-
+  if (rank == 0 && save_displ_current) {
+    if (!start_solution_from_file) {
+      I_displ_file.open("I_displ_file.txt");
+      if (!compute_2_contacts)
+        I_displ_file  << std::setw(20) << "time"
+                      << std::setw(20) << "I_displ" << std::endl;
+      else
+        I_displ_file  << std::setw(20) << "time"
+                      << std::setw(20) << "I_displ1"
+                      << std::setw(20) << "I_displ2" << std::endl;
+    }
+    else
+      I_displ_file.open("I_displ_file.txt", std::fstream::app);
+  }
   q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
 
 // store indexes of nodes on border where to estimate current
@@ -677,9 +719,6 @@ main (int argc, char **argv)
       bim3a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
       bim3a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
       Ivec2 = B*Bsol2;
-//Why trying to assemble fails?
-//      Ivec1.assemble(replace_op);
-//      Ivec2.assemble(replace_op);
 
       I_d1_c1 = 0.; I_d2_c1 = 0.; I_d1_c2 = 0.; I_d2_c2 = 0.;
       for (auto it = Ivec_index1.cbegin(); it != Ivec_index1.cend(); it++) {
@@ -701,14 +740,10 @@ main (int argc, char **argv)
         MPI_Allreduce(MPI_IN_PLACE, &I_d2_c2, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
       }
 
-      I_despl1 = I_d2_c1;
-      I_despl2 = I_d2_c2;
+      I_displ1 = I_d2_c1;
+      I_displ2 = I_d2_c2;
       err_max = std::fabs((I_d2_c1-I_d1_c1) / (std::fabs(I_d2_c1) + 1.0e-50));
-      /*for (size_t i = 0; i < sold.local_size(); i++)
-        err_max = std::max(err_max, std::fabs(sold1.get_owned_data()[i] - sold2.get_owned_data()[i]));
       
-      MPI_Allreduce(MPI_IN_PLACE, &err_max, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-      */
       if (rank == 0)
         std::cout << "error/toll = " << err_max/toll << std::endl;
       
@@ -717,8 +752,20 @@ main (int argc, char **argv)
         sold = std::move(sold2);
         if (rank == 0 && save_error)
           error_file << std::setw(20) << std::setprecision(5) << time + time_in_step << std::setw(20) << std::setprecision(7) << err_max << std::endl;
+        if (rank == 0 && save_displ_current) {
+          if (!compute_2_contacts)
+            I_displ_file  << std::setw(20) << time + time_in_step
+                          << std::setw(20) << I_displ1 << std::endl;
+          else
+            I_displ_file  << std::setw(20) << time + time_in_step
+                          << std::setw(20) << I_displ1
+                          << std::setw(20) << I_displ2 << std::endl;
+        }
         if (time_in_step > DT - eps) {
           time += DT;
+          for (auto it = sold.get_owned_data().cbegin(); it != sold.get_owned_data().cend(); ++it)
+            current_solution << *it << std::endl;
+          current_solution.seekp(0);
           if (save_currents) {
             
             Jx_vec.get_owned_data().assign(Jx_vec.get_owned_data().size(), 0.);
@@ -763,7 +810,7 @@ main (int argc, char **argv)
                             << std::setw(20) << std::setprecision(5) << (pol_charges[1] - pol_charges_old[1]) / DT
                             << std::setw(20) << std::setprecision(5) << (pol_charges[2] - pol_charges_old[2]) / DT
                             << std::setw(20) << std::setprecision(5) << (pol_charges[3] - pol_charges_old[3]) / DT
-                            << std::setw(20) << std::setprecision(5) << I_despl1
+                            << std::setw(20) << std::setprecision(5) << I_displ1
                             << std::setw(20) << std::setprecision(5) << (pol_charges[2] - pol_charges_old[2]) / DT
                             << std::setw(20) << std::setprecision(5) << pol_charges[0]
                             << std::setw(20) << std::setprecision(5) << pol_charges[1]
@@ -775,8 +822,8 @@ main (int argc, char **argv)
                             << std::setw(20) << std::setprecision(5) << (pol_charges[1] - pol_charges_old[1]) / DT
                             << std::setw(20) << std::setprecision(5) << (pol_charges[2] - pol_charges_old[2]) / DT
                             << std::setw(20) << std::setprecision(5) << (pol_charges[3] - pol_charges_old[3]) / DT
-                            << std::setw(20) << std::setprecision(5) << I_despl1
-                            << std::setw(20) << std::setprecision(5) << I_despl2
+                            << std::setw(20) << std::setprecision(5) << I_displ1
+                            << std::setw(20) << std::setprecision(5) << I_displ2
                             << std::setw(20) << std::setprecision(5) << (pol_charges[2] - pol_charges_old[2]) / DT
                             << std::setw(20) << std::setprecision(5) << pol_charges[0]
                             << std::setw(20) << std::setprecision(5) << pol_charges[1]
@@ -784,6 +831,7 @@ main (int argc, char **argv)
             pol_charges_old = pol_charges;
           }
           // Save solution
+
           if (save_sol == true) {
             ++count;
             sprintf(filename, "output/model_1_rho_%4.4d",count);
@@ -797,7 +845,7 @@ main (int argc, char **argv)
             sprintf(filename, "output/model_1_p3_%4.4d", count);
             tmsh.octbin_export (filename,sold, ord[4]);
           }
-          dt *= std::pow(err_max/toll,-0.5)*0.9;
+          dt *= std::min(DT,std::pow(err_max/toll,-0.5)*0.9);
           break;
         }
         // update dt
@@ -810,6 +858,7 @@ main (int argc, char **argv)
         dt /= 2;
     }
   }
+  current_solution.close();
   if (rank==0){
     error_file.close();
     currents_file.close();
@@ -822,7 +871,16 @@ main (int argc, char **argv)
       curr_file.close();
       curr_file_json.close();
     }
-    if(save_error) {
+    if (save_displ_current) {
+      std::ifstream displ_curr_file;
+      std::ofstream displ_curr_file_json;
+      displ_curr_file.open("I_displ_file.txt");
+      displ_curr_file_json.open("I_displ_file.json");
+      json_export(displ_curr_file, displ_curr_file_json);
+      displ_curr_file.close();
+      displ_curr_file_json.close();
+    }
+    if (save_error) {
       std::ifstream err_file;
       std::ofstream err_file_json;
       err_file.open("error.txt");

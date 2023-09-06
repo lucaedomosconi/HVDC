@@ -10,6 +10,7 @@ using json = nlohmann::json;
 
 extern const int NUM_REFINEMENTS;
 double T;
+double T_discharge;
 double tau;
 double tau_p1, tau_p2, tau_p3;
 bool save_sol;
