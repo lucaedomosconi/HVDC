@@ -67,7 +67,6 @@ extern const int NUM_REFINEMENTS;
 extern double T;
 extern double T_discharge;
 extern double tau;
-extern double tau_p1, tau_p2, tau_p3;
 extern bool save_sol;
 
 		// Problem parameters
@@ -161,17 +160,17 @@ void time_step (const int rank, const double time, const double DELTAT,
       double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)}, zz{quadrant->centroid(2)};  
 
       reaction_term_p1[quadrant->get_forest_quad_idx ()] =
-        1 + DELTAT / tau_p1;
+        1 + DELTAT / test->tau_p1_fun(xx,yy,zz);
       reaction_term_p2[quadrant->get_forest_quad_idx ()] =
-        1 + DELTAT / tau_p2;
+        1 + DELTAT / test->tau_p2_fun(xx,yy,zz);
       reaction_term_p3[quadrant->get_forest_quad_idx ()] =
-        1 + DELTAT / tau_p3;
+        1 + DELTAT / test->tau_p3_fun(xx,yy,zz);
       diffusion_term_p1[quadrant->get_forest_quad_idx ()] =
-        - DELTAT / tau_p1 * epsilon_0 * test->csi_1_fun(xx,yy,zz);
+        - DELTAT / test->tau_p1_fun(xx,yy,zz) * epsilon_0 * test->csi_1_fun(xx,yy,zz);
       diffusion_term_p2[quadrant->get_forest_quad_idx ()] =
-        - DELTAT / tau_p2 * epsilon_0 * test->csi_2_fun(xx,yy,zz);
+        - DELTAT / test->tau_p2_fun(xx,yy,zz) * epsilon_0 * test->csi_2_fun(xx,yy,zz);
       diffusion_term_p3[quadrant->get_forest_quad_idx ()] =
-        - DELTAT / tau_p3 * epsilon_0 * test->csi_3_fun(xx,yy,zz);
+        - DELTAT / test->tau_p3_fun(xx,yy,zz) * epsilon_0 * test->csi_3_fun(xx,yy,zz);
       sigma[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,DELTAT);
       for (int ii = 0; ii < 8; ++ii) {
         if (! quadrant->is_hanging (ii)){
@@ -272,9 +271,6 @@ main (int argc, char **argv)
   
   T = data[test_name]["T"];
   tau = data[test_name]["tau"];
-  tau_p1 = data[test_name]["tau_p1"];
-  tau_p2 = data[test_name]["tau_p2"];
-  tau_p3 = data[test_name]["tau_p3"];
   save_sol = data[test_name]["save_sol"];
   
   epsilon_0 = data[test_name]["epsilon_0"];

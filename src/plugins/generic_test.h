@@ -39,6 +39,12 @@ namespace tests{
 
 			virtual double csi_3_fun(const double & x, const double & y, const double & z) const = 0;
 
+			virtual double tau_p1_fun(const double & x, const double & y, const double & z) const = 0;
+
+			virtual double tau_p2_fun(const double & x, const double & y, const double & z) const = 0;
+
+			virtual double tau_p3_fun(const double & x, const double & y, const double & z) const = 0;
+
 			virtual double sigma_fun(const double & x, const double & y, const double & z, const double & DT) const = 0;
 
   };
