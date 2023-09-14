@@ -8,7 +8,7 @@ const int NUM_REFINEMENTS = 4;
 double epsilon_inf_1, epsilon_inf_2;		// permittivity at infinite frequency
 double csi1, csi2, csi3;
 double sigma_;            					// conducivity coeff
-constexpr int maxlevel = 5;
+constexpr int maxlevel = 6;
 
 namespace tests{
 

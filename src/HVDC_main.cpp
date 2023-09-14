@@ -405,76 +405,90 @@ main (int argc, char **argv)
   std::unordered_set<size_t> Ivec_index1{};
   std::unordered_set<size_t> Ivec_index2{};
   
-  //setup streamings
+  // setup streamings
   std::ofstream error_file, currents_file, I_displ_file;
   std::fstream current_solution;
   if (start_solution_from_file)
     current_solution.open("current_solution_rank_" + std::to_string(rank), std::fstream::in);
 
+  // data to print
+  std::array<double,4> pol_charges, pol_charges_old;
+  pol_charges_old.fill(0.);
+
+  double I_c;
+  double I_displ1, I_displ2, I_d1_c1, I_d2_c1, I_d1_c2, I_d2_c2;
+  double I_p_inf;
+  double I_p_k;
+  double E_flux, E_flux_old = 0.;
+  q1_vec Jx_vec(ln_nodes);
+  q1_vec Ex_vec(ln_nodes);
+  q1_vec charges_vec(ln_nodes * (N_polcur+1));
+  Jx_vec.get_owned_data().assign(Jx_vec.get_owned_data().size(),0.);
+  Ex_vec.get_owned_data().assign(Ex_vec.get_owned_data().size(),0.);
+  charges_vec.get_owned_data().assign(charges_vec.get_owned_data().size(),0.);
+
   // Initialize constant (in time) parameters and initial data
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
        quadrant != tmsh.end_quadrant_sweep ();
-       ++quadrant)
-    {
-      double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)}, zz{quadrant->centroid(2)};  
+       ++quadrant) {
+    double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)}, zz{quadrant->centroid(2)};  
 
-      epsilon[quadrant->get_forest_quad_idx ()] = test->epsilon_fun(xx,yy,zz);
-      
-      delta1[quadrant->get_forest_quad_idx ()] = -1.0;
-      delta0[quadrant->get_forest_quad_idx ()] = 1.0;
-      f1[quadrant->get_forest_quad_idx ()] = 0.0;
-      f0[quadrant->get_forest_quad_idx ()] = 1.0;
-      sigmaB[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,1.);
+    epsilon[quadrant->get_forest_quad_idx ()] = test->epsilon_fun(xx,yy,zz);
+    delta1[quadrant->get_forest_quad_idx ()] = -1.0;
+    delta0[quadrant->get_forest_quad_idx ()] = 1.0;
+    f1[quadrant->get_forest_quad_idx ()] = 0.0;
+    f0[quadrant->get_forest_quad_idx ()] = 1.0;
+    sigmaB[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,1.);
 
-      for (int ii = 0; ii < 8; ++ii)
-        {
-          if (! quadrant->is_hanging (ii))
-          {
-            zero_q1[quadrant->gt (ii)] = 0.;
-            zeta0[quadrant->gt (ii)] = 1.0;
-            zeta1[quadrant->gt (ii)] = 1.0;
-            g1[quadrant->gt (ii)] = 0.;
+    for (int ii = 0; ii < 8; ++ii) {
+      if (! quadrant->is_hanging (ii)) {
+        zero_q1[quadrant->gt (ii)] = 0.;
+        zeta0[quadrant->gt (ii)] = 1.0;
+        zeta1[quadrant->gt (ii)] = 1.0;
+        g1[quadrant->gt (ii)] = 0.;
 
-            sold[ord[0](quadrant->gt (ii))] = 0.0;
-            sold[ord[1](quadrant->gt (ii))] = 0.0;
-            sold[ord[2](quadrant->gt (ii))] = 0.0;
-            sold[ord[3](quadrant->gt (ii))] = 0.0;
-            sold[ord[4](quadrant->gt (ii))] = 0.0;
+        sold[ord[0](quadrant->gt (ii))] = 0.0;
+        sold[ord[1](quadrant->gt (ii))] = 0.0;
+        sold[ord[2](quadrant->gt (ii))] = 0.0;
+        sold[ord[3](quadrant->gt (ii))] = 0.0;
+        sold[ord[4](quadrant->gt (ii))] = 0.0;
 
-            sol[ord[0](quadrant->gt (ii))] = 0.0;
-            sol[ord[1](quadrant->gt (ii))] = 0.0;
-            sol[ord[2](quadrant->gt (ii))] = 0.0;
-            sol[ord[3](quadrant->gt (ii))] = 0.0;
-            sol[ord[4](quadrant->gt (ii))] = 0.0;
+        sol[ord[0](quadrant->gt (ii))] = 0.0;
+        sol[ord[1](quadrant->gt (ii))] = 0.0;
+        sol[ord[2](quadrant->gt (ii))] = 0.0;
+        sol[ord[3](quadrant->gt (ii))] = 0.0;
+        sol[ord[4](quadrant->gt (ii))] = 0.0;
 
-            Ivec1[ord_displ_curr[0](quadrant->gt (ii))] = 0.0;
-            Ivec1[ord_displ_curr[1](quadrant->gt (ii))] = 0.0;
-            Ivec2[ord_displ_curr[0](quadrant->gt (ii))] = 0.0;
-            Ivec2[ord_displ_curr[1](quadrant->gt (ii))] = 0.0;
-          }
-          else
-            for (int jj = 0; jj < quadrant->num_parents (ii); ++jj)
-              {
-                zero_q1[quadrant->gparent (jj, ii)] += 0.;
-                zeta0[quadrant->gparent (jj, ii)] += 0.;
-                zeta1[quadrant->gparent (jj, ii)] += 0.;
-                g1[quadrant->gparent (jj, ii)] += 0.;
+        Jx_vec[quadrant->gt(ii)] = 0.;
+        Ex_vec[quadrant->gt(ii)] = 0.;
+        charges_vec[ord_c[0](quadrant->gt(ii))] = 0.;
+        charges_vec[ord_c[1](quadrant->gt(ii))] = 0.;
+        charges_vec[ord_c[2](quadrant->gt(ii))] = 0.;
+        charges_vec[ord_c[3](quadrant->gt(ii))] = 0.;
+      }
+      else
+        for (int jj = 0; jj < quadrant->num_parents (ii); ++jj) {
+          zero_q1[quadrant->gparent (jj, ii)] += 0.;
+          zeta0[quadrant->gparent (jj, ii)] += 0.;
+          zeta1[quadrant->gparent (jj, ii)] += 0.;
+          g1[quadrant->gparent (jj, ii)] += 0.;
 
-                sold[ord[0](quadrant->gparent (jj, ii))] += 0.;
-                sold[ord[1](quadrant->gparent (jj, ii))] += 0.;
-                sold[ord[2](quadrant->gparent (jj, ii))] += 0.;
-                sold[ord[3](quadrant->gparent (jj, ii))] += 0.;
-                sold[ord[4](quadrant->gparent (jj, ii))] += 0.;
+          sold[ord[0](quadrant->gparent (jj, ii))] += 0.;
+          sold[ord[1](quadrant->gparent (jj, ii))] += 0.;
+          sold[ord[2](quadrant->gparent (jj, ii))] += 0.;
+          sold[ord[3](quadrant->gparent (jj, ii))] += 0.;
+          sold[ord[4](quadrant->gparent (jj, ii))] += 0.;
 
-                Ivec1[ord_displ_curr[0](quadrant->gparent (jj, ii))] += 0.;
-                Ivec1[ord_displ_curr[1](quadrant->gparent (jj, ii))] += 0.;
-                Ivec2[ord_displ_curr[0](quadrant->gparent (jj, ii))] += 0.;
-                Ivec2[ord_displ_curr[1](quadrant->gparent (jj, ii))] += 0.;
-              }
+          Jx_vec[quadrant->gparent (jj, ii)] += 0.;
+          Ex_vec[quadrant->gparent (jj, ii)] += 0.;
+          charges_vec[ord_c[0](quadrant->gparent (jj, ii))] += 0.;
+          charges_vec[ord_c[1](quadrant->gparent (jj, ii))] += 0.;
+          charges_vec[ord_c[2](quadrant->gparent (jj, ii))] += 0.;
+          charges_vec[ord_c[3](quadrant->gparent (jj, ii))] += 0.;
         }
     }
-//  tmsh.octbin_export_quadrant ("epsilon_file", epsilon);
-//  tmsh.octbin_export_quadrant ("sigma_file", sigma);
+  }
+
   if (start_solution_from_file) {
     for (auto it = sold.get_owned_data().begin(); it != sold.get_owned_data().end(); ++it)
       current_solution >> *it;
@@ -507,53 +521,8 @@ main (int argc, char **argv)
   sprintf(filename, "output/model_1_p3_0000");
   tmsh.octbin_export (filename, sold, ord[4]);
 
-  
 
-  // Time cycle
-  double time_in_step = 0.0;
-  double eps = 1.0e-10;
-  double err_max;
-  
-  std::array<double,4> pol_charges, pol_charges_old;
-  pol_charges_old.fill(0.);
-
-  double I_c;
-  double I_displ1, I_displ2, I_d1_c1, I_d2_c1, I_d1_c2, I_d2_c2;
-  double I_p_inf;
-  double I_p_k;
-  double E_flux, E_flux_old = 0.;
-  q1_vec Jx_vec(ln_nodes);
-  q1_vec Ex_vec(ln_nodes);
-  q1_vec charges_vec(ln_nodes * (N_polcur+1));
-  Jx_vec.get_owned_data().assign(Jx_vec.get_owned_data().size(),0.);
-  Ex_vec.get_owned_data().assign(Ex_vec.get_owned_data().size(),0.);
-  charges_vec.get_owned_data().assign(charges_vec.get_owned_data().size(),0.);
-  
-  for (auto quadrant = tmsh.begin_quadrant_sweep ();
-    quadrant != tmsh.end_quadrant_sweep ();
-    ++quadrant) {
-    for (int ii = 0; ii < 8; ++ii) {
-      if (! quadrant->is_hanging (ii)) {
-        Jx_vec[quadrant->gt(ii)] = 0.;
-        Ex_vec[quadrant->gt(ii)] = 0.;
-        charges_vec[ord_c[0](quadrant->gt(ii))] = 0.;
-        charges_vec[ord_c[1](quadrant->gt(ii))] = 0.;
-        charges_vec[ord_c[2](quadrant->gt(ii))] = 0.;
-        charges_vec[ord_c[3](quadrant->gt(ii))] = 0.;
-      }
-      else
-        for (int jj = 0; jj < quadrant->num_parents (ii); ++jj) {
-          Jx_vec[quadrant->gparent (jj, ii)] += 0.;
-          Ex_vec[quadrant->gparent (jj, ii)] += 0.;
-          charges_vec[ord_c[0](quadrant->gparent (jj, ii))] += 0.;
-          charges_vec[ord_c[1](quadrant->gparent (jj, ii))] += 0.;
-          charges_vec[ord_c[2](quadrant->gparent (jj, ii))] += 0.;
-          charges_vec[ord_c[3](quadrant->gparent (jj, ii))] += 0.;
-        }
-    }
-  }
-
-// lambda functions to use for currents computation (simple method)
+  // lambda functions to use for currents computation (simple method)
   func3_quad Jx_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
     return test->sigma_fun(q->centroid(0),q->centroid(1),q->centroid(2),1.)*
         (sold[ord[1](q->gt(4))] + sold[ord[1](q->gt(5))] + sold[ord[1](q->gt(6))] + sold[ord[1](q->gt(7))]
@@ -577,7 +546,7 @@ main (int argc, char **argv)
     return (q->p(2,4)-q->p(2,0))*(sold[ord[4](q->gt(4))] + sold[ord[4](q->gt(5))] + sold[ord[4](q->gt(6))] + sold[ord[4](q->gt(7))])/8;
   };
   
-// print header of output files
+  // print header of output files
   if (rank == 0 && save_error) {
     if (!start_solution_from_file) {
       error_file.open("error.txt");
@@ -638,7 +607,7 @@ main (int argc, char **argv)
   }
   q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
 
-// store indexes of nodes on border where to estimate current
+  // store indexes of nodes on border where to estimate current
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
       quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
     for (int ii = 0; ii < 8; ii++) {
@@ -647,7 +616,12 @@ main (int argc, char **argv)
       else if (compute_2_contacts || quadrant->e(ii) == 4)
         Ivec_index2.insert(ord_displ_curr[0](quadrant->gt (ii)));
     }
-// time cycle
+  
+  // Time cycle
+  double time_in_step = 0.0;
+  double eps = 1.0e-10;
+  double err_max;
+
   while (time < T - eps) {
     if (rank == 0)
       std::cout << "____________ COMPUTING FOR TIME = " << time + DT << " ____________" << std::endl;
@@ -702,11 +676,8 @@ main (int argc, char **argv)
 
       Bsol1.assemble(replace_op);
       Bsol2.assemble(replace_op);
-      Ivec1.get_owned_data().assign(Ivec1.get_owned_data().size(), 0.);
-      Ivec2.get_owned_data().assign(Ivec2.get_owned_data().size(), 0.);
-      Ivec1.assemble(replace_op);
-      Ivec2.assemble(replace_op);
-
+      
+      
       B.reset();
       bim3a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
       bim3a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
@@ -886,6 +857,7 @@ main (int argc, char **argv)
       err_file_json.close();
     }
   }
+  dlclose(dl_p);
   // Close MPI and print report
   MPI_Barrier (MPI_COMM_WORLD);
 
