@@ -435,12 +435,6 @@ main (int argc, char **argv)
         zeta1[quadrant->gt (ii)] = 1.0;
         g1[quadrant->gt (ii)] = 0.;
 
-        sold[ord[0](quadrant->gt (ii))] = 0.0;
-        sold[ord[1](quadrant->gt (ii))] = 0.0;
-        sold[ord[2](quadrant->gt (ii))] = 0.0;
-        sold[ord[3](quadrant->gt (ii))] = 0.0;
-        sold[ord[4](quadrant->gt (ii))] = 0.0;
-
         sol[ord[0](quadrant->gt (ii))] = 0.0;
         sol[ord[1](quadrant->gt (ii))] = 0.0;
         sol[ord[2](quadrant->gt (ii))] = 0.0;
@@ -460,12 +454,6 @@ main (int argc, char **argv)
           zeta0[quadrant->gparent (jj, ii)] += 0.;
           zeta1[quadrant->gparent (jj, ii)] += 0.;
           g1[quadrant->gparent (jj, ii)] += 0.;
-
-          sold[ord[0](quadrant->gparent (jj, ii))] += 0.;
-          sold[ord[1](quadrant->gparent (jj, ii))] += 0.;
-          sold[ord[2](quadrant->gparent (jj, ii))] += 0.;
-          sold[ord[3](quadrant->gparent (jj, ii))] += 0.;
-          sold[ord[4](quadrant->gparent (jj, ii))] += 0.;
 
           Jx_vec[quadrant->gparent (jj, ii)] += 0.;
           Ex_vec[quadrant->gparent (jj, ii)] += 0.;
