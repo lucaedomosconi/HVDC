@@ -317,7 +317,7 @@ main (int argc, char **argv)
   tmsh.set_refine_marker ([&test](tmesh_3d::quadrant_iterator q) {return test->uniform_refinement(q);});
   tmsh.refine (recursive);
 
-  // In test 1 we only have uniform refinement, in all other cases we perform additional refinement
+  // According to the test we may refine the grid or just leave it uniform
   if (test->extra_refinement) 
   {
     tmsh.set_refine_marker([&test](tmesh_3d::quadrant_iterator q) {return test->refinement(q);});

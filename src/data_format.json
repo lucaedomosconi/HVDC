@@ -1,0 +1,45 @@
+{
+	"test_to_run" : 
+	[
+		"test1"
+	],
+	"test1" : {
+		"physics_grid" : {
+			"epsilon_0" : 8.8542e-12,
+			"physics_grid_plugin" : "libPhy_Gri.so",
+			"plugin_params" : {
+				"tau_p1" : 1.0,
+				"tau_p2" : 10.0,
+				"tau_p3" : 100.0,
+				"epsilon_inf_1" : 2,
+				"csi1" : 0.5,
+				"csi2" : 1.0,
+				"csi3" : 2.0,
+				"sigma" : 3.21e-14
+			}
+		},
+		"algorithm" : {
+			"NUM_REFINEMENTS" : 4,
+			"maxlevel" : 6,
+			"initial_time" : 0.0,
+			"count" : 0,
+			"T" : 1,
+			"initial_dt_for_adaptive_time_step" : 0.00001,
+			"tol_of_adaptive_time_step" : 0.01,
+			"voltage_plugin" : "libVoltages.so",
+			"voltage_name" : "voltage1",
+			"voltage_plugins_params" : {
+				"T_discharge" : 300,
+				"tau" : 2.0
+			}
+		},
+		"options" : {
+			"print_solution_every_n_seconds" : 1,
+			"save_sol" : true,
+			"save_currents" : false,
+			"save_displ_current" : true,
+			"compute_2_contacts" : false,
+	  		"save_error" : true
+		}
+	}
+}
