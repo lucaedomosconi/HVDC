@@ -8,12 +8,6 @@
 using json = nlohmann::json;
 
 
-extern const int NUM_REFINEMENTS;
-double T;
-double T_discharge;
-double tau;
-double tau_p1, tau_p2, tau_p3;
-bool save_sol;
 // Problem parameters
 double epsilon_0;
 
@@ -21,7 +15,7 @@ double epsilon_0;
 namespace tests{
 	class generic_test {
     public:
-			virtual void import_params(const json &data) const = 0;
+			virtual void import_params(const json &data) = 0;
 
 			bool extra_refinement;
 

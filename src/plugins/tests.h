@@ -1,31 +1,38 @@
 #ifndef PARTICULAR_TEST_HPP
 #define PARTICULAR_TEST_HPP
-#include "factory.h"
+#include "test_factory.h"
 #include "generic_test.h"
 using json = nlohmann::json;
 
-const int NUM_REFINEMENTS = 4;
-double epsilon_inf_1, epsilon_inf_2;		// permittivity at infinite frequency
-double csi1, csi2, csi3;
-double sigma_;            					// conducivity coeff
-constexpr int maxlevel = 6;
+int NUM_REFINEMENTS = 4;
+int maxlevel = 6;
 
-namespace tests{
+
+
+
+namespace tests {
 
   class test1 : public generic_test {
+    private:
+      double epsilon_inf_1;		// permittivity at infinite frequency
+      double csi1, csi2, csi3;
+      double tau_p1, tau_p2, tau_p3;
+      double sigma_;            					    // conducivity coeff
     public:
 
 			test1() {extra_refinement = false;}
 			
-			void import_params(const json &data) const {
-				epsilon_inf_1 = data["test1"]["epsilon_inf_1"];
-				csi1 = data["test1"]["csi1"];
-				csi2 = data["test1"]["csi2"];
-				csi3 = data["test1"]["csi3"];
-        tau_p1 = data["test1"]["tau_p1"];
-        tau_p2 = data["test1"]["tau_p2"];
-        tau_p3 = data["test1"]["tau_p3"];
-				sigma_ = data["test1"]["sigma_"];
+			void import_params (const json &data) {
+				epsilon_inf_1 = data["test1"]["physics_grid"]["plugin_params"]["epsilon_inf_1"];
+				csi1 = data["test1"]["physics_grid"]["plugin_params"]["csi1"];
+				csi2 = data["test1"]["physics_grid"]["plugin_params"]["csi2"];
+				csi3 = data["test1"]["physics_grid"]["plugin_params"]["csi3"];
+        tau_p1 = data["test1"]["physics_grid"]["plugin_params"]["tau_p1"];
+        tau_p2 = data["test1"]["physics_grid"]["plugin_params"]["tau_p2"];
+        tau_p3 = data["test1"]["physics_grid"]["plugin_params"]["tau_p3"];
+				sigma_ = data["test1"]["physics_grid"]["plugin_params"]["sigma"];
+        NUM_REFINEMENTS = data["test1"]["algorithm"]["NUM_REFINEMENTS"];
+        maxlevel = data["test1"]["algorithm"]["maxlevel"];
 				return;
 			}
 
@@ -64,20 +71,27 @@ namespace tests{
   };
 
 	class test2 : public generic_test {
+    private:
+      double epsilon_inf_1, epsilon_inf_2;		// permittivity at infinite frequency
+      double csi1, csi2, csi3;
+      double tau_p1, tau_p2, tau_p3;
+      double sigma_;            					    // conducivity coeff
     public:
 
 			test2() {extra_refinement = true;}
 			
-			void import_params (const json &data) const {
-				epsilon_inf_1 = data["test2"]["epsilon_inf_1"];
-				epsilon_inf_2 = data["test2"]["epsilon_inf_2"];
-				csi1 = data["test2"]["csi1"];
-				csi2 = data["test2"]["csi2"];
-				csi3 = data["test2"]["csi3"];
-        tau_p1 = data["test2"]["tau_p1"];
-        tau_p2 = data["test2"]["tau_p2"];
-        tau_p3 = data["test2"]["tau_p3"];
-				sigma_ = data["test2"]["sigma_"];
+			void import_params (const json &data) {
+				epsilon_inf_1 = data["test2"]["physics_grid"]["plugin_params"]["epsilon_inf_1"];
+				epsilon_inf_2 = data["test2"]["physics_grid"]["plugin_params"]["epsilon_inf_2"];
+				csi1 = data["test2"]["physics_grid"]["plugin_params"]["csi1"];
+				csi2 = data["test2"]["physics_grid"]["plugin_params"]["csi2"];
+				csi3 = data["test2"]["physics_grid"]["plugin_params"]["csi3"];
+        tau_p1 = data["test2"]["physics_grid"]["plugin_params"]["tau_p1"];
+        tau_p2 = data["test2"]["physics_grid"]["plugin_params"]["tau_p2"];
+        tau_p3 = data["test2"]["physics_grid"]["plugin_params"]["tau_p3"];
+				sigma_ = data["test2"]["physics_grid"]["plugin_params"]["sigma"];
+        NUM_REFINEMENTS = data["test2"]["algorithm"]["NUM_REFINEMENTS"];
+        maxlevel = data["test2"]["algorithm"]["maxlevel"];
 				return;
 			}
 

@@ -37,39 +37,15 @@
 
 #include <nlohmann/json.hpp>
 
-//#include<test_2.h>
-//#include<test_3.h>
-//#include<test_4bis.h>
-//#include<test_5.h>
-#include "plugins/factory.h"
+
+#include "plugins/test_factory.h"
+#include "plugins/voltage_factory.h"
 #include <dlfcn.h>
-/*
-template<size_t... args>
-std::array<ordering,N_eqs> makeorder(){
-  return std::array<ordering,N_eqs> {dof_ordering<N_eqs,args>...};
-}
-*//*
-template<class>
-std::array<ordering,N_eqs> makeorder_impl();
+#include <filesystem>
 
-template<size_t... args>
-std::array<ordering,N_eqs> makeorder_impl<std::integer_sequence<size_t,args...>>(){
-  return std::array<ordering,N_eqs> {dof_ordering<N_eqs,args>...};
-};
 
-template<size_t N>
-auto makeorder(){
-  return makeorder_impl<std::make_integer_sequence<size_t,N>>();
-}
-*/
 
-extern const int NUM_REFINEMENTS;
-extern double T;
-extern double T_discharge;
-extern double tau;
-extern bool save_sol;
 
-		// Problem parameters
 extern double epsilon_0;
 
 
@@ -120,6 +96,7 @@ using q1_vec_ = q1_vec<distributed_vector>;
 template <size_t N_eqs>
 void time_step (const int rank, const double time, const double DELTAT,
                 std::unique_ptr<tests::generic_test> const &test,
+                std::unique_ptr<voltages::generic_voltage> const &voltage,
                 const std::array<ordering,N_eqs> &ord,
                 tmesh_3d &tmsh, mumps *lin_solver,
                 distributed_sparse_matrix &A,
@@ -140,12 +117,12 @@ void time_step (const int rank, const double time, const double DELTAT,
 
     // Define boundary conditions
     dirichlet_bcs3 bcs0, bcs1;
-    bcs0.push_back (std::make_tuple (0, 4, [](double x, double y, double z){return 0.0;})); //bottom
-    bcs0.push_back (std::make_tuple (0, 5, [time,DELTAT](double x, double y, double z){return (time+DELTAT) < T_discharge ? 1.5e4 * (1 - exp(-(time+DELTAT)/tau)) : 0;})); //top
+    bcs0.push_back (std::make_tuple (0, 4, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(4, time+DELTAT, x, y, z);})); //bottom
+    bcs0.push_back (std::make_tuple (0, 5, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(5, time+DELTAT, x, y, z);})); //top
 
     // Print curent time
     if (rank==0)
-      std::cout << "TIME= "<< time + DELTAT <<std::endl;
+      std::cout << "TIME= " << time + DELTAT << std::endl;
 
     // Reset containers
     A.reset ();
@@ -259,43 +236,61 @@ void time_step (const int rank, const double time, const double DELTAT,
 int
 main (int argc, char **argv)
 {
-
+  // alias definition
   using q1_vec = q1_vec<distributed_vector>;
   using json = nlohmann::json;
 
+  // parsing data file
   std::ifstream data_file("data.json");
   json data = json::parse(data_file);
-  void *dl_p = dlopen("libTests.so", RTLD_NOW);
-  
-  std::string test_name = data["test_name"];
-  
-  T = data[test_name]["T"];
-  tau = data[test_name]["tau"];
-  save_sol = data[test_name]["save_sol"];
-  
-  epsilon_0 = data[test_name]["epsilon_0"];
-
-  double time = 0.; int count = 0;
-  bool start_solution_from_file = data[test_name]["start_solution_from_file"];
-  if (start_solution_from_file) {
-    time = data[test_name]["initial_time"];
-    count = data[test_name]["count"];
-  }
-  T_discharge = data[test_name]["T_discharge"];
-  double DT = data[test_name]["DT"];
-  double dt = data[test_name]["dt"];
-  double toll = data[test_name]["toll_of_adaptive_time_step"];
-  bool save_error = data[test_name]["save_error"];
-  bool save_currents = data[test_name]["save_currents"];
-  bool save_displ_current = data[test_name]["save_displ_current"];
-  bool compute_2_contacts = data[test_name]["compute_2_contacts"];
-  
-//  std::cout << dlerror() << std::endl; // uncomment this line only to debug!
-  auto where = tests::factory.find(test_name);
-  std::unique_ptr<tests::generic_test> const& test = (where->second)();
-//  std::cout << test->works() << std::endl;
-  test->import_params(data);
   data_file.close();
+
+  // Initialize MPI
+  MPI_Init (&argc, &argv);
+  int rank, size;
+  MPI_Comm_rank (MPI_COMM_WORLD, &rank);
+  MPI_Comm_size (MPI_COMM_WORLD, &size);
+
+  // select test to run and voltage function on contacts
+  std::vector<std::string> test_name = data["test_to_run"];
+  for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
+  std::string vol_name = data[*test_iter]["algorithm"]["voltage_name"];
+  
+  // opening dynamic libraries
+  std::string test_plugin = data[*test_iter]["physics_grid"]["physics_grid_plugin"];
+  std::string voltage_plugin = data[*test_iter]["algorithm"]["voltage_plugin"];
+  void *dl_test_p = dlopen(test_plugin.c_str(), RTLD_NOW);
+  void *dl_voltage_p = dlopen(voltage_plugin.c_str(), RTLD_NOW);
+  
+  // importing some problem params
+  double T = data[*test_iter]["algorithm"]["T"];
+  epsilon_0 = data[*test_iter]["physics_grid"]["epsilon_0"];
+  double time = 0.; int count = 0;
+  double dt = data[*test_iter]["algorithm"]["initial_dt_for_adaptive_time_step"];
+  double tol = data[*test_iter]["algorithm"]["tol_of_adaptive_time_step"];
+  
+  // set output preferences
+  double DT = data[*test_iter]["options"]["print_solution_every_n_seconds"];
+  bool save_sol = data[*test_iter]["options"]["save_sol"];
+  bool save_error = data[*test_iter]["options"]["save_error"];
+  bool save_currents = data[*test_iter]["options"]["save_currents"];
+  bool save_displ_current = data[*test_iter]["options"]["save_displ_current"];
+  bool compute_2_contacts = data[*test_iter]["options"]["compute_2_contacts"];
+  std::string output_folder = "output";
+  if (argc > 1)
+    output_folder = argv[1];
+
+  // import from factories:
+  // test
+  auto which_test = tests::T_factory.find(*test_iter);
+  std::unique_ptr<tests::generic_test> test = (which_test->second)();
+  test->import_params(data);
+  // voltage
+  auto which_vol = voltages::V_factory.find(vol_name);
+  std::unique_ptr<voltages::generic_voltage> voltage = (which_vol->second)();
+  voltage->import_params(*test_iter, data);
+  
+
   /*
   Manegement of solutions ordering:   Equation ordering:
   ord[0]-> rho                        ord[0]-> continuity equation
@@ -311,23 +306,18 @@ main (int argc, char **argv)
   const std::array<ordering,N_polcur+1> ord_c(makeorder<N_polcur+1>());
   const std::array<ordering,2> ord_displ_curr(makeorder<2>());
 
-  // Initialize MPI
-  MPI_Init (&argc, &argv);
-  int rank, size;
-  MPI_Comm_rank (MPI_COMM_WORLD, &rank);
-  MPI_Comm_size (MPI_COMM_WORLD, &size);
 
   // Generate the mesh in 3d
   tmesh_3d tmsh;
   tmsh.read_connectivity (simple_conn_p, simple_conn_num_vertices,
                           simple_conn_t, simple_conn_num_trees);
 
-  //Uniform refinement
+  // Uniform refinement
   int recursive = 1;
   tmsh.set_refine_marker ([&test](tmesh_3d::quadrant_iterator q) {return test->uniform_refinement(q);});
   tmsh.refine (recursive);
 
-  //In test 1 we only have uniform refinement, in all other cases we perform additional refinement
+  // In test 1 we only have uniform refinement, in all other cases we perform additional refinement
   if (test->extra_refinement) 
   {
     tmsh.set_refine_marker([&test](tmesh_3d::quadrant_iterator q) {return test->refinement(q);});
@@ -344,7 +334,7 @@ main (int argc, char **argv)
   // Allocate linear solver
   mumps *lin_solver = new mumps ();
 
- // Allocate initial data container
+  // Allocate initial data container
   q1_vec sold (ln_nodes * N_eqs);
   sold.get_owned_data ().assign (sold.get_owned_data ().size (), 0.0);
 
@@ -407,9 +397,7 @@ main (int argc, char **argv)
   
   // setup streamings
   std::ofstream error_file, currents_file, I_displ_file;
-  std::fstream current_solution;
-  if (start_solution_from_file)
-    current_solution.open("current_solution_rank_" + std::to_string(rank), std::fstream::in);
+
 
   // data to print
   std::array<double,4> pol_charges, pol_charges_old;
@@ -489,12 +477,6 @@ main (int argc, char **argv)
     }
   }
 
-  if (start_solution_from_file) {
-    for (auto it = sold.get_owned_data().begin(); it != sold.get_owned_data().end(); ++it)
-      current_solution >> *it;
-      current_solution.close();
-  }
-  current_solution.open("current_solution_rank_" + std::to_string(rank), std::fstream::out);
     
 
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
@@ -509,16 +491,17 @@ main (int argc, char **argv)
   g1.assemble (replace_op);
 
   // Save inital conditions
-  sprintf(filename, "output/model_1_rho_0000");
+  std::filesystem::create_directory(output_folder);
+  std::filesystem::create_directory(output_folder + "/" + *test_iter);
+  sprintf(filename, "%s/%s/model_1_rho_0000", output_folder.c_str(), test_iter->c_str());
   tmsh.octbin_export (filename, sold, ord[0]);
-  sprintf(filename, "output/model_1_phi_0000");
+  sprintf(filename, "%s/%s/model_1_phi_0000", output_folder.c_str(), test_iter->c_str());
   tmsh.octbin_export (filename, sold, ord[1]);
-
-  sprintf(filename, "output/model_1_p1_0000");
+  sprintf(filename, "%s/%s/model_1_p1_0000",  output_folder.c_str(), test_iter->c_str());
   tmsh.octbin_export (filename, sold, ord[2]);
-  sprintf(filename, "output/model_1_p2_0000");
+  sprintf(filename, "%s/%s/model_1_p2_0000",  output_folder.c_str(), test_iter->c_str());
   tmsh.octbin_export (filename, sold, ord[3]);
-  sprintf(filename, "output/model_1_p3_0000");
+  sprintf(filename, "%s/%s/model_1_p3_0000",  output_folder.c_str(), test_iter->c_str());
   tmsh.octbin_export (filename, sold, ord[4]);
 
 
@@ -548,62 +531,51 @@ main (int argc, char **argv)
   
   // print header of output files
   if (rank == 0 && save_error) {
-    if (!start_solution_from_file) {
-      error_file.open("error.txt");
-      error_file << std::setw(20) << "time"
-                 << std::setw(20) << "error/tol" << std::endl;
-    }
-    else
-      error_file.open("error.txt", std::fstream::app);
+    error_file.open(output_folder + "/" + *test_iter + "/" + "error.txt");
+    error_file << std::setw(20) << "time"
+               << std::setw(20) << "error/tol" << std::endl;
+
   }
   if (rank == 0 && save_currents) {
-    if (!start_solution_from_file) {
-      currents_file.open("currents_file.txt");
-      if (! compute_2_contacts) {
-        currents_file << std::setw(20) << "time"
-                      << std::setw(20) << "I_c"
-                      << std::setw(20) << "I_p_inf"
-                      << std::setw(20) << "I_p_1"
-                      << std::setw(20) << "I_p_2"
-                      << std::setw(20) << "I_p_3"
-                      << std::setw(20) << "I_displ"
-                      << std::setw(20) << "free_charge" 
-                      << std::setw(20) << "P_1_charge" 
-                      << std::setw(20) << "P_2_charge" 
-                      << std::setw(20) << "P_3_charge" << std::endl;
-      }
-      else {
-        currents_file << std::setw(20) << "time"
-                      << std::setw(20) << "I_c"
-                      << std::setw(20) << "I_p_inf"
-                      << std::setw(20) << "I_p_1"
-                      << std::setw(20) << "I_p_2"
-                      << std::setw(20) << "I_p_3"
-                      << std::setw(20) << "I_displ1"
-                      << std::setw(20) << "I_displ2"
-                      << std::setw(20) << "free_charge" 
-                      << std::setw(20) << "P_1_charge" 
-                      << std::setw(20) << "P_2_charge" 
-                      << std::setw(20) << "P_3_charge" << std::endl;
-      }
+    currents_file.open(output_folder + "/" + *test_iter + "/" + "currents_file.txt");
+    if (! compute_2_contacts) {
+      currents_file << std::setw(20) << "time"
+                    << std::setw(20) << "I_c"
+                    << std::setw(20) << "I_p_inf"
+                    << std::setw(20) << "I_p_1"
+                    << std::setw(20) << "I_p_2"
+                    << std::setw(20) << "I_p_3"
+                    << std::setw(20) << "I_displ"
+                    << std::setw(20) << "free_charge" 
+                    << std::setw(20) << "P_1_charge" 
+                    << std::setw(20) << "P_2_charge" 
+                    << std::setw(20) << "P_3_charge" << std::endl;
     }
     else {
-      currents_file.open("currents_file.txt", std::fstream::app);
+      currents_file << std::setw(20) << "time"
+                    << std::setw(20) << "I_c"
+                    << std::setw(20) << "I_p_inf"
+                    << std::setw(20) << "I_p_1"
+                    << std::setw(20) << "I_p_2"
+                    << std::setw(20) << "I_p_3"
+                    << std::setw(20) << "I_displ1"
+                    << std::setw(20) << "I_displ2"
+                    << std::setw(20) << "free_charge" 
+                    << std::setw(20) << "P_1_charge" 
+                    << std::setw(20) << "P_2_charge" 
+                    << std::setw(20) << "P_3_charge" << std::endl;
     }
   }
   if (rank == 0 && save_displ_current) {
-    if (!start_solution_from_file) {
-      I_displ_file.open("I_displ_file.txt");
-      if (!compute_2_contacts)
-        I_displ_file  << std::setw(20) << "time"
-                      << std::setw(20) << "I_displ" << std::endl;
-      else
-        I_displ_file  << std::setw(20) << "time"
-                      << std::setw(20) << "I_displ1"
-                      << std::setw(20) << "I_displ2" << std::endl;
-    }
+    I_displ_file.open(output_folder + "/" + *test_iter + "/" + "I_displ_file.txt");
+    if (!compute_2_contacts)
+      I_displ_file  << std::setw(20) << "time"
+                    << std::setw(20) << "I_displ" << std::endl;
     else
-      I_displ_file.open("I_displ_file.txt", std::fstream::app);
+      I_displ_file  << std::setw(20) << "time"
+                    << std::setw(20) << "I_displ1"
+                    << std::setw(20) << "I_displ2" << std::endl;
+
   }
   q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
 
@@ -630,21 +602,21 @@ main (int argc, char **argv)
       if(rank == 0)
         std::cout << "dt = " << dt << std::endl;
       sold1 = sold; sold2 = sold; sol1 = sol; sol2 = sol;
-      time_step<N_eqs>(rank, time + time_in_step, dt, test,
+      time_step<N_eqs>(rank, time + time_in_step, dt, test, voltage,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
                   zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold1, sol1);
-      time_step<N_eqs>(rank, time + time_in_step, dt/2, test,
+      time_step<N_eqs>(rank, time + time_in_step, dt/2, test, voltage,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
                   zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold2, sol2);
-      time_step<N_eqs>(rank, time + time_in_step + dt/2, dt/2, test,
+      time_step<N_eqs>(rank, time + time_in_step + dt/2, dt/2, test, voltage,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
@@ -681,11 +653,11 @@ main (int argc, char **argv)
       B.reset();
       bim3a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
       bim3a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
-      Ivec1 = B*Bsol1;
+      Ivec1 = B*Bsol1;/*
       B.reset();
       bim3a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
       bim3a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
-      Ivec2 = B*Bsol2;
+      */Ivec2 = B*Bsol2;
 
       I_d1_c1 = 0.; I_d2_c1 = 0.; I_d1_c2 = 0.; I_d2_c2 = 0.;
       for (auto it = Ivec_index1.cbegin(); it != Ivec_index1.cend(); it++) {
@@ -712,9 +684,9 @@ main (int argc, char **argv)
       err_max = std::fabs((I_d2_c1-I_d1_c1) / (std::fabs(I_d2_c1) + 1.0e-50));
       
       if (rank == 0)
-        std::cout << "error/toll = " << err_max/toll << std::endl;
+        std::cout << "error/tol = " << err_max/tol << std::endl;
       
-      if (err_max < toll) {
+      if (err_max < tol) {
         time_in_step += dt;
         sold = std::move(sold2);
         if (rank == 0 && save_error)
@@ -730,9 +702,6 @@ main (int argc, char **argv)
         }
         if (time_in_step > DT - eps) {
           time += DT;
-          for (auto it = sold.get_owned_data().cbegin(); it != sold.get_owned_data().cend(); ++it)
-            current_solution << *it << std::endl;
-          current_solution.seekp(0);
           if (save_currents) {
             
             Jx_vec.get_owned_data().assign(Jx_vec.get_owned_data().size(), 0.);
@@ -801,39 +770,38 @@ main (int argc, char **argv)
 
           if (save_sol == true) {
             ++count;
-            sprintf(filename, "output/model_1_rho_%4.4d",count);
+            sprintf(filename, "%s/%s/model_1_rho_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
             tmsh.octbin_export (filename, sold, ord[0]);
-            sprintf(filename, "output/model_1_phi_%4.4d",count);
+            sprintf(filename, "%s/%s/model_1_phi_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
             tmsh.octbin_export (filename, sold, ord[1]);
-            sprintf(filename, "output/model_1_p1_%4.4d", count);
+            sprintf(filename, "%s/%s/model_1_p1_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
             tmsh.octbin_export (filename,sold, ord[2]);
-            sprintf(filename, "output/model_1_p2_%4.4d", count);
+            sprintf(filename, "%s/%s/model_1_p2_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
             tmsh.octbin_export (filename,sold, ord[3]);
-            sprintf(filename, "output/model_1_p3_%4.4d", count);
+            sprintf(filename, "%s/%s/model_1_p3_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
             tmsh.octbin_export (filename,sold, ord[4]);
           }
-          dt *= std::min(DT,std::pow(err_max/toll,-0.5)*0.9);
+          dt *= std::min(DT,std::pow(err_max/tol,-0.5)*0.9);
           break;
         }
         // update dt
-        if (DT - time_in_step < dt*std::pow(err_max/toll,-0.5)*0.9)
+        if (DT - time_in_step < dt*std::pow(err_max/tol,-0.5)*0.9)
           dt = DT-time_in_step;
         else
-          dt = std::min((DT - time_in_step) / 2, dt*std::pow(err_max/toll,-0.5)*0.9);
+          dt = std::min((DT - time_in_step) / 2, dt*std::pow(err_max/tol,-0.5)*0.9);
       }
       else
         dt /= 2;
     }
   }
-  current_solution.close();
   if (rank==0){
     error_file.close();
     currents_file.close();
     if(save_currents) {
       std::ifstream curr_file;
       std::ofstream curr_file_json;
-      curr_file.open("currents_file.txt");
-      curr_file_json.open("currents_file.json");
+      curr_file.open(output_folder + "/" + *test_iter + "/" + "currents_file.txt");
+      curr_file_json.open(output_folder + "/" + *test_iter + "/" + "currents_file.json");
       json_export(curr_file, curr_file_json);
       curr_file.close();
       curr_file_json.close();
@@ -841,8 +809,8 @@ main (int argc, char **argv)
     if (save_displ_current) {
       std::ifstream displ_curr_file;
       std::ofstream displ_curr_file_json;
-      displ_curr_file.open("I_displ_file.txt");
-      displ_curr_file_json.open("I_displ_file.json");
+      displ_curr_file.open(output_folder + "/" + *test_iter + "/" + "I_displ_file.txt");
+      displ_curr_file_json.open(output_folder + "/" + *test_iter + "/" + "I_displ_file.json");
       json_export(displ_curr_file, displ_curr_file_json);
       displ_curr_file.close();
       displ_curr_file_json.close();
@@ -850,21 +818,23 @@ main (int argc, char **argv)
     if (save_error) {
       std::ifstream err_file;
       std::ofstream err_file_json;
-      err_file.open("error.txt");
-      err_file_json.open("error.json");
+      err_file.open(output_folder + "/" + *test_iter + "/" + "error.txt");
+      err_file_json.open(output_folder + "/" + *test_iter + "/" + "error.json");
       json_export(err_file, err_file_json);
       err_file.close();
       err_file_json.close();
     }
   }
-  dlclose(dl_p);
+  dlclose(dl_test_p);
+  dlclose(dl_voltage_p);
   // Close MPI and print report
   MPI_Barrier (MPI_COMM_WORLD);
 
   // Clean linear solver
   lin_solver->cleanup ();
   
+  
+  }
   MPI_Finalize (); 
-
   return 0;
 }

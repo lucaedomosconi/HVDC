@@ -1,5 +1,5 @@
 #include "tests.h"
-#include "factory.h"
+#include "test_factory.h"
 #include <iostream>
 
 namespace tests {
@@ -7,9 +7,8 @@ namespace tests {
 namespace {
     struct LoadTest {
         LoadTest() {
-            tests::factory["test1"] = []() {return std::make_unique<test1>();};
-            tests::factory["test2"] = []() {return std::make_unique<test2>();};
-            std::cout << "factory loaded" << std::endl;
+            tests::T_factory["test1"] = []() {return std::make_unique<test1>();};
+            tests::T_factory["test2"] = []() {return std::make_unique<test2>();};
         }
     };
     const LoadTest loadtest;

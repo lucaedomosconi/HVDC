@@ -12,7 +12,7 @@ namespace tests{
     using test_builder = std::function<std::unique_ptr<generic_test>()>;
     using test_id = std::string;
     using test_factory = std::map<test_id, test_builder>;
-    extern test_factory factory;
+    extern test_factory T_factory;
 }
 
 
