@@ -266,12 +266,13 @@ main (int argc, char **argv)
   double T = data[*test_iter]["algorithm"]["T"];
   epsilon_0 = data[*test_iter]["physics_grid"]["epsilon_0"];
   double time = 0.; int count = 0;
+  bool start_from_solution = data[*test_iter]["algorithm"]["start_from_solution"];
   std::string temp_solution_file_name;
-  if (data[*test_iter]["algorithm"]["start_from_solution"]) {
+  if (start_from_solution) {
     time = data[*test_iter]["algorithm"]["temp_sol"]["time"];
     count = data[*test_iter]["algorithm"]["temp_sol"]["count"];
   }
-  if (data[*test_iter]["algorithm"]["start_from_solution"] || data[*test_iter]["algorithm"]["save_temp_solution"])
+  if (start_from_solution || data[*test_iter]["algorithm"]["save_temp_solution"])
     temp_solution_file_name = data[*test_iter]["algorithm"]["temp_sol"]["file"];
   double dt = data[*test_iter]["algorithm"]["initial_dt_for_adaptive_time_step"];
   double tol = data[*test_iter]["algorithm"]["tol_of_adaptive_time_step"];
@@ -473,8 +474,8 @@ main (int argc, char **argv)
   }
   sold.get_owned_data().assign(sold.local_size(),0.0);
   MPI_File temp_sol;
-  if (data[*test_iter]["algorithm"]["start_from_solution"]) {
-    MPI_File_open(MPI_COMM_WORLD, (temp_solution_file_name + std::to_string(count)).c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &temp_sol);
+  if (start_from_solution) {
+    MPI_File_open(MPI_COMM_WORLD, (temp_solution_file_name + "_" + std::to_string(count)).c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &temp_sol);
     MPI_File_seek(temp_sol, sold.get_range_start()*sizeof(double), MPI_SEEK_SET);
     MPI_File_read(temp_sol, sold.get_owned_data().data(), sold.local_size(), MPI_DOUBLE, MPI_STATUS_IGNORE);
     MPI_File_close(&temp_sol);
@@ -494,7 +495,7 @@ main (int argc, char **argv)
   g1.assemble (replace_op);
 
   // Save inital conditions
-  if (!data[*test_iter]["algorithm"]["start_from_solution"]) {
+  if (!start_from_solution) {
     std::filesystem::create_directory(output_folder);
     std::filesystem::create_directory(output_folder + "/" + *test_iter);
     sprintf(filename, "%s/%s/model_1_rho_0000", output_folder.c_str(), test_iter->c_str());
@@ -533,7 +534,7 @@ main (int argc, char **argv)
   func3_quad p3_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
     return (q->p(2,4)-q->p(2,0))*(sold[ord[4](q->gt(4))] + sold[ord[4](q->gt(5))] + sold[ord[4](q->gt(6))] + sold[ord[4](q->gt(7))])/8;
   };
-  
+
   // export test params
   if (rank == 0) {
     std::ofstream save_problem_data;
@@ -543,50 +544,62 @@ main (int argc, char **argv)
   }
   // print header of output files
   if (rank == 0 && save_error) {
-    error_file.open(output_folder + "/" + *test_iter + "/" + "error.txt");
-    error_file << std::setw(20) << "time"
-               << std::setw(20) << "error/tol" << std::endl;
-
+    if (!start_from_solution) {
+      error_file.open(output_folder + "/" + *test_iter + "/" + "error.txt");
+      error_file << std::setw(20) << "time"
+                 << std::setw(20) << "error/tol" << std::endl;
+    }
+    else
+      error_file.open(output_folder + "/" + *test_iter + "/" + "error.txt", std::fstream::app);
+  
   }
   if (rank == 0 && save_currents) {
-    currents_file.open(output_folder + "/" + *test_iter + "/" + "currents_file.txt");
-    if (! compute_2_contacts) {
-      currents_file << std::setw(20) << "time"
-                    << std::setw(20) << "I_c"
-                    << std::setw(20) << "I_p_inf"
-                    << std::setw(20) << "I_p_1"
-                    << std::setw(20) << "I_p_2"
-                    << std::setw(20) << "I_p_3"
-                    << std::setw(20) << "I_displ"
-                    << std::setw(20) << "free_charge" 
-                    << std::setw(20) << "P_1_charge" 
-                    << std::setw(20) << "P_2_charge" 
-                    << std::setw(20) << "P_3_charge" << std::endl;
+    if (!start_from_solution) {
+      currents_file.open(output_folder + "/" + *test_iter + "/" + "currents_file.txt");
+      if (! compute_2_contacts) {
+        currents_file << std::setw(20) << "time"
+                      << std::setw(20) << "I_c"
+                      << std::setw(20) << "I_p_inf"
+                      << std::setw(20) << "I_p_1"
+                      << std::setw(20) << "I_p_2"
+                      << std::setw(20) << "I_p_3"
+                      << std::setw(20) << "I_displ"
+                      << std::setw(20) << "free_charge" 
+                      << std::setw(20) << "P_1_charge" 
+                      << std::setw(20) << "P_2_charge" 
+                      << std::setw(20) << "P_3_charge" << std::endl;
+      }
+      else {
+        currents_file << std::setw(20) << "time"
+                      << std::setw(20) << "I_c"
+                      << std::setw(20) << "I_p_inf"
+                      << std::setw(20) << "I_p_1"
+                      << std::setw(20) << "I_p_2"
+                      << std::setw(20) << "I_p_3"
+                      << std::setw(20) << "I_displ1"
+                      << std::setw(20) << "I_displ2"
+                      << std::setw(20) << "free_charge" 
+                      << std::setw(20) << "P_1_charge" 
+                      << std::setw(20) << "P_2_charge" 
+                      << std::setw(20) << "P_3_charge" << std::endl;
+      }
     }
-    else {
-      currents_file << std::setw(20) << "time"
-                    << std::setw(20) << "I_c"
-                    << std::setw(20) << "I_p_inf"
-                    << std::setw(20) << "I_p_1"
-                    << std::setw(20) << "I_p_2"
-                    << std::setw(20) << "I_p_3"
-                    << std::setw(20) << "I_displ1"
-                    << std::setw(20) << "I_displ2"
-                    << std::setw(20) << "free_charge" 
-                    << std::setw(20) << "P_1_charge" 
-                    << std::setw(20) << "P_2_charge" 
-                    << std::setw(20) << "P_3_charge" << std::endl;
-    }
+    else
+      currents_file.open(output_folder + "/" + *test_iter + "/" + "currents_file.txt", std::fstream::app);
   }
   if (rank == 0 && save_displ_current) {
-    I_displ_file.open(output_folder + "/" + *test_iter + "/" + "I_displ_file.txt");
-    if (!compute_2_contacts)
-      I_displ_file  << std::setw(20) << "time"
-                    << std::setw(20) << "I_displ" << std::endl;
+    if (!start_from_solution) {
+      I_displ_file.open(output_folder + "/" + *test_iter + "/" + "I_displ_file.txt");
+      if (!compute_2_contacts)
+        I_displ_file  << std::setw(20) << "time"
+                      << std::setw(20) << "I_displ" << std::endl;
+      else
+        I_displ_file  << std::setw(20) << "time"
+                      << std::setw(20) << "I_displ1"
+                      << std::setw(20) << "I_displ2" << std::endl;
+    }
     else
-      I_displ_file  << std::setw(20) << "time"
-                    << std::setw(20) << "I_displ1"
-                    << std::setw(20) << "I_displ2" << std::endl;
+      I_displ_file.open(output_folder + "/" + *test_iter + "/" + "I_displ_file.txt", std::fstream::app);
 
   }
   q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
@@ -605,7 +618,6 @@ main (int argc, char **argv)
   double time_in_step = 0.0;
   double eps = 1.0e-10;
   double err_max;
-  bool stop;
 
   while (time < T - eps) {
     if (rank == 0)
@@ -662,7 +674,6 @@ main (int argc, char **argv)
       Bsol1.assemble(replace_op);
       Bsol2.assemble(replace_op);
       
-      
       B.reset();
       bim3a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
       bim3a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
@@ -715,7 +726,7 @@ main (int argc, char **argv)
           ++count;
           // save temp solution
           if (data[*test_iter]["algorithm"]["save_temp_solution"]) {
-            MPI_File_open(MPI_COMM_WORLD, (temp_solution_file_name + std::to_string(count)).c_str(),
+            MPI_File_open(MPI_COMM_WORLD, (temp_solution_file_name + "_" + std::to_string(count)).c_str(),
                           MPI_MODE_CREATE | MPI_MODE_WRONLY,
                           MPI_INFO_NULL, &temp_sol);
             MPI_File_seek(temp_sol, sold.get_range_start()*sizeof(double), MPI_SEEK_SET);
@@ -726,7 +737,7 @@ main (int argc, char **argv)
             if (rank == 0)
               std::cout << "saved temp solution at time " + std::to_string(time) 
                         << " and count " << count << std::endl;
-            remove((temp_solution_file_name + std::to_string(count-1)).c_str());
+            remove((temp_solution_file_name + "_" + std::to_string(count-1)).c_str());
           }
           if (save_currents) {
             Jx_vec.get_owned_data().assign(Jx_vec.get_owned_data().size(), 0.);
