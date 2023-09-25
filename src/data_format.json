@@ -21,9 +21,7 @@
 		"algorithm" : {
 			"NUM_REFINEMENTS" : 4,
 			"maxlevel" : 6,
-			"initial_time" : 0.0,
-			"count" : 0,
-			"T" : 1,
+			"T" : 10,
 			"initial_dt_for_adaptive_time_step" : 0.00001,
 			"tol_of_adaptive_time_step" : 0.01,
 			"voltage_plugin" : "libVoltages.so",
@@ -31,6 +29,13 @@
 			"voltage_plugins_params" : {
 				"T_discharge" : 300,
 				"tau" : 2.0
+			},
+			"start_from_solution" : false,
+			"save_temp_solution" : false,
+			"temp_sol" : {
+				"file" : "temp_sol",
+				"time" : 4.0,
+				"count" : 4
 			}
 		},
 		"options" : {
@@ -38,7 +43,7 @@
 			"save_sol" : true,
 			"save_currents" : false,
 			"save_displ_current" : true,
-			"compute_2_contacts" : false,
+			"compute_2_contacts" : true,
 	  		"save_error" : true
 		}
 	}

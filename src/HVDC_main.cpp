@@ -126,7 +126,7 @@ void time_step (const int rank, const double time, const double DELTAT,
 
     // Reset containers
     A.reset ();
-    sol.get_owned_data ().assign (sol.get_owned_data ().size (), 0.0);
+    sol.get_owned_data().assign(sol.get_owned_data ().size (), 0.0);
     sol.assemble (replace_op);
 
     // Initialize non constant (in time) parameters
@@ -266,6 +266,13 @@ main (int argc, char **argv)
   double T = data[*test_iter]["algorithm"]["T"];
   epsilon_0 = data[*test_iter]["physics_grid"]["epsilon_0"];
   double time = 0.; int count = 0;
+  std::string temp_solution_file_name;
+  if (data[*test_iter]["algorithm"]["start_from_solution"]) {
+    time = data[*test_iter]["algorithm"]["temp_sol"]["time"];
+    count = data[*test_iter]["algorithm"]["temp_sol"]["count"];
+  }
+  if (data[*test_iter]["algorithm"]["start_from_solution"] || data[*test_iter]["algorithm"]["save_temp_solution"])
+    temp_solution_file_name = data[*test_iter]["algorithm"]["temp_sol"]["file"];
   double dt = data[*test_iter]["algorithm"]["initial_dt_for_adaptive_time_step"];
   double tol = data[*test_iter]["algorithm"]["tol_of_adaptive_time_step"];
   
@@ -464,14 +471,22 @@ main (int argc, char **argv)
         }
     }
   }
-
-    
-
+  sold.get_owned_data().assign(sold.local_size(),0.0);
+  MPI_File temp_sol;
+  if (data[*test_iter]["algorithm"]["start_from_solution"]) {
+    MPI_File_open(MPI_COMM_WORLD, (temp_solution_file_name + std::to_string(count)).c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &temp_sol);
+    MPI_File_seek(temp_sol, sold.get_range_start()*sizeof(double), MPI_SEEK_SET);
+    MPI_File_read(temp_sol, sold.get_owned_data().data(), sold.local_size(), MPI_DOUBLE, MPI_STATUS_IGNORE);
+    MPI_File_close(&temp_sol);
+  }
+  
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[1], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[2], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[3], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[4]);
+
+
 
   zero_q1.assemble (replace_op);
   zeta0.assemble (replace_op);
@@ -479,18 +494,20 @@ main (int argc, char **argv)
   g1.assemble (replace_op);
 
   // Save inital conditions
-  std::filesystem::create_directory(output_folder);
-  std::filesystem::create_directory(output_folder + "/" + *test_iter);
-  sprintf(filename, "%s/%s/model_1_rho_0000", output_folder.c_str(), test_iter->c_str());
-  tmsh.octbin_export (filename, sold, ord[0]);
-  sprintf(filename, "%s/%s/model_1_phi_0000", output_folder.c_str(), test_iter->c_str());
-  tmsh.octbin_export (filename, sold, ord[1]);
-  sprintf(filename, "%s/%s/model_1_p1_0000",  output_folder.c_str(), test_iter->c_str());
-  tmsh.octbin_export (filename, sold, ord[2]);
-  sprintf(filename, "%s/%s/model_1_p2_0000",  output_folder.c_str(), test_iter->c_str());
-  tmsh.octbin_export (filename, sold, ord[3]);
-  sprintf(filename, "%s/%s/model_1_p3_0000",  output_folder.c_str(), test_iter->c_str());
-  tmsh.octbin_export (filename, sold, ord[4]);
+  if (!data[*test_iter]["algorithm"]["start_from_solution"]) {
+    std::filesystem::create_directory(output_folder);
+    std::filesystem::create_directory(output_folder + "/" + *test_iter);
+    sprintf(filename, "%s/%s/model_1_rho_0000", output_folder.c_str(), test_iter->c_str());
+    tmsh.octbin_export (filename, sold, ord[0]);
+    sprintf(filename, "%s/%s/model_1_phi_0000", output_folder.c_str(), test_iter->c_str());
+    tmsh.octbin_export (filename, sold, ord[1]);
+    sprintf(filename, "%s/%s/model_1_p1_0000",  output_folder.c_str(), test_iter->c_str());
+    tmsh.octbin_export (filename, sold, ord[2]);
+    sprintf(filename, "%s/%s/model_1_p2_0000",  output_folder.c_str(), test_iter->c_str());
+    tmsh.octbin_export (filename, sold, ord[3]);
+    sprintf(filename, "%s/%s/model_1_p3_0000",  output_folder.c_str(), test_iter->c_str());
+    tmsh.octbin_export (filename, sold, ord[4]);
+  }
 
 
   // lambda functions to use for currents computation (simple method)
@@ -581,6 +598,7 @@ main (int argc, char **argv)
   double time_in_step = 0.0;
   double eps = 1.0e-10;
   double err_max;
+  bool stop;
 
   while (time < T - eps) {
     if (rank == 0)
@@ -687,8 +705,23 @@ main (int argc, char **argv)
         }
         if (time_in_step > DT - eps) {
           time += DT;
+          ++count;
+          // save temp solution
+          if (data[*test_iter]["algorithm"]["save_temp_solution"]) {
+            MPI_File_open(MPI_COMM_WORLD, (temp_solution_file_name + std::to_string(count)).c_str(),
+                          MPI_MODE_CREATE | MPI_MODE_WRONLY,
+                          MPI_INFO_NULL, &temp_sol);
+            MPI_File_seek(temp_sol, sold.get_range_start()*sizeof(double), MPI_SEEK_SET);
+            MPI_File_write(temp_sol, sold.get_owned_data().data(),
+                          sold.local_size(), MPI_DOUBLE, MPI_STATUS_IGNORE);
+            MPI_File_close(&temp_sol);
+            MPI_Barrier(MPI_COMM_WORLD);
+            if (rank == 0)
+              std::cout << "saved temp solution at time " + std::to_string(time) 
+                        << " and count " << count << std::endl;
+            remove((temp_solution_file_name + std::to_string(count-1)).c_str());
+          }
           if (save_currents) {
-            
             Jx_vec.get_owned_data().assign(Jx_vec.get_owned_data().size(), 0.);
             Jx_vec.assemble(replace_op);
             Ex_vec.get_owned_data().assign(Ex_vec.get_owned_data().size(), 0.);
@@ -752,9 +785,7 @@ main (int argc, char **argv)
             pol_charges_old = pol_charges;
           }
           // Save solution
-
           if (save_sol == true) {
-            ++count;
             sprintf(filename, "%s/%s/model_1_rho_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
             tmsh.octbin_export (filename, sold, ord[0]);
             sprintf(filename, "%s/%s/model_1_phi_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
@@ -779,6 +810,9 @@ main (int argc, char **argv)
         dt /= 2;
     }
   }
+  
+
+  // export in json format
   if (rank==0){
     error_file.close();
     currents_file.close();
