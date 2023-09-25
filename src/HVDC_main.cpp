@@ -641,11 +641,8 @@ main (int argc, char **argv)
       B.reset();
       bim3a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
       bim3a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
-      Ivec1 = B*Bsol1;/*
-      B.reset();
-      bim3a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
-      bim3a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
-      */Ivec2 = B*Bsol2;
+      Ivec1 = B*Bsol1;
+      Ivec2 = B*Bsol2;
 
       I_d1_c1 = 0.; I_d2_c1 = 0.; I_d1_c2 = 0.; I_d2_c2 = 0.;
       for (auto it = Ivec_index1.cbegin(); it != Ivec_index1.cend(); it++) {
@@ -769,7 +766,7 @@ main (int argc, char **argv)
             sprintf(filename, "%s/%s/model_1_p3_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
             tmsh.octbin_export (filename,sold, ord[4]);
           }
-          dt *= std::min(DT,std::pow(err_max/tol,-0.5)*0.9);
+          dt = std::min(DT,dt*std::pow(err_max/tol,-0.5)*0.9);
           break;
         }
         // update dt
