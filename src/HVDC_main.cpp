@@ -534,6 +534,13 @@ main (int argc, char **argv)
     return (q->p(2,4)-q->p(2,0))*(sold[ord[4](q->gt(4))] + sold[ord[4](q->gt(5))] + sold[ord[4](q->gt(6))] + sold[ord[4](q->gt(7))])/8;
   };
   
+  // export test params
+  if (rank == 0) {
+    std::ofstream save_problem_data;
+    save_problem_data.open(output_folder + "/" + *test_iter + "/" + "test.json");
+    save_problem_data << std::setw(4) << data[*test_iter];
+    save_problem_data.close();
+  }
   // print header of output files
   if (rank == 0 && save_error) {
     error_file.open(output_folder + "/" + *test_iter + "/" + "error.txt");
