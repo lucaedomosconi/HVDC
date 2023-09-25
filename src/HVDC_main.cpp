@@ -267,13 +267,19 @@ main (int argc, char **argv)
   epsilon_0 = data[*test_iter]["physics_grid"]["epsilon_0"];
   double time = 0.; int count = 0;
   bool start_from_solution = data[*test_iter]["algorithm"]["start_from_solution"];
+  int save_every_n_steps;
   std::string temp_solution_file_name;
+  if (start_from_solution || data[*test_iter]["algorithm"]["save_temp_solution"])
+    temp_solution_file_name = data[*test_iter]["algorithm"]["temp_sol"]["file"];
+  bool save_temp_solution = data[*test_iter]["algorithm"]["save_temp_solution"];
+  if (save_temp_solution) {
+    save_every_n_steps = data[*test_iter]["algorithm"]["temp_sol"]["save_every_n_steps"];
+  }
   if (start_from_solution) {
     time = data[*test_iter]["algorithm"]["temp_sol"]["time"];
     count = data[*test_iter]["algorithm"]["temp_sol"]["count"];
   }
-  if (start_from_solution || data[*test_iter]["algorithm"]["save_temp_solution"])
-    temp_solution_file_name = data[*test_iter]["algorithm"]["temp_sol"]["file"];
+  
   double dt = data[*test_iter]["algorithm"]["initial_dt_for_adaptive_time_step"];
   double tol = data[*test_iter]["algorithm"]["tol_of_adaptive_time_step"];
   
@@ -408,19 +414,13 @@ main (int argc, char **argv)
 
 
   // data to print
-  std::array<double,4> pol_charges, pol_charges_old;
-  pol_charges_old.fill(0.);
+  std::array<double,4> charges;
 
   double I_c;
   double I_displ1, I_displ2, I_d1_c1, I_d2_c1, I_d1_c2, I_d2_c2;
-  double I_p_inf;
-  double I_p_k;
-  double E_flux, E_flux_old = 0.;
   q1_vec Jx_vec(ln_nodes);
-  q1_vec Ex_vec(ln_nodes);
   q1_vec charges_vec(ln_nodes * (N_polcur+1));
   Jx_vec.get_owned_data().assign(Jx_vec.get_owned_data().size(),0.);
-  Ex_vec.get_owned_data().assign(Ex_vec.get_owned_data().size(),0.);
   charges_vec.get_owned_data().assign(charges_vec.get_owned_data().size(),0.);
 
   // Initialize constant (in time) parameters and initial data
@@ -450,7 +450,6 @@ main (int argc, char **argv)
         sol[ord[4](quadrant->gt (ii))] = 0.0;
 
         Jx_vec[quadrant->gt(ii)] = 0.;
-        Ex_vec[quadrant->gt(ii)] = 0.;
         charges_vec[ord_c[0](quadrant->gt(ii))] = 0.;
         charges_vec[ord_c[1](quadrant->gt(ii))] = 0.;
         charges_vec[ord_c[2](quadrant->gt(ii))] = 0.;
@@ -464,7 +463,6 @@ main (int argc, char **argv)
           g1[quadrant->gparent (jj, ii)] += 0.;
 
           Jx_vec[quadrant->gparent (jj, ii)] += 0.;
-          Ex_vec[quadrant->gparent (jj, ii)] += 0.;
           charges_vec[ord_c[0](quadrant->gparent (jj, ii))] += 0.;
           charges_vec[ord_c[1](quadrant->gparent (jj, ii))] += 0.;
           charges_vec[ord_c[2](quadrant->gparent (jj, ii))] += 0.;
@@ -517,11 +515,6 @@ main (int argc, char **argv)
         (sold[ord[1](q->gt(4))] + sold[ord[1](q->gt(5))] + sold[ord[1](q->gt(6))] + sold[ord[1](q->gt(7))]
         -sold[ord[1](q->gt(0))] - sold[ord[1](q->gt(1))] - sold[ord[1](q->gt(2))] - sold[ord[1](q->gt(3))])/(q->p(2,4)-q->p(2,0))/4;
   };
-  func3_quad Ex_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
-    return test->epsilon_fun(q->centroid(0),q->centroid(1),q->centroid(2))*
-        (sold[ord[1](q->gt(4))] + sold[ord[1](q->gt(5))] + sold[ord[1](q->gt(6))] + sold[ord[1](q->gt(7))]
-        -sold[ord[1](q->gt(0))] - sold[ord[1](q->gt(1))] - sold[ord[1](q->gt(2))] - sold[ord[1](q->gt(3))])/(q->p(2,4)-q->p(2,0))/4;
-  };
   func3_quad free_charge_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
     return (q->p(2,4)-q->p(2,0))*(sold[ord[0](q->gt(4))] + sold[ord[0](q->gt(5))] + sold[ord[0](q->gt(6))] + sold[ord[0](q->gt(7))])/8;
   };
@@ -559,12 +552,9 @@ main (int argc, char **argv)
       if (! compute_2_contacts) {
         currents_file << std::setw(20) << "time"
                       << std::setw(20) << "I_c"
-                      << std::setw(20) << "I_p_inf"
-                      << std::setw(20) << "I_p_1"
-                      << std::setw(20) << "I_p_2"
-                      << std::setw(20) << "I_p_3"
                       << std::setw(20) << "I_displ"
                       << std::setw(20) << "free_charge" 
+                      << std::setw(20) << "P_inf_charge" 
                       << std::setw(20) << "P_1_charge" 
                       << std::setw(20) << "P_2_charge" 
                       << std::setw(20) << "P_3_charge" << std::endl;
@@ -572,13 +562,10 @@ main (int argc, char **argv)
       else {
         currents_file << std::setw(20) << "time"
                       << std::setw(20) << "I_c"
-                      << std::setw(20) << "I_p_inf"
-                      << std::setw(20) << "I_p_1"
-                      << std::setw(20) << "I_p_2"
-                      << std::setw(20) << "I_p_3"
                       << std::setw(20) << "I_displ1"
                       << std::setw(20) << "I_displ2"
                       << std::setw(20) << "free_charge" 
+                      << std::setw(20) << "P_inf_charge" 
                       << std::setw(20) << "P_1_charge" 
                       << std::setw(20) << "P_2_charge" 
                       << std::setw(20) << "P_3_charge" << std::endl;
@@ -618,6 +605,7 @@ main (int argc, char **argv)
   double time_in_step = 0.0;
   double eps = 1.0e-10;
   double err_max;
+  std::string last_saved_solution = "";
 
   while (time < T - eps) {
     if (rank == 0)
@@ -725,7 +713,7 @@ main (int argc, char **argv)
           time += DT;
           ++count;
           // save temp solution
-          if (data[*test_iter]["algorithm"]["save_temp_solution"]) {
+          if (save_temp_solution && !(count % save_every_n_steps)) {
             MPI_File_open(MPI_COMM_WORLD, (temp_solution_file_name + "_" + std::to_string(count)).c_str(),
                           MPI_MODE_CREATE | MPI_MODE_WRONLY,
                           MPI_INFO_NULL, &temp_sol);
@@ -737,70 +725,57 @@ main (int argc, char **argv)
             if (rank == 0)
               std::cout << "saved temp solution at time " + std::to_string(time) 
                         << " and count " << count << std::endl;
-            remove((temp_solution_file_name + "_" + std::to_string(count-1)).c_str());
+            remove(last_saved_solution.c_str());
+            last_saved_solution = temp_solution_file_name + "_" + std::to_string(count);
           }
           if (save_currents) {
             Jx_vec.get_owned_data().assign(Jx_vec.get_owned_data().size(), 0.);
             Jx_vec.assemble(replace_op);
-            Ex_vec.get_owned_data().assign(Ex_vec.get_owned_data().size(), 0.);
-            Ex_vec.assemble(replace_op);
             charges_vec.get_owned_data().assign(charges_vec.get_owned_data().size(), 0.);
             charges_vec.assemble(replace_op);
 
             bim3a_boundary_mass(tmsh, 0, 5, Jx_vec, Jx_mass);
-            bim3a_boundary_mass(tmsh, 0, 5, Ex_vec, Ex_mass);
             bim3a_boundary_mass(tmsh, 0, 5, charges_vec, free_charge_mass, ord_c[0]);
             bim3a_boundary_mass(tmsh, 0, 5, charges_vec, p1_mass, ord_c[1]);
             bim3a_boundary_mass(tmsh, 0, 5, charges_vec, p2_mass, ord_c[2]);
             bim3a_boundary_mass(tmsh, 0, 5, charges_vec, p3_mass, ord_c[3]);
 
             I_c = 0.;
-            E_flux = 0.;
-            pol_charges.fill(0.);
+            charges.fill(0.);
 
             for (size_t i = 0; i < Jx_vec.local_size(); i++)
               I_c += Jx_vec.get_owned_data()[i];
-            for (size_t i = 0; i < Ex_vec.local_size(); i++)
-              E_flux += Ex_vec.get_owned_data()[i];
-            for (size_t i = 0; i < charges_vec.local_size() / N_polcur; i++) {
-              pol_charges[0] += charges_vec.get_owned_data()[i*N_polcur];
-              pol_charges[1] += charges_vec.get_owned_data()[i*N_polcur+1];
-              pol_charges[2] += charges_vec.get_owned_data()[i*N_polcur+2];
-              pol_charges[3] += charges_vec.get_owned_data()[i*N_polcur+3];
+            for (size_t i = 0; i < charges_vec.local_size() / (N_polcur+1); i++) {
+              charges[0] += charges_vec.get_owned_data()[i*(N_polcur+1)];
+              charges[1] += charges_vec.get_owned_data()[i*(N_polcur+1)+1];
+              charges[2] += charges_vec.get_owned_data()[i*(N_polcur+1)+2];
+              charges[3] += charges_vec.get_owned_data()[i*(N_polcur+1)+3];
             }
 
 
             MPI_Allreduce(MPI_IN_PLACE, &I_c, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-            MPI_Allreduce(MPI_IN_PLACE, &E_flux, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-            MPI_Allreduce(MPI_IN_PLACE, pol_charges.data(), 4, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-            I_p_inf = (E_flux - E_flux_old) / DT;
-            E_flux_old = E_flux;
+            MPI_Allreduce(MPI_IN_PLACE, charges.data(), 4, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            // I_p_inf = (E_flux - E_flux_old) / DT; E_flux_old = E_flux;
+            
             if (!compute_2_contacts)
               currents_file << std::setw(20) << std::setprecision(5) << time
                             << std::setw(20) << std::setprecision(5) << I_c
-                            << std::setw(20) << std::setprecision(5) << I_p_inf
-                            << std::setw(20) << std::setprecision(5) << (pol_charges[1] - pol_charges_old[1]) / DT
-                            << std::setw(20) << std::setprecision(5) << (pol_charges[2] - pol_charges_old[2]) / DT
-                            << std::setw(20) << std::setprecision(5) << (pol_charges[3] - pol_charges_old[3]) / DT
                             << std::setw(20) << std::setprecision(5) << I_displ1
-                            << std::setw(20) << std::setprecision(5) << (pol_charges[2] - pol_charges_old[2]) / DT
-                            << std::setw(20) << std::setprecision(5) << pol_charges[0]
-                            << std::setw(20) << std::setprecision(5) << pol_charges[1]
-                            << std::setw(20) << std::setprecision(5) << pol_charges[2] << std::endl;
+                            << std::setw(20) << std::setprecision(5) << charges[0]
+                            << std::setw(20) << std::setprecision(5) << - charges[0] - charges[1] - charges[2] - charges[3]
+                            << std::setw(20) << std::setprecision(5) << charges[1]
+                            << std::setw(20) << std::setprecision(5) << charges[2]
+                            << std::setw(20) << std::setprecision(5) << charges[3] << std::endl;
             else
               currents_file << std::setw(20) << std::setprecision(5) << time
                             << std::setw(20) << std::setprecision(5) << I_c
-                            << std::setw(20) << std::setprecision(5) << I_p_inf
-                            << std::setw(20) << std::setprecision(5) << (pol_charges[1] - pol_charges_old[1]) / DT
-                            << std::setw(20) << std::setprecision(5) << (pol_charges[2] - pol_charges_old[2]) / DT
-                            << std::setw(20) << std::setprecision(5) << (pol_charges[3] - pol_charges_old[3]) / DT
                             << std::setw(20) << std::setprecision(5) << I_displ1
                             << std::setw(20) << std::setprecision(5) << I_displ2
-                            << std::setw(20) << std::setprecision(5) << (pol_charges[2] - pol_charges_old[2]) / DT
-                            << std::setw(20) << std::setprecision(5) << pol_charges[0]
-                            << std::setw(20) << std::setprecision(5) << pol_charges[1]
-                            << std::setw(20) << std::setprecision(5) << pol_charges[2] << std::endl;
-            pol_charges_old = pol_charges;
+                            << std::setw(20) << std::setprecision(5) << charges[0]
+                            << std::setw(20) << std::setprecision(5) << - charges[0] - charges[1] - charges[2] - charges[3]
+                            << std::setw(20) << std::setprecision(5) << charges[1]
+                            << std::setw(20) << std::setprecision(5) << charges[2]
+                            << std::setw(20) << std::setprecision(5) << charges[3] << std::endl;
           }
           // Save solution
           if (save_sol == true) {
