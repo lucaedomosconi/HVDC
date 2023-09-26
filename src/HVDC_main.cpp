@@ -250,7 +250,8 @@ main (int argc, char **argv)
   int rank, size;
   MPI_Comm_rank (MPI_COMM_WORLD, &rank);
   MPI_Comm_size (MPI_COMM_WORLD, &size);
-
+  
+  std::string output_folder = data["output_location"];
   // select test to run and voltage function on contacts
   std::vector<std::string> test_name = data["test_to_run"];
   for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
@@ -265,7 +266,7 @@ main (int argc, char **argv)
   // importing some problem params
   double T = data[*test_iter]["algorithm"]["T"];
   epsilon_0 = data[*test_iter]["physics_grid"]["epsilon_0"];
-  double time = 0.; int count = 0;
+  double Time = 0.; int count = 0;
   bool start_from_solution = data[*test_iter]["algorithm"]["start_from_solution"];
   int save_every_n_steps;
   std::string temp_solution_file_name;
@@ -276,7 +277,7 @@ main (int argc, char **argv)
     save_every_n_steps = data[*test_iter]["algorithm"]["temp_sol"]["save_every_n_steps"];
   }
   if (start_from_solution) {
-    time = data[*test_iter]["algorithm"]["temp_sol"]["time"];
+    Time = data[*test_iter]["algorithm"]["temp_sol"]["time"];
     count = data[*test_iter]["algorithm"]["temp_sol"]["count"];
   }
   
@@ -286,13 +287,10 @@ main (int argc, char **argv)
   // set output preferences
   double DT = data[*test_iter]["options"]["print_solution_every_n_seconds"];
   bool save_sol = data[*test_iter]["options"]["save_sol"];
-  bool save_error = data[*test_iter]["options"]["save_error"];
+  bool save_error_and_comp_time = data[*test_iter]["options"]["save_error_and_comp_time"];
   bool save_currents = data[*test_iter]["options"]["save_currents"];
   bool save_displ_current = data[*test_iter]["options"]["save_displ_current"];
   bool compute_2_contacts = data[*test_iter]["options"]["compute_2_contacts"];
-  std::string output_folder = "output";
-  if (argc > 1)
-    output_folder = argv[1];
 
   // import from factories:
   // test
@@ -536,14 +534,17 @@ main (int argc, char **argv)
     save_problem_data.close();
   }
   // print header of output files
-  if (rank == 0 && save_error) {
+  if (rank == 0 && save_error_and_comp_time) {
     if (!start_from_solution) {
-      error_file.open(output_folder + "/" + *test_iter + "/" + "error.txt");
+      std::cout << "ma ti apri?" << std::endl;
+      error_file.open(output_folder + "/" + *test_iter + "/" + "error_and_comp_time.txt");
       error_file << std::setw(20) << "time"
-                 << std::setw(20) << "error/tol" << std::endl;
+                 << std::setw(20) << "error/tol"
+                 << std::setw(20) << "ts_comp_time"
+                 << std::setw(20) << "total_time" << std::endl;
     }
     else
-      error_file.open(output_folder + "/" + *test_iter + "/" + "error.txt", std::fstream::app);
+      error_file.open(output_folder + "/" + *test_iter + "/" + "error_and_comp_time.txt", std::fstream::app);
   
   }
   if (rank == 0 && save_currents) {
@@ -606,30 +607,37 @@ main (int argc, char **argv)
   double eps = 1.0e-10;
   double err_max;
   std::string last_saved_solution = "";
+  double start_time, time0, time1;
+  bool exit_loop;
 
-  while (time < T - eps) {
+  if (rank == 0)
+    start_time = MPI_Wtime();
+  while (Time < T - eps) {
+    exit_loop = false;
     if (rank == 0)
-      std::cout << "____________ COMPUTING FOR TIME = " << time + DT << " ____________" << std::endl;
+      std::cout << "____________ COMPUTING FOR TIME = " << Time + DT << " ____________" << std::endl;
     time_in_step = 0.0;
-    while (true) {
-      if(rank == 0)
+    while (!exit_loop) {
+      if(rank == 0) {
         std::cout << "dt = " << dt << std::endl;
+        time0 = MPI_Wtime();
+      }
       sold1 = sold; sold2 = sold; sol1 = sol; sol2 = sol;
-      time_step<N_eqs>(rank, time + time_in_step, dt, test, voltage,
+      time_step<N_eqs>(rank, Time + time_in_step, dt, test, voltage,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
                   zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold1, sol1);
-      time_step<N_eqs>(rank, time + time_in_step, dt/2, test, voltage,
+      time_step<N_eqs>(rank, Time + time_in_step, dt/2, test, voltage,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
                   zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold2, sol2);
-      time_step<N_eqs>(rank, time + time_in_step + dt/2, dt/2, test, voltage,
+      time_step<N_eqs>(rank, Time + time_in_step + dt/2, dt/2, test, voltage,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   zero_std_vect, zero_q1, delta1,delta0,
@@ -698,19 +706,23 @@ main (int argc, char **argv)
       if (err_max < tol) {
         time_in_step += dt;
         sold = std::move(sold2);
-        if (rank == 0 && save_error)
-          error_file << std::setw(20) << std::setprecision(5) << time + time_in_step << std::setw(20) << std::setprecision(7) << err_max << std::endl;
+        if (rank == 0 && save_error_and_comp_time) {
+          time1 = MPI_Wtime();
+          error_file << std::setw(20) << std::setprecision(5) << Time + time_in_step
+                     << std::setw(20) << std::setprecision(7) << err_max
+                     << std::setw(20) << std::setprecision(7) << time1 - time0;
+        }
         if (rank == 0 && save_displ_current) {
           if (!compute_2_contacts)
-            I_displ_file  << std::setw(20) << time + time_in_step
+            I_displ_file  << std::setw(20) << Time + time_in_step
                           << std::setw(20) << I_displ1 << std::endl;
           else
-            I_displ_file  << std::setw(20) << time + time_in_step
+            I_displ_file  << std::setw(20) << Time + time_in_step
                           << std::setw(20) << I_displ1
                           << std::setw(20) << I_displ2 << std::endl;
         }
         if (time_in_step > DT - eps) {
-          time += DT;
+          Time += DT;
           ++count;
           // save temp solution
           if (save_temp_solution && !(count % save_every_n_steps)) {
@@ -723,7 +735,7 @@ main (int argc, char **argv)
             MPI_File_close(&temp_sol);
             MPI_Barrier(MPI_COMM_WORLD);
             if (rank == 0)
-              std::cout << "saved temp solution at time " + std::to_string(time) 
+              std::cout << "saved temp solution at time " + std::to_string(Time) 
                         << " and count " << count << std::endl;
             remove(last_saved_solution.c_str());
             last_saved_solution = temp_solution_file_name + "_" + std::to_string(count);
@@ -758,7 +770,7 @@ main (int argc, char **argv)
             // I_p_inf = (E_flux - E_flux_old) / DT; E_flux_old = E_flux;
             
             if (!compute_2_contacts)
-              currents_file << std::setw(20) << std::setprecision(5) << time
+              currents_file << std::setw(20) << std::setprecision(5) << Time
                             << std::setw(20) << std::setprecision(5) << I_c
                             << std::setw(20) << std::setprecision(5) << I_displ1
                             << std::setw(20) << std::setprecision(5) << charges[0]
@@ -767,7 +779,7 @@ main (int argc, char **argv)
                             << std::setw(20) << std::setprecision(5) << charges[2]
                             << std::setw(20) << std::setprecision(5) << charges[3] << std::endl;
             else
-              currents_file << std::setw(20) << std::setprecision(5) << time
+              currents_file << std::setw(20) << std::setprecision(5) << Time
                             << std::setw(20) << std::setprecision(5) << I_c
                             << std::setw(20) << std::setprecision(5) << I_displ1
                             << std::setw(20) << std::setprecision(5) << I_displ2
@@ -791,13 +803,19 @@ main (int argc, char **argv)
             tmsh.octbin_export (filename,sold, ord[4]);
           }
           dt = std::min(DT,dt*std::pow(err_max/tol,-0.5)*0.9);
-          break;
+          exit_loop = true;
         }
         // update dt
-        if (DT - time_in_step < dt*std::pow(err_max/tol,-0.5)*0.9)
-          dt = DT-time_in_step;
-        else
-          dt = std::min((DT - time_in_step) / 2, dt*std::pow(err_max/tol,-0.5)*0.9);
+        else {
+          if (DT - time_in_step < dt*std::pow(err_max/tol,-0.5)*0.9)
+            dt = DT-time_in_step;
+          else
+            dt = std::min((DT - time_in_step) / 2, dt*std::pow(err_max/tol,-0.5)*0.9);
+        }
+        if (rank == 0 && save_error_and_comp_time) {
+            time1 = MPI_Wtime();
+            error_file << std::setw(20) << std::setprecision(7) << time1 - start_time << std::endl;
+          }
       }
       else
         dt /= 2;
@@ -827,11 +845,11 @@ main (int argc, char **argv)
       displ_curr_file.close();
       displ_curr_file_json.close();
     }
-    if (save_error) {
+    if (save_error_and_comp_time) {
       std::ifstream err_file;
       std::ofstream err_file_json;
-      err_file.open(output_folder + "/" + *test_iter + "/" + "error.txt");
-      err_file_json.open(output_folder + "/" + *test_iter + "/" + "error.json");
+      err_file.open(output_folder + "/" + *test_iter + "/" + "error_and_comp_time.txt");
+      err_file_json.open(output_folder + "/" + *test_iter + "/" + "error_and_comp_time.json");
       json_export(err_file, err_file_json);
       err_file.close();
       err_file_json.close();
