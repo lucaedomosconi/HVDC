@@ -170,15 +170,15 @@ void time_step (const int rank, const double time, const double DELTAT,
     gp1.assemble(replace_op);
     gp2.assemble(replace_op);
     gp3.assemble(replace_op);
-    // advection_diffusion
-
+    
+    // Advection_diffusion
     bim3a_advection_diffusion (tmsh, sigma, zero_q1, A, true, ord[0], ord[1]);
     bim3a_advection_diffusion (tmsh, epsilon, zero_q1, A, true, ord[1], ord[1]);
     bim3a_advection_diffusion (tmsh, diffusion_term_p1, zero_q1, A, true, ord[2], ord[1]);
     bim3a_advection_diffusion (tmsh, diffusion_term_p2, zero_q1, A, true, ord[3], ord[1]);
     bim3a_advection_diffusion (tmsh, diffusion_term_p3, zero_q1, A, true, ord[4], ord[1]);
     
-    // reaction
+    // Reaction
     bim3a_reaction (tmsh, delta0, zeta0, A, ord[0], ord[0]);
     bim3a_reaction (tmsh, delta1, zeta1, A, ord[1], ord[0]);
     bim3a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[2]);
@@ -188,14 +188,14 @@ void time_step (const int rank, const double time, const double DELTAT,
     bim3a_reaction (tmsh, reaction_term_p2, zeta1, A, ord[3], ord[3]);
     bim3a_reaction (tmsh, reaction_term_p3, zeta1, A, ord[4], ord[4]);
 
-    //rhs
+    // Rhs
     bim3a_rhs (tmsh, f0, g0, sol, ord[0]);
     bim3a_rhs (tmsh, f1, g1, sol, ord[1]);
     bim3a_rhs (tmsh, f0, gp1, sol, ord[2]);
     bim3a_rhs (tmsh, f0, gp2, sol, ord[3]);
     bim3a_rhs (tmsh, f0, gp3, sol, ord[4]);
 
-    //boundary conditions
+    // Boundary conditions
     bim3a_dirichlet_bc (tmsh, bcs0, A, sol, ord[0], ord[1], false);
 
     // Communicate matrix and RHS
@@ -373,7 +373,7 @@ main (int argc, char **argv)
 
   // Compute coefficients
 
-  // diffusion
+  // Diffusion
   std::vector<double> epsilon (ln_elements, 0.);
   std::vector<double> sigma (ln_elements, 0.);
   std::vector<double> zero_std_vect(ln_elements, 0.);
@@ -382,7 +382,7 @@ main (int argc, char **argv)
   std::vector<double> diffusion_term_p3 (ln_elements,0.);
   q1_vec zero_q1 (ln_nodes);
 
-  // reaction
+  // Reaction
   std::vector<double> delta1 (ln_elements, 0.);
   std::vector<double> delta0 (ln_elements, 0.);
   std::vector<double> reaction_term_p1 (ln_elements,0.);
@@ -391,7 +391,7 @@ main (int argc, char **argv)
   q1_vec zeta0 (ln_nodes);
   q1_vec zeta1 (ln_nodes);
 
-  // rhs
+  // Rhs
   std::vector<double> f1 (ln_elements, 0.);
   std::vector<double> f0 (ln_elements, 0.);
   std::vector<double> sigmaB (ln_elements, 0.);
@@ -407,11 +407,11 @@ main (int argc, char **argv)
   std::unordered_set<size_t> Ivec_index1{};
   std::unordered_set<size_t> Ivec_index2{};
   
-  // setup streamings
+  // Setup streamings
   std::ofstream error_file, currents_file, I_displ_file;
 
 
-  // data to print
+  // Data to print
   std::array<double,4> charges;
 
   double I_c;
@@ -507,7 +507,7 @@ main (int argc, char **argv)
   }
 
 
-  // lambda functions to use for currents computation (simple method)
+  // Lambda functions to use for currents computation (simple method)
   func3_quad Jx_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
     return test->sigma_fun(q->centroid(0),q->centroid(1),q->centroid(2),1.)*
         (sold[ord[1](q->gt(4))] + sold[ord[1](q->gt(5))] + sold[ord[1](q->gt(6))] + sold[ord[1](q->gt(7))]
@@ -526,17 +526,16 @@ main (int argc, char **argv)
     return (q->p(2,4)-q->p(2,0))*(sold[ord[4](q->gt(4))] + sold[ord[4](q->gt(5))] + sold[ord[4](q->gt(6))] + sold[ord[4](q->gt(7))])/8;
   };
 
-  // export test params
+  // Export test params
   if (rank == 0) {
     std::ofstream save_problem_data;
     save_problem_data.open(output_folder + "/" + *test_iter + "/" + "test.json");
     save_problem_data << std::setw(4) << data[*test_iter];
     save_problem_data.close();
   }
-  // print header of output files
+  // Print header of output files
   if (rank == 0 && save_error_and_comp_time) {
     if (!start_from_solution) {
-      std::cout << "ma ti apri?" << std::endl;
       error_file.open(output_folder + "/" + *test_iter + "/" + "error_and_comp_time.txt");
       error_file << std::setw(20) << "time"
                  << std::setw(20) << "error/tol"
@@ -592,7 +591,7 @@ main (int argc, char **argv)
   }
   q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
 
-  // store indexes of nodes on border where to estimate current
+  // Store indexes of nodes on border where to estimate current
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
       quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
     for (int ii = 0; ii < 8; ii++) {
@@ -649,22 +648,12 @@ main (int argc, char **argv)
       for (auto quadrant = tmsh.begin_quadrant_sweep ();
           quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
         for (int ii = 0; ii < 8; ii++) {
-          if (!quadrant->is_hanging(ii)) {
             Bsol1[ord_displ_curr[0](quadrant->gt (ii))] =
               (sold1[ord[0](quadrant->gt (ii))] - sold[ord[0](quadrant->gt (ii))]) / dt;
             Bsol2[ord_displ_curr[0](quadrant->gt (ii))] =
               (sold2[ord[0](quadrant->gt (ii))] - sold[ord[0](quadrant->gt (ii))]) / dt;
             Bsol1[ord_displ_curr[1](quadrant->gt (ii))] = sold1[ord[1](quadrant->gt (ii))];
             Bsol2[ord_displ_curr[1](quadrant->gt (ii))] = sold2[ord[1](quadrant->gt (ii))];
-          }
-          else
-            for (int jj = 0; jj < quadrant->num_parents (ii); ++jj)
-            {
-              Bsol1[ord_displ_curr[0](quadrant->gparent (jj, ii))] += 0.;
-              Bsol2[ord_displ_curr[0](quadrant->gparent (jj, ii))] += 0.;
-              Bsol1[ord_displ_curr[1](quadrant->gparent (jj, ii))] += 0.;
-              Bsol2[ord_displ_curr[1](quadrant->gparent (jj, ii))] += 0.;
-            }
         }
 
       Bsol1.assemble(replace_op);
@@ -724,7 +713,7 @@ main (int argc, char **argv)
         if (time_in_step > DT - eps) {
           Time += DT;
           ++count;
-          // save temp solution
+          // Save temp solution
           if (save_temp_solution && !(count % save_every_n_steps)) {
             MPI_File_open(MPI_COMM_WORLD, (temp_solution_file_name + "_" + std::to_string(count)).c_str(),
                           MPI_MODE_CREATE | MPI_MODE_WRONLY,
@@ -805,7 +794,7 @@ main (int argc, char **argv)
           dt = std::min(DT,dt*std::pow(err_max/tol,-0.5)*0.9);
           exit_loop = true;
         }
-        // update dt
+        // Update dt
         else {
           if (DT - time_in_step < dt*std::pow(err_max/tol,-0.5)*0.9)
             dt = DT-time_in_step;
@@ -823,7 +812,7 @@ main (int argc, char **argv)
   }
   
 
-  // export in json format
+  // Export in json format
   if (rank==0){
     error_file.close();
     currents_file.close();

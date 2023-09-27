@@ -13,33 +13,33 @@ double epsilon_0;
 
 
 namespace tests{
-	class generic_test {
+  class generic_test {
     public:
-			virtual void import_params(const json &data) = 0;
+      virtual void import_params(const json &data) = 0;
 
-			bool extra_refinement;
+      bool extra_refinement;
 
-			virtual int	uniform_refinement (tmesh_3d::quadrant_iterator q) const = 0;
+      virtual int	uniform_refinement (tmesh_3d::quadrant_iterator q) const = 0;
 
-			virtual int refinement (tmesh_3d::quadrant_iterator q) const = 0;
-			
-			virtual int coarsening (tmesh_3d::quadrant_iterator q) const = 0;
+      virtual int refinement (tmesh_3d::quadrant_iterator q) const = 0;
+      
+      virtual int coarsening (tmesh_3d::quadrant_iterator q) const = 0;
 
-			virtual double epsilon_fun(const double & x, const double & y, const double & z) const = 0;
+      virtual double epsilon_fun(const double & x, const double & y, const double & z) const = 0;
 
-			virtual double csi_1_fun(const double & x, const double & y, const double & z) const = 0;
+      virtual double csi_1_fun(const double & x, const double & y, const double & z) const = 0;
 
-			virtual double csi_2_fun(const double & x, const double & y, const double & z) const = 0;
+      virtual double csi_2_fun(const double & x, const double & y, const double & z) const = 0;
 
-			virtual double csi_3_fun(const double & x, const double & y, const double & z) const = 0;
+      virtual double csi_3_fun(const double & x, const double & y, const double & z) const = 0;
 
-			virtual double tau_p1_fun(const double & x, const double & y, const double & z) const = 0;
+      virtual double tau_p1_fun(const double & x, const double & y, const double & z) const = 0;
 
-			virtual double tau_p2_fun(const double & x, const double & y, const double & z) const = 0;
+      virtual double tau_p2_fun(const double & x, const double & y, const double & z) const = 0;
 
-			virtual double tau_p3_fun(const double & x, const double & y, const double & z) const = 0;
+      virtual double tau_p3_fun(const double & x, const double & y, const double & z) const = 0;
 
-			virtual double sigma_fun(const double & x, const double & y, const double & z, const double & DT) const = 0;
+      virtual double sigma_fun(const double & x, const double & y, const double & z, const double & DT) const = 0;
 
   };
 }
