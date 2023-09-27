@@ -19,7 +19,7 @@ namespace voltages{
         T_discharge = data[test_name]["algorithm"]["voltage_plugins_params"]["T_discharge"];
         tau = data[test_name]["algorithm"]["voltage_plugins_params"]["tau"];
       }
-		  double V_in_time (int contact, double time, double x, double y, double z) {
+      double V_in_time (int contact, double time, double x, double y, double z) {
         if (contact == 5)
           return time < T_discharge ? 1.5e4 * (1 - exp(-time/tau)) : 0.0;
         return 0.0;

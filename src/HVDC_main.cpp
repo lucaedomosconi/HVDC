@@ -92,6 +92,25 @@ void json_export (std::ifstream &is, std::ofstream &os) {
   return;
 }
 
+bool check_before_overwriting (int rank, const std::string &filename) {
+  if (std::filesystem::exists(filename)) {
+    char answer = ' ';
+    if (rank == 0) {
+      std::clog << "Warning:\nThe file \"" << filename
+                << "\" already exists and will be overwritten.\n"
+                << "Maybe you forgot to set the \"start_from_solution\" option.\n"
+                << "Do you want to proceed anyway? (\'y\' or \'n\')" << std::endl;
+      while (answer != 'y' && answer != 'n') {
+        std::cin >> answer;
+      }
+    }
+    MPI_Bcast(&answer, 1, MPI_CHAR, 0, MPI_COMM_WORLD);
+    return answer == 'y' ? false : true;
+  }
+  return false;
+}
+
+
 using q1_vec_ = q1_vec<distributed_vector>;
 template <size_t N_eqs>
 void time_step (const int rank, const double time, const double DELTAT,
@@ -280,6 +299,7 @@ main (int argc, char **argv)
     Time = data[*test_iter]["algorithm"]["temp_sol"]["time"];
     count = data[*test_iter]["algorithm"]["temp_sol"]["count"];
   }
+  double comp_time_of_previous_simuls = 0.0;
   
   double dt = data[*test_iter]["algorithm"]["initial_dt_for_adaptive_time_step"];
   double tol = data[*test_iter]["algorithm"]["tol_of_adaptive_time_step"];
@@ -409,7 +429,9 @@ main (int argc, char **argv)
   
   // Setup streamings
   std::ofstream error_file, currents_file, I_displ_file;
-
+  std::string error_file_name = output_folder + "/" + *test_iter + "/" + "error_and_comp_time.txt";
+  std::string currents_file_name = output_folder + "/" + *test_iter + "/" + "currents_file.txt";
+  std::string I_displ_file_name = output_folder + "/" + *test_iter + "/" + "I_displ_file.txt";
 
   // Data to print
   std::array<double,4> charges;
@@ -472,7 +494,11 @@ main (int argc, char **argv)
   MPI_File temp_sol;
   if (start_from_solution) {
     MPI_File_open(MPI_COMM_WORLD, (temp_solution_file_name + "_" + std::to_string(count)).c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &temp_sol);
-    MPI_File_seek(temp_sol, sold.get_range_start()*sizeof(double), MPI_SEEK_SET);
+    if (rank == 0) {
+      MPI_File_seek(temp_sol, 0, MPI_SEEK_SET);
+      MPI_File_read(temp_sol, &comp_time_of_previous_simuls, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+    }
+    MPI_File_seek(temp_sol, sizeof(double)+sold.get_range_start()*sizeof(double), MPI_SEEK_SET);
     MPI_File_read(temp_sol, sold.get_owned_data().data(), sold.local_size(), MPI_DOUBLE, MPI_STATUS_IGNORE);
     MPI_File_close(&temp_sol);
   }
@@ -533,22 +559,33 @@ main (int argc, char **argv)
     save_problem_data << std::setw(4) << data[*test_iter];
     save_problem_data.close();
   }
+
+  if (!start_from_solution && (
+      (save_error_and_comp_time && check_before_overwriting(rank, error_file_name)) ||
+      (save_currents&& check_before_overwriting(rank, currents_file_name)) ||
+      (save_displ_current && check_before_overwriting(rank, I_displ_file_name)) ) ) {
+    if (rank == 0)
+      std::clog << "program terminated" << std::endl;
+    MPI_Finalize (); 
+    return 0;
+  }
+
   // Print header of output files
   if (rank == 0 && save_error_and_comp_time) {
     if (!start_from_solution) {
-      error_file.open(output_folder + "/" + *test_iter + "/" + "error_and_comp_time.txt");
+      error_file.open(error_file_name);
       error_file << std::setw(20) << "time"
                  << std::setw(20) << "error/tol"
                  << std::setw(20) << "ts_comp_time"
                  << std::setw(20) << "total_time" << std::endl;
     }
     else
-      error_file.open(output_folder + "/" + *test_iter + "/" + "error_and_comp_time.txt", std::fstream::app);
+      error_file.open(error_file_name, std::fstream::app);
   
   }
   if (rank == 0 && save_currents) {
     if (!start_from_solution) {
-      currents_file.open(output_folder + "/" + *test_iter + "/" + "currents_file.txt");
+      currents_file.open(currents_file_name);
       if (! compute_2_contacts) {
         currents_file << std::setw(20) << "time"
                       << std::setw(20) << "I_c"
@@ -572,11 +609,11 @@ main (int argc, char **argv)
       }
     }
     else
-      currents_file.open(output_folder + "/" + *test_iter + "/" + "currents_file.txt", std::fstream::app);
+      currents_file.open(currents_file_name, std::fstream::app);
   }
   if (rank == 0 && save_displ_current) {
     if (!start_from_solution) {
-      I_displ_file.open(output_folder + "/" + *test_iter + "/" + "I_displ_file.txt");
+      I_displ_file.open(I_displ_file_name);
       if (!compute_2_contacts)
         I_displ_file  << std::setw(20) << "time"
                       << std::setw(20) << "I_displ" << std::endl;
@@ -586,7 +623,7 @@ main (int argc, char **argv)
                       << std::setw(20) << "I_displ2" << std::endl;
     }
     else
-      I_displ_file.open(output_folder + "/" + *test_iter + "/" + "I_displ_file.txt", std::fstream::app);
+      I_displ_file.open(I_displ_file_name, std::fstream::app);
 
   }
   q1_vec sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
@@ -619,7 +656,7 @@ main (int argc, char **argv)
     while (!exit_loop) {
       if(rank == 0) {
         std::cout << "dt = " << dt << std::endl;
-        time0 = MPI_Wtime();
+        time0 = comp_time_of_previous_simuls + MPI_Wtime();
       }
       sold1 = sold; sold2 = sold; sol1 = sol; sol2 = sol;
       time_step<N_eqs>(rank, Time + time_in_step, dt, test, voltage,
@@ -696,10 +733,11 @@ main (int argc, char **argv)
         time_in_step += dt;
         sold = std::move(sold2);
         if (rank == 0 && save_error_and_comp_time) {
-          time1 = MPI_Wtime();
+          time1 = comp_time_of_previous_simuls + MPI_Wtime();
           error_file << std::setw(20) << std::setprecision(5) << Time + time_in_step
                      << std::setw(20) << std::setprecision(7) << err_max
-                     << std::setw(20) << std::setprecision(7) << time1 - time0;
+                     << std::setw(20) << std::setprecision(7) << time1 - time0
+                     << std::setw(20) << std::setprecision(7) << time1 - start_time << std::endl;
         }
         if (rank == 0 && save_displ_current) {
           if (!compute_2_contacts)
@@ -718,7 +756,12 @@ main (int argc, char **argv)
             MPI_File_open(MPI_COMM_WORLD, (temp_solution_file_name + "_" + std::to_string(count)).c_str(),
                           MPI_MODE_CREATE | MPI_MODE_WRONLY,
                           MPI_INFO_NULL, &temp_sol);
-            MPI_File_seek(temp_sol, sold.get_range_start()*sizeof(double), MPI_SEEK_SET);
+            if (rank == 0) {
+              double total_time = time1 - start_time;
+              MPI_File_seek(temp_sol, 0, MPI_SEEK_SET);
+              MPI_File_write(temp_sol, &total_time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+            }
+            MPI_File_seek(temp_sol, sizeof(double)+sold.get_range_start()*sizeof(double), MPI_SEEK_SET);
             MPI_File_write(temp_sol, sold.get_owned_data().data(),
                           sold.local_size(), MPI_DOUBLE, MPI_STATUS_IGNORE);
             MPI_File_close(&temp_sol);
@@ -791,20 +834,21 @@ main (int argc, char **argv)
             sprintf(filename, "%s/%s/model_1_p3_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
             tmsh.octbin_export (filename,sold, ord[4]);
           }
-          dt = std::min(DT,dt*std::pow(err_max/tol,-0.5)*0.9);
+          dt *= std::pow(err_max/tol,-0.5);
+          if (dt > DT - eps)
+            dt = DT;
+          else
+            dt = std::min(dt, DT/2);
           exit_loop = true;
         }
         // Update dt
         else {
-          if (DT - time_in_step < dt*std::pow(err_max/tol,-0.5)*0.9)
-            dt = DT-time_in_step;
+          dt *= std::pow(err_max/tol,-0.5);
+          if (dt > DT - time_in_step - eps)
+            dt = DT - time_in_step;
           else
-            dt = std::min((DT - time_in_step) / 2, dt*std::pow(err_max/tol,-0.5)*0.9);
+            dt = std::min((DT - time_in_step) / 2, dt);
         }
-        if (rank == 0 && save_error_and_comp_time) {
-            time1 = MPI_Wtime();
-            error_file << std::setw(20) << std::setprecision(7) << time1 - start_time << std::endl;
-          }
       }
       else
         dt /= 2;
@@ -819,7 +863,7 @@ main (int argc, char **argv)
     if(save_currents) {
       std::ifstream curr_file;
       std::ofstream curr_file_json;
-      curr_file.open(output_folder + "/" + *test_iter + "/" + "currents_file.txt");
+      curr_file.open(currents_file_name);
       curr_file_json.open(output_folder + "/" + *test_iter + "/" + "currents_file.json");
       json_export(curr_file, curr_file_json);
       curr_file.close();
@@ -828,7 +872,7 @@ main (int argc, char **argv)
     if (save_displ_current) {
       std::ifstream displ_curr_file;
       std::ofstream displ_curr_file_json;
-      displ_curr_file.open(output_folder + "/" + *test_iter + "/" + "I_displ_file.txt");
+      displ_curr_file.open(I_displ_file_name);
       displ_curr_file_json.open(output_folder + "/" + *test_iter + "/" + "I_displ_file.json");
       json_export(displ_curr_file, displ_curr_file_json);
       displ_curr_file.close();
@@ -837,7 +881,7 @@ main (int argc, char **argv)
     if (save_error_and_comp_time) {
       std::ifstream err_file;
       std::ofstream err_file_json;
-      err_file.open(output_folder + "/" + *test_iter + "/" + "error_and_comp_time.txt");
+      err_file.open(error_file_name);
       err_file_json.open(output_folder + "/" + *test_iter + "/" + "error_and_comp_time.json");
       json_export(err_file, err_file_json);
       err_file.close();
