@@ -1,5 +1,5 @@
 {
-	"output_location" : "test_time",
+	"output_location" : "output",
 	"test_to_run" : 
 	[
 		"test1"
@@ -31,13 +31,11 @@
 				"T_discharge" : 300,
 				"tau" : 2.0
 			},
-			"start_from_solution" : false,
+			"start_from_solution" : true,
 			"save_temp_solution" : true,
 			"temp_sol" : {
-				"file" : "temp_sol",
-				"time" : 3.0,
-				"count" : 3,
-				"save_every_n_steps" : 10
+				"file_of_starting_sol" : "test1temp_sol_5",
+				"save_every_n_steps" : 1
 			}
 		},
 		"options" : {

@@ -290,14 +290,10 @@ main (int argc, char **argv)
   int save_every_n_steps;
   std::string temp_solution_file_name;
   if (start_from_solution || data[*test_iter]["algorithm"]["save_temp_solution"])
-    temp_solution_file_name = data[*test_iter]["algorithm"]["temp_sol"]["file"];
+    temp_solution_file_name = data[*test_iter]["algorithm"]["temp_sol"]["file_of_starting_sol"];
   bool save_temp_solution = data[*test_iter]["algorithm"]["save_temp_solution"];
   if (save_temp_solution) {
     save_every_n_steps = data[*test_iter]["algorithm"]["temp_sol"]["save_every_n_steps"];
-  }
-  if (start_from_solution) {
-    Time = data[*test_iter]["algorithm"]["temp_sol"]["time"];
-    count = data[*test_iter]["algorithm"]["temp_sol"]["count"];
   }
   double comp_time_of_previous_simuls = 0.0;
   
@@ -429,9 +425,9 @@ main (int argc, char **argv)
   
   // Setup streamings
   std::ofstream error_file, currents_file, I_displ_file;
-  std::string error_file_name = output_folder + "/" + *test_iter + "/" + "error_and_comp_time.txt";
-  std::string currents_file_name = output_folder + "/" + *test_iter + "/" + "currents_file.txt";
-  std::string I_displ_file_name = output_folder + "/" + *test_iter + "/" + "I_displ_file.txt";
+  const std::string error_file_name = output_folder + "/" + *test_iter + "/" + "error_and_comp_time.txt";
+  const std::string currents_file_name = output_folder + "/" + *test_iter + "/" + "currents_file.txt";
+  const std::string I_displ_file_name = output_folder + "/" + *test_iter + "/" + "I_displ_file.txt";
 
   // Data to print
   std::array<double,4> charges;
@@ -491,17 +487,25 @@ main (int argc, char **argv)
     }
   }
   sold.get_owned_data().assign(sold.local_size(),0.0);
+  
+  // Read temp. solution
   MPI_File temp_sol;
   if (start_from_solution) {
-    MPI_File_open(MPI_COMM_WORLD, (temp_solution_file_name + "_" + std::to_string(count)).c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &temp_sol);
+    MPI_File_open(MPI_COMM_WORLD, temp_solution_file_name.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &temp_sol);
     if (rank == 0) {
-      MPI_File_seek(temp_sol, 0, MPI_SEEK_SET);
-      MPI_File_read(temp_sol, &comp_time_of_previous_simuls, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+      MPI_File_read_at(temp_sol, 0, &count, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+      MPI_File_read_at(temp_sol, sizeof(int), &Time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+      MPI_File_read_at(temp_sol, sizeof(int)+sizeof(double), &comp_time_of_previous_simuls, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+      std::clog << "starting from solution_file \"" << temp_solution_file_name
+                << "\"\nAt time = " << Time << ";"
+                << "\ncount = " << count << std::endl;
     }
-    MPI_File_seek(temp_sol, sizeof(double)+sold.get_range_start()*sizeof(double), MPI_SEEK_SET);
-    MPI_File_read(temp_sol, sold.get_owned_data().data(), sold.local_size(), MPI_DOUBLE, MPI_STATUS_IGNORE);
+    MPI_File_read_at(temp_sol, sizeof(int)+(sold.get_range_start()+2)*sizeof(double), sold.get_owned_data().data(), sold.local_size(), MPI_DOUBLE, MPI_STATUS_IGNORE);
     MPI_File_close(&temp_sol);
+    MPI_Bcast(&Time, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&count, 1, MPI_INT, 0, MPI_COMM_WORLD);
   }
+  temp_solution_file_name = *test_iter + "_temp_sol";
   
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[1], false);
@@ -758,11 +762,11 @@ main (int argc, char **argv)
                           MPI_INFO_NULL, &temp_sol);
             if (rank == 0) {
               double total_time = time1 - start_time;
-              MPI_File_seek(temp_sol, 0, MPI_SEEK_SET);
-              MPI_File_write(temp_sol, &total_time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+              MPI_File_write_at(temp_sol, 0, &count, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+              MPI_File_write_at(temp_sol, sizeof(int), &Time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+              MPI_File_write_at(temp_sol, sizeof(int)+sizeof(double), &total_time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
             }
-            MPI_File_seek(temp_sol, sizeof(double)+sold.get_range_start()*sizeof(double), MPI_SEEK_SET);
-            MPI_File_write(temp_sol, sold.get_owned_data().data(),
+            MPI_File_write_at(temp_sol, sizeof(int)+(sold.get_range_start()+2)*sizeof(double), sold.get_owned_data().data(),
                           sold.local_size(), MPI_DOUBLE, MPI_STATUS_IGNORE);
             MPI_File_close(&temp_sol);
             MPI_Barrier(MPI_COMM_WORLD);
@@ -834,7 +838,7 @@ main (int argc, char **argv)
             sprintf(filename, "%s/%s/model_1_p3_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
             tmsh.octbin_export (filename,sold, ord[4]);
           }
-          dt *= std::pow(err_max/tol,-0.5);
+          dt *= std::pow(err_max/tol,-0.5)*0.9;
           if (dt > DT - eps)
             dt = DT;
           else
@@ -843,7 +847,7 @@ main (int argc, char **argv)
         }
         // Update dt
         else {
-          dt *= std::pow(err_max/tol,-0.5);
+          dt *= std::pow(err_max/tol,-0.5)*0.9;
           if (dt > DT - time_in_step - eps)
             dt = DT - time_in_step;
           else
