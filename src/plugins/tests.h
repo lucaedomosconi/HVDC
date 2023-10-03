@@ -23,14 +23,14 @@ namespace tests {
       test1() {extra_refinement = false;}
       
       void import_params (const json &data) {
-        epsilon_inf_1 = data["test1"]["physics_grid"]["plugin_params"]["epsilon_inf_1"];
-        csi1 = data["test1"]["physics_grid"]["plugin_params"]["csi1"];
-        csi2 = data["test1"]["physics_grid"]["plugin_params"]["csi2"];
-        csi3 = data["test1"]["physics_grid"]["plugin_params"]["csi3"];
-        tau_p1 = data["test1"]["physics_grid"]["plugin_params"]["tau_p1"];
-        tau_p2 = data["test1"]["physics_grid"]["plugin_params"]["tau_p2"];
-        tau_p3 = data["test1"]["physics_grid"]["plugin_params"]["tau_p3"];
-        sigma_ = data["test1"]["physics_grid"]["plugin_params"]["sigma"];
+        epsilon_inf_1 = data["test1"]["physics"]["plugin_params"]["epsilon_inf_1"];
+        csi1 = data["test1"]["physics"]["plugin_params"]["csi1"];
+        csi2 = data["test1"]["physics"]["plugin_params"]["csi2"];
+        csi3 = data["test1"]["physics"]["plugin_params"]["csi3"];
+        tau_p1 = data["test1"]["physics"]["plugin_params"]["tau_p1"];
+        tau_p2 = data["test1"]["physics"]["plugin_params"]["tau_p2"];
+        tau_p3 = data["test1"]["physics"]["plugin_params"]["tau_p3"];
+        sigma_ = data["test1"]["physics"]["plugin_params"]["sigma"];
         NUM_REFINEMENTS = data["test1"]["algorithm"]["NUM_REFINEMENTS"];
         maxlevel = data["test1"]["algorithm"]["maxlevel"];
         return;
@@ -81,15 +81,15 @@ namespace tests {
       test2() {extra_refinement = true;}
       
       void import_params (const json &data) {
-        epsilon_inf_1 = data["test2"]["physics_grid"]["plugin_params"]["epsilon_inf_1"];
-        epsilon_inf_2 = data["test2"]["physics_grid"]["plugin_params"]["epsilon_inf_2"];
-        csi1 = data["test2"]["physics_grid"]["plugin_params"]["csi1"];
-        csi2 = data["test2"]["physics_grid"]["plugin_params"]["csi2"];
-        csi3 = data["test2"]["physics_grid"]["plugin_params"]["csi3"];
-        tau_p1 = data["test2"]["physics_grid"]["plugin_params"]["tau_p1"];
-        tau_p2 = data["test2"]["physics_grid"]["plugin_params"]["tau_p2"];
-        tau_p3 = data["test2"]["physics_grid"]["plugin_params"]["tau_p3"];
-        sigma_ = data["test2"]["physics_grid"]["plugin_params"]["sigma"];
+        epsilon_inf_1 = data["test2"]["physics"]["plugin_params"]["epsilon_inf_1"];
+        epsilon_inf_2 = data["test2"]["physics"]["plugin_params"]["epsilon_inf_2"];
+        csi1 = data["test2"]["physics"]["plugin_params"]["csi1"];
+        csi2 = data["test2"]["physics"]["plugin_params"]["csi2"];
+        csi3 = data["test2"]["physics"]["plugin_params"]["csi3"];
+        tau_p1 = data["test2"]["physics"]["plugin_params"]["tau_p1"];
+        tau_p2 = data["test2"]["physics"]["plugin_params"]["tau_p2"];
+        tau_p3 = data["test2"]["physics"]["plugin_params"]["tau_p3"];
+        sigma_ = data["test2"]["physics"]["plugin_params"]["sigma"];
         NUM_REFINEMENTS = data["test2"]["algorithm"]["NUM_REFINEMENTS"];
         maxlevel = data["test2"]["algorithm"]["maxlevel"];
         return;
@@ -177,15 +177,15 @@ namespace tests {
       test3() {extra_refinement = true;}
       
       void import_params (const json &data) {
-        epsilon_inf_1 = data["test3"]["physics_grid"]["plugin_params"]["epsilon_inf_1"];
-        epsilon_inf_2 = data["test3"]["physics_grid"]["plugin_params"]["epsilon_inf_2"];
-        csi1 = data["test3"]["physics_grid"]["plugin_params"]["csi1"];
-        csi2 = data["test3"]["physics_grid"]["plugin_params"]["csi2"];
-        csi3 = data["test3"]["physics_grid"]["plugin_params"]["csi3"];
-        tau_p1 = data["test3"]["physics_grid"]["plugin_params"]["tau_p1"];
-        tau_p2 = data["test3"]["physics_grid"]["plugin_params"]["tau_p2"];
-        tau_p3 = data["test3"]["physics_grid"]["plugin_params"]["tau_p3"];
-        sigma_ = data["test3"]["physics_grid"]["plugin_params"]["sigma"];
+        epsilon_inf_1 = data["test3"]["physics"]["plugin_params"]["epsilon_inf_1"];
+        epsilon_inf_2 = data["test3"]["physics"]["plugin_params"]["epsilon_inf_2"];
+        csi1 = data["test3"]["physics"]["plugin_params"]["csi1"];
+        csi2 = data["test3"]["physics"]["plugin_params"]["csi2"];
+        csi3 = data["test3"]["physics"]["plugin_params"]["csi3"];
+        tau_p1 = data["test3"]["physics"]["plugin_params"]["tau_p1"];
+        tau_p2 = data["test3"]["physics"]["plugin_params"]["tau_p2"];
+        tau_p3 = data["test3"]["physics"]["plugin_params"]["tau_p3"];
+        sigma_ = data["test3"]["physics"]["plugin_params"]["sigma"];
         NUM_REFINEMENTS = data["test3"]["algorithm"]["NUM_REFINEMENTS"];
         maxlevel = data["test3"]["algorithm"]["maxlevel"];
         return;

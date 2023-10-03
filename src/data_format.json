@@ -5,9 +5,9 @@
 		"test1"
 	],
 	"test1" : {
-		"physics_grid" : {
+		"physics" : {
 			"epsilon_0" : 8.8542e-12,
-			"physics_grid_plugin" : "libPhy_Gri.so",
+			"physics_plugin" : "libPhy_Gri.so",
 			"plugin_params" : {
 				"tau_p1" : 1.0,
 				"tau_p2" : 10.0,
@@ -22,7 +22,7 @@
 		"algorithm" : {
 			"NUM_REFINEMENTS" : 4,
 			"maxlevel" : 6,
-			"T" : 100,
+			"T" : 1300,
 			"initial_dt_for_adaptive_time_step" : 0.00001,
 			"tol_of_adaptive_time_step" : 0.01,
 			"voltage_plugin" : "libVoltages.so",
@@ -41,7 +41,7 @@
 		"options" : {
 			"print_solution_every_n_seconds" : 1,
 			"save_sol" : true,
-			"save_currents" : true,
+			"compute_charges_on_border" : true,
 			"save_displ_current" : true,
 			"compute_2_contacts" : true,
 	  		"save_error_and_comp_time" : true

@@ -255,11 +255,11 @@ void time_step (const int rank, const double time, const double DELTAT,
 int
 main (int argc, char **argv)
 {
-  // alias definition
+  // Alias definition
   using q1_vec = q1_vec<distributed_vector>;
   using json = nlohmann::json;
 
-  // parsing data file
+  // Parsing data file
   std::ifstream data_file("data.json");
   json data = json::parse(data_file);
   data_file.close();
@@ -271,20 +271,28 @@ main (int argc, char **argv)
   MPI_Comm_size (MPI_COMM_WORLD, &size);
   
   std::string output_folder = data["output_location"];
-  // select test to run and voltage function on contacts
+
+  // Select test to run and voltage function on contacts
   std::vector<std::string> test_name = data["test_to_run"];
+  bool warnings_on = true;
+
+  // Options from command line
+  for (int i = 1; i < argc; ++i) {
+    if (strcmp(argv[i],"--no-warnings") == 0)
+      warnings_on = false;
+  }
   for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
   std::string vol_name = data[*test_iter]["algorithm"]["voltage_name"];
   
   // opening dynamic libraries
-  std::string test_plugin = data[*test_iter]["physics_grid"]["physics_grid_plugin"];
+  std::string test_plugin = data[*test_iter]["physics"]["physics_plugin"];
   std::string voltage_plugin = data[*test_iter]["algorithm"]["voltage_plugin"];
   void *dl_test_p = dlopen(test_plugin.c_str(), RTLD_NOW);
   void *dl_voltage_p = dlopen(voltage_plugin.c_str(), RTLD_NOW);
   
   // importing some problem params
   double T = data[*test_iter]["algorithm"]["T"];
-  epsilon_0 = data[*test_iter]["physics_grid"]["epsilon_0"];
+  epsilon_0 = data[*test_iter]["physics"]["epsilon_0"];
   double Time = 0.; int count = 0;
   bool start_from_solution = data[*test_iter]["algorithm"]["start_from_solution"];
   int save_every_n_steps;
@@ -304,7 +312,7 @@ main (int argc, char **argv)
   double DT = data[*test_iter]["options"]["print_solution_every_n_seconds"];
   bool save_sol = data[*test_iter]["options"]["save_sol"];
   bool save_error_and_comp_time = data[*test_iter]["options"]["save_error_and_comp_time"];
-  bool save_currents = data[*test_iter]["options"]["save_currents"];
+  bool save_charges = data[*test_iter]["options"]["compute_charges_on_border"];
   bool save_displ_current = data[*test_iter]["options"]["save_displ_current"];
   bool compute_2_contacts = data[*test_iter]["options"]["compute_2_contacts"];
 
@@ -430,14 +438,16 @@ main (int argc, char **argv)
   const std::string I_displ_file_name = output_folder + "/" + *test_iter + "/" + "I_displ_file.txt";
 
   // Data to print
-  std::array<double,4> charges;
+  std::array<double,4> rho_pi_k;
 
   double I_c;
+  double Ez_eps0;
   double I_displ1, I_displ2, I_d1_c1, I_d2_c1, I_d1_c2, I_d2_c2;
-  q1_vec Jx_vec(ln_nodes);
-  q1_vec charges_vec(ln_nodes * (N_polcur+1));
-  Jx_vec.get_owned_data().assign(Jx_vec.get_owned_data().size(),0.);
-  charges_vec.get_owned_data().assign(charges_vec.get_owned_data().size(),0.);
+  q1_vec Jz_vec(ln_nodes), Ez_eps0_vec(ln_nodes);
+  q1_vec rho_pi_k_vec(ln_nodes * (N_polcur+1));
+  Jz_vec.get_owned_data().assign(Jz_vec.get_owned_data().size(),0.);
+  Ez_eps0_vec.get_owned_data().assign(Ez_eps0_vec.get_owned_data().size(),0.);
+  rho_pi_k_vec.get_owned_data().assign(rho_pi_k_vec.get_owned_data().size(),0.);
 
   // Initialize constant (in time) parameters and initial data
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
@@ -465,11 +475,12 @@ main (int argc, char **argv)
         sol[ord[3](quadrant->gt (ii))] = 0.0;
         sol[ord[4](quadrant->gt (ii))] = 0.0;
 
-        Jx_vec[quadrant->gt(ii)] = 0.;
-        charges_vec[ord_c[0](quadrant->gt(ii))] = 0.;
-        charges_vec[ord_c[1](quadrant->gt(ii))] = 0.;
-        charges_vec[ord_c[2](quadrant->gt(ii))] = 0.;
-        charges_vec[ord_c[3](quadrant->gt(ii))] = 0.;
+        Jz_vec[quadrant->gt(ii)] = 0.;
+        Ez_eps0_vec[quadrant->gt(ii)] = 0.;
+        rho_pi_k_vec[ord_c[0](quadrant->gt(ii))] = 0.;
+        rho_pi_k_vec[ord_c[1](quadrant->gt(ii))] = 0.;
+        rho_pi_k_vec[ord_c[2](quadrant->gt(ii))] = 0.;
+        rho_pi_k_vec[ord_c[3](quadrant->gt(ii))] = 0.;
       }
       else
         for (int jj = 0; jj < quadrant->num_parents (ii); ++jj) {
@@ -478,11 +489,12 @@ main (int argc, char **argv)
           zeta1[quadrant->gparent (jj, ii)] += 0.;
           g1[quadrant->gparent (jj, ii)] += 0.;
 
-          Jx_vec[quadrant->gparent (jj, ii)] += 0.;
-          charges_vec[ord_c[0](quadrant->gparent (jj, ii))] += 0.;
-          charges_vec[ord_c[1](quadrant->gparent (jj, ii))] += 0.;
-          charges_vec[ord_c[2](quadrant->gparent (jj, ii))] += 0.;
-          charges_vec[ord_c[3](quadrant->gparent (jj, ii))] += 0.;
+          Jz_vec[quadrant->gparent (jj, ii)] += 0.;
+          Ez_eps0_vec[quadrant->gparent (jj, ii)] += 0.;
+          rho_pi_k_vec[ord_c[0](quadrant->gparent (jj, ii))] += 0.;
+          rho_pi_k_vec[ord_c[1](quadrant->gparent (jj, ii))] += 0.;
+          rho_pi_k_vec[ord_c[2](quadrant->gparent (jj, ii))] += 0.;
+          rho_pi_k_vec[ord_c[3](quadrant->gparent (jj, ii))] += 0.;
         }
     }
   }
@@ -520,29 +532,37 @@ main (int argc, char **argv)
   zeta1.assemble (replace_op);
   g1.assemble (replace_op);
 
+  std::filesystem::create_directory(output_folder);
+  std::filesystem::create_directory(output_folder + "/" + *test_iter);
   // Save inital conditions
-  if (!start_from_solution) {
-    std::filesystem::create_directory(output_folder);
-    std::filesystem::create_directory(output_folder + "/" + *test_iter);
-    sprintf(filename, "%s/%s/model_1_rho_0000", output_folder.c_str(), test_iter->c_str());
+  if (save_sol && !start_from_solution) {
+    std::filesystem::create_directory(output_folder + "/" + *test_iter + "/" + "sol");
+    sprintf(filename, "%s/%s/%s/model_1_rho_0000", output_folder.c_str(), test_iter->c_str(), "sol");
     tmsh.octbin_export (filename, sold, ord[0]);
-    sprintf(filename, "%s/%s/model_1_phi_0000", output_folder.c_str(), test_iter->c_str());
+    sprintf(filename, "%s/%s/%s/model_1_phi_0000", output_folder.c_str(), test_iter->c_str(), "sol");
     tmsh.octbin_export (filename, sold, ord[1]);
-    sprintf(filename, "%s/%s/model_1_p1_0000",  output_folder.c_str(), test_iter->c_str());
+    sprintf(filename, "%s/%s/%s/model_1_p1_0000",  output_folder.c_str(), test_iter->c_str(), "sol");
     tmsh.octbin_export (filename, sold, ord[2]);
-    sprintf(filename, "%s/%s/model_1_p2_0000",  output_folder.c_str(), test_iter->c_str());
+    sprintf(filename, "%s/%s/%s/model_1_p2_0000",  output_folder.c_str(), test_iter->c_str(), "sol");
     tmsh.octbin_export (filename, sold, ord[3]);
-    sprintf(filename, "%s/%s/model_1_p3_0000",  output_folder.c_str(), test_iter->c_str());
+    sprintf(filename, "%s/%s/%s/model_1_p3_0000",  output_folder.c_str(), test_iter->c_str(), "sol");
     tmsh.octbin_export (filename, sold, ord[4]);
   }
 
 
   // Lambda functions to use for currents computation (simple method)
-  func3_quad Jx_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
+  func3_quad Jz_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
     return test->sigma_fun(q->centroid(0),q->centroid(1),q->centroid(2),1.)*
         (sold[ord[1](q->gt(4))] + sold[ord[1](q->gt(5))] + sold[ord[1](q->gt(6))] + sold[ord[1](q->gt(7))]
         -sold[ord[1](q->gt(0))] - sold[ord[1](q->gt(1))] - sold[ord[1](q->gt(2))] - sold[ord[1](q->gt(3))])/(q->p(2,4)-q->p(2,0))/4;
   };
+  
+  func3_quad Ez_eps0_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
+    return epsilon_0*
+        (sold[ord[1](q->gt(4))] + sold[ord[1](q->gt(5))] + sold[ord[1](q->gt(6))] + sold[ord[1](q->gt(7))]
+        -sold[ord[1](q->gt(0))] - sold[ord[1](q->gt(1))] - sold[ord[1](q->gt(2))] - sold[ord[1](q->gt(3))])/(q->p(2,4)-q->p(2,0))/4;
+  };
+  
   func3_quad free_charge_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
     return (q->p(2,4)-q->p(2,0))*(sold[ord[0](q->gt(4))] + sold[ord[0](q->gt(5))] + sold[ord[0](q->gt(6))] + sold[ord[0](q->gt(7))])/8;
   };
@@ -564,9 +584,9 @@ main (int argc, char **argv)
     save_problem_data.close();
   }
 
-  if (!start_from_solution && (
+  if (!start_from_solution && warnings_on &&(
       (save_error_and_comp_time && check_before_overwriting(rank, error_file_name)) ||
-      (save_currents&& check_before_overwriting(rank, currents_file_name)) ||
+      (save_charges&& check_before_overwriting(rank, currents_file_name)) ||
       (save_displ_current && check_before_overwriting(rank, I_displ_file_name)) ) ) {
     if (rank == 0)
       std::clog << "program terminated" << std::endl;
@@ -579,7 +599,7 @@ main (int argc, char **argv)
     if (!start_from_solution) {
       error_file.open(error_file_name);
       error_file << std::setw(20) << "time"
-                 << std::setw(20) << "error/tol"
+                 << std::setw(20) << "error"
                  << std::setw(20) << "ts_comp_time"
                  << std::setw(20) << "total_time" << std::endl;
     }
@@ -587,7 +607,7 @@ main (int argc, char **argv)
       error_file.open(error_file_name, std::fstream::app);
   
   }
-  if (rank == 0 && save_currents) {
+  if (rank == 0 && save_charges) {
     if (!start_from_solution) {
       currents_file.open(currents_file_name);
       if (! compute_2_contacts) {
@@ -636,10 +656,12 @@ main (int argc, char **argv)
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
       quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
     for (int ii = 0; ii < 8; ii++) {
-      if (quadrant->e(ii) == 5)
+      if (quadrant->e(ii) == 5) {
         Ivec_index1.insert(ord_displ_curr[0](quadrant->gt (ii)));
-      else if (compute_2_contacts || quadrant->e(ii) == 4)
+      }
+      else if (compute_2_contacts && quadrant->e(ii) == 4) {
         Ivec_index2.insert(ord_displ_curr[0](quadrant->gt (ii)));
+      }
     }
   
   // Time cycle
@@ -686,6 +708,8 @@ main (int argc, char **argv)
                   zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold2, sol2);
       err_max = 0.;
 
+      // Compute displacement current with Nanz method
+      // Build vector
       for (auto quadrant = tmsh.begin_quadrant_sweep ();
           quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
         for (int ii = 0; ii < 8; ii++) {
@@ -700,12 +724,16 @@ main (int argc, char **argv)
       Bsol1.assemble(replace_op);
       Bsol2.assemble(replace_op);
       
+      // Build Matrix
       B.reset();
       bim3a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
       bim3a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
+      
+      // Matrix * vector
       Ivec1 = B*Bsol1;
       Ivec2 = B*Bsol2;
 
+      // Sum elements in the vectors corresponding to border nodes
       I_d1_c1 = 0.; I_d2_c1 = 0.; I_d1_c2 = 0.; I_d2_c2 = 0.;
       for (auto it = Ivec_index1.cbegin(); it != Ivec_index1.cend(); it++) {
         I_d1_c1 += Ivec1[*it];
@@ -717,6 +745,8 @@ main (int argc, char **argv)
           I_d2_c2 += Ivec2[*it];
         }
       }
+
+      // Sum with results on border nodes of other processes
       std::cout << "c1 rank " << rank << "    " << I_d1_c1 << "   " << I_d2_c1 << std::endl;
       std::cout << "c2 rank " << rank << "    " << I_d1_c2 << "   " << I_d2_c2 << std::endl;
       MPI_Allreduce(MPI_IN_PLACE, &I_d1_c1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -733,24 +763,30 @@ main (int argc, char **argv)
       if (rank == 0)
         std::cout << "error/tol = " << err_max/tol << std::endl;
       
+      // If the error on the displacement current is small enough go on otherwise half dt and repeat
       if (err_max < tol) {
         time_in_step += dt;
         sold = std::move(sold2);
         if (rank == 0 && save_error_and_comp_time) {
+          // Save error and computation times
           time1 = comp_time_of_previous_simuls + MPI_Wtime();
           error_file << std::setw(20) << std::setprecision(5) << Time + time_in_step
                      << std::setw(20) << std::setprecision(7) << err_max
                      << std::setw(20) << std::setprecision(7) << time1 - time0
-                     << std::setw(20) << std::setprecision(7) << time1 - start_time << std::endl;
+                     << std::setw(20) << std::setprecision(7) << time1 - start_time
+                     << std::endl;
         }
         if (rank == 0 && save_displ_current) {
+          // Save displacement currents
           if (!compute_2_contacts)
             I_displ_file  << std::setw(20) << Time + time_in_step
-                          << std::setw(20) << I_displ1 << std::endl;
+                          << std::setw(20) << I_displ1
+                          << std::endl;
           else
             I_displ_file  << std::setw(20) << Time + time_in_step
                           << std::setw(20) << I_displ1
-                          << std::setw(20) << I_displ2 << std::endl;
+                          << std::setw(20) << I_displ2
+                          << std::endl;
         }
         if (time_in_step > DT - eps) {
           Time += DT;
@@ -776,68 +812,84 @@ main (int argc, char **argv)
             remove(last_saved_solution.c_str());
             last_saved_solution = temp_solution_file_name + "_" + std::to_string(count);
           }
-          if (save_currents) {
-            Jx_vec.get_owned_data().assign(Jx_vec.get_owned_data().size(), 0.);
-            Jx_vec.assemble(replace_op);
-            charges_vec.get_owned_data().assign(charges_vec.get_owned_data().size(), 0.);
-            charges_vec.assemble(replace_op);
+          if (save_charges) {
 
-            bim3a_boundary_mass(tmsh, 0, 5, Jx_vec, Jx_mass);
-            bim3a_boundary_mass(tmsh, 0, 5, charges_vec, free_charge_mass, ord_c[0]);
-            bim3a_boundary_mass(tmsh, 0, 5, charges_vec, p1_mass, ord_c[1]);
-            bim3a_boundary_mass(tmsh, 0, 5, charges_vec, p2_mass, ord_c[2]);
-            bim3a_boundary_mass(tmsh, 0, 5, charges_vec, p3_mass, ord_c[3]);
-
+            // Prepare support vectors
+            Jz_vec.get_owned_data().assign(Jz_vec.get_owned_data().size(), 0.);
+            Jz_vec.assemble(replace_op);
+            Ez_eps0_vec.get_owned_data().assign(Ez_eps0_vec.get_owned_data().size(), 0.);
+            Ez_eps0_vec.assemble(replace_op);
+            rho_pi_k_vec.get_owned_data().assign(rho_pi_k_vec.get_owned_data().size(), 0.);
+            rho_pi_k_vec.assemble(replace_op);
+            
+            // Wheight through apposite library function
+            bim3a_boundary_mass(tmsh, 0, 5, Jz_vec, Jz_mass);
+            bim3a_boundary_mass(tmsh, 0, 5, Ez_eps0_vec, Ez_eps0_mass);
+            bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, free_charge_mass, ord_c[0]);
+            bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p1_mass, ord_c[1]);
+            bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p2_mass, ord_c[2]);
+            bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p3_mass, ord_c[3]);
+            
+            // Integrate on the border part owned by current process
             I_c = 0.;
-            charges.fill(0.);
-
-            for (size_t i = 0; i < Jx_vec.local_size(); i++)
-              I_c += Jx_vec.get_owned_data()[i];
-            for (size_t i = 0; i < charges_vec.local_size() / (N_polcur+1); i++) {
-              charges[0] += charges_vec.get_owned_data()[i*(N_polcur+1)];
-              charges[1] += charges_vec.get_owned_data()[i*(N_polcur+1)+1];
-              charges[2] += charges_vec.get_owned_data()[i*(N_polcur+1)+2];
-              charges[3] += charges_vec.get_owned_data()[i*(N_polcur+1)+3];
+            Ez_eps0 = 0.;
+            rho_pi_k.fill(0.);
+            if (Jz_vec.local_size() != rho_pi_k_vec.local_size() / (N_polcur+1) &&
+                Jz_vec.local_size() != Ez_eps0_vec.local_size())
+              std::cerr << "non conforming sizes" << std::endl;
+            for (size_t i = 0; i < Jz_vec.local_size(); i++) {
+              I_c += Jz_vec.get_owned_data()[i];
+              Ez_eps0 += Ez_eps0_vec.get_owned_data()[i];
+              rho_pi_k[0] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)];
+              rho_pi_k[1] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)+1];
+              rho_pi_k[2] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)+2];
+              rho_pi_k[3] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)+3];
             }
 
-
+            // Sum with that of the others
             MPI_Allreduce(MPI_IN_PLACE, &I_c, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-            MPI_Allreduce(MPI_IN_PLACE, charges.data(), 4, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-            // I_p_inf = (E_flux - E_flux_old) / DT; E_flux_old = E_flux;
-            
+            MPI_Allreduce(MPI_IN_PLACE, &Ez_eps0, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(MPI_IN_PLACE, rho_pi_k.data(), 4, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+            // Print on file
             if (!compute_2_contacts)
               currents_file << std::setw(20) << std::setprecision(5) << Time
                             << std::setw(20) << std::setprecision(5) << I_c
                             << std::setw(20) << std::setprecision(5) << I_displ1
-                            << std::setw(20) << std::setprecision(5) << charges[0]
-                            << std::setw(20) << std::setprecision(5) << - charges[0] - charges[1] - charges[2] - charges[3]
-                            << std::setw(20) << std::setprecision(5) << charges[1]
-                            << std::setw(20) << std::setprecision(5) << charges[2]
-                            << std::setw(20) << std::setprecision(5) << charges[3] << std::endl;
+                            << std::setw(20) << std::setprecision(5) << rho_pi_k[0]
+                            << std::setw(20) << std::setprecision(5) << Ez_eps0 - rho_pi_k[0] + rho_pi_k[1] + rho_pi_k[2] + rho_pi_k[3]
+                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[1]
+                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[2]
+                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[3]
+                            << std::endl;
             else
               currents_file << std::setw(20) << std::setprecision(5) << Time
                             << std::setw(20) << std::setprecision(5) << I_c
                             << std::setw(20) << std::setprecision(5) << I_displ1
                             << std::setw(20) << std::setprecision(5) << I_displ2
-                            << std::setw(20) << std::setprecision(5) << charges[0]
-                            << std::setw(20) << std::setprecision(5) << - charges[0] - charges[1] - charges[2] - charges[3]
-                            << std::setw(20) << std::setprecision(5) << charges[1]
-                            << std::setw(20) << std::setprecision(5) << charges[2]
-                            << std::setw(20) << std::setprecision(5) << charges[3] << std::endl;
+                            << std::setw(20) << std::setprecision(5) << rho_pi_k[0]
+                            << std::setw(20) << std::setprecision(5) << Ez_eps0 - rho_pi_k[0] + rho_pi_k[1] + rho_pi_k[2] + rho_pi_k[3]
+                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[1]
+                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[2]
+                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[3]
+                            << std::endl;
           }
+
           // Save solution
-          if (save_sol == true) {
-            sprintf(filename, "%s/%s/model_1_rho_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
+          if (save_sol) {
+            sprintf(filename, "%s/%s/%s/model_1_rho_%4.4d", output_folder.c_str(), test_iter->c_str(), "sol", count);
             tmsh.octbin_export (filename, sold, ord[0]);
-            sprintf(filename, "%s/%s/model_1_phi_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
+            sprintf(filename, "%s/%s/%s/model_1_phi_%4.4d", output_folder.c_str(), test_iter->c_str(), "sol", count);
             tmsh.octbin_export (filename, sold, ord[1]);
-            sprintf(filename, "%s/%s/model_1_p1_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
+            sprintf(filename, "%s/%s/%s/model_1_p1_%4.4d",  output_folder.c_str(), test_iter->c_str(), "sol", count);
             tmsh.octbin_export (filename,sold, ord[2]);
-            sprintf(filename, "%s/%s/model_1_p2_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
+            sprintf(filename, "%s/%s/%s/model_1_p2_%4.4d",  output_folder.c_str(), test_iter->c_str(), "sol", count);
             tmsh.octbin_export (filename,sold, ord[3]);
-            sprintf(filename, "%s/%s/model_1_p3_%4.4d", output_folder.c_str(), test_iter->c_str(), count);
+            sprintf(filename, "%s/%s/%s/model_1_p3_%4.4d",  output_folder.c_str(), test_iter->c_str(), "sol", count);
             tmsh.octbin_export (filename,sold, ord[4]);
           }
+
+          // Update dt
           dt *= std::pow(err_max/tol,-0.5)*0.9;
           if (dt > DT - eps)
             dt = DT;
@@ -855,6 +907,7 @@ main (int argc, char **argv)
         }
       }
       else
+        // Half dt
         dt /= 2;
     }
   }
@@ -864,7 +917,7 @@ main (int argc, char **argv)
   if (rank==0){
     error_file.close();
     currents_file.close();
-    if(save_currents) {
+    if(save_charges) {
       std::ifstream curr_file;
       std::ofstream curr_file_json;
       curr_file.open(currents_file_name);
@@ -894,6 +947,7 @@ main (int argc, char **argv)
   }
   dlclose(dl_test_p);
   dlclose(dl_voltage_p);
+
   // Close MPI and print report
   MPI_Barrier (MPI_COMM_WORLD);
 

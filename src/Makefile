@@ -18,15 +18,15 @@ DOXYFILE= ../doc/Doxyfile
 
 include local_settings.mk
 
-plugs=libtestfactory.so libPhy_Gri.so libvoltagefactory.so libVoltages.so
+plugs=libtestfactory.so libPhysics.so libvoltagefactory.so libVoltages.so
 
 all : $(plugs) HVDC_main
 
 include HVDC_main.d
 
-libPhy_Gri.so : libtestfactory.so plugins/tests.cpp plugins/tests.h plugins/generic_test.h
+libPhysics.so : libtestfactory.so plugins/tests.cpp plugins/tests.h plugins/generic_test.h
 	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/tests.cpp
-	g++ $(CXXFLAGS) $(LDFLAGS) -shared tests.o -o libPhy_Gri.so
+	g++ $(CXXFLAGS) $(LDFLAGS) -shared tests.o -o libPhysics.so
 
 libtestfactory.so : plugins/test_factory.cpp plugins/test_factory.h plugins/generic_test.h
 	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/test_factory.cpp
