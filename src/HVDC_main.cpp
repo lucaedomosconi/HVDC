@@ -95,6 +95,7 @@ void json_export (std::ifstream &is, std::ofstream &os) {
 bool check_before_overwriting (int rank, const std::string &filename) {
   if (std::filesystem::exists(filename)) {
     char answer = ' ';
+    std::cout << "rank " << rank << std::endl;
     if (rank == 0) {
       std::clog << "Warning:\nThe file \"" << filename
                 << "\" already exists and will be overwritten.\n"
@@ -107,6 +108,8 @@ bool check_before_overwriting (int rank, const std::string &filename) {
     MPI_Bcast(&answer, 1, MPI_CHAR, 0, MPI_COMM_WORLD);
     return answer == 'y' ? false : true;
   }
+  // MPI_Barrier prevents rank 0 to create files before other ranks enter this funtion!
+  MPI_Barrier(MPI_COMM_WORLD);
   return false;
 }
 
@@ -532,11 +535,14 @@ main (int argc, char **argv)
   zeta1.assemble (replace_op);
   g1.assemble (replace_op);
 
+  if(rank == 0){
   std::filesystem::create_directory(output_folder);
   std::filesystem::create_directory(output_folder + "/" + *test_iter);
+  std::filesystem::create_directory(output_folder + "/" + *test_iter + "/" + "sol");
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
   // Save inital conditions
   if (save_sol && !start_from_solution) {
-    std::filesystem::create_directory(output_folder + "/" + *test_iter + "/" + "sol");
     sprintf(filename, "%s/%s/%s/model_1_rho_0000", output_folder.c_str(), test_iter->c_str(), "sol");
     tmsh.octbin_export (filename, sold, ord[0]);
     sprintf(filename, "%s/%s/%s/model_1_phi_0000", output_folder.c_str(), test_iter->c_str(), "sol");
@@ -548,6 +554,7 @@ main (int argc, char **argv)
     sprintf(filename, "%s/%s/%s/model_1_p3_0000",  output_folder.c_str(), test_iter->c_str(), "sol");
     tmsh.octbin_export (filename, sold, ord[4]);
   }
+
 
 
   // Lambda functions to use for currents computation (simple method)
@@ -583,17 +590,21 @@ main (int argc, char **argv)
     save_problem_data << std::setw(4) << data[*test_iter];
     save_problem_data.close();
   }
+        std::cout << "rank " << rank << " !start sol " << !start_from_solution <<std::endl;
+        std::cout << "rank " << rank << " warnings " << warnings_on <<std::endl;
+        std::cout << "rank " << rank << " error " << save_error_and_comp_time <<std::endl;
+        std::cout << "rank " << rank << " charges " << save_charges <<std::endl;
+        std::cout << "rank " << rank << " displ " << save_displ_current <<std::endl;
 
   if (!start_from_solution && warnings_on &&(
       (save_error_and_comp_time && check_before_overwriting(rank, error_file_name)) ||
-      (save_charges&& check_before_overwriting(rank, currents_file_name)) ||
+      (save_charges && check_before_overwriting(rank, currents_file_name)) ||
       (save_displ_current && check_before_overwriting(rank, I_displ_file_name)) ) ) {
     if (rank == 0)
       std::clog << "program terminated" << std::endl;
     MPI_Finalize (); 
     return 0;
   }
-
   // Print header of output files
   if (rank == 0 && save_error_and_comp_time) {
     if (!start_from_solution) {
@@ -665,8 +676,9 @@ main (int argc, char **argv)
     }
   
   // Time cycle
-  double time_in_step = 0.0;
-  double eps = 1.0e-10;
+  double time_in_step = 0;
+  double dt_start_big_step = dt;
+  double eps = 1.0e-8;
   double err_max;
   std::string last_saved_solution = "";
   double start_time, time0, time1;
@@ -676,6 +688,8 @@ main (int argc, char **argv)
     start_time = MPI_Wtime();
   while (Time < T - eps) {
     exit_loop = false;
+    dt = dt_start_big_step;
+    dt_start_big_step = 0.;
     if (rank == 0)
       std::cout << "____________ COMPUTING FOR TIME = " << Time + DT << " ____________" << std::endl;
     time_in_step = 0.0;
@@ -889,26 +903,22 @@ main (int argc, char **argv)
             tmsh.octbin_export (filename,sold, ord[4]);
           }
 
-          // Update dt
-          dt *= std::pow(err_max/tol,-0.5)*0.9;
-          if (dt > DT - eps)
-            dt = DT;
-          else
-            dt = std::min(dt, DT/2);
+          // Enter new big time step after updating 'dt_start_big_step'
           exit_loop = true;
         }
+        
         // Update dt
-        else {
-          dt *= std::pow(err_max/tol,-0.5)*0.9;
-          if (dt > DT - time_in_step - eps)
-            dt = DT - time_in_step;
-          else
-            dt = std::min((DT - time_in_step) / 2, dt);
+        dt *= std::pow(err_max/tol,-0.5)*0.9;
+        dt_start_big_step = std::min(DT,std::max(dt_start_big_step, dt));
+        if (dt > DT - time_in_step - eps) {
+          dt = DT - time_in_step;
         }
       }
-      else
+      else {
         // Half dt
         dt /= 2;
+        dt_start_big_step = 0.;
+      }
     }
   }
   
