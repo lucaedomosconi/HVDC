@@ -290,9 +290,9 @@ main (int argc, char **argv)
   // opening dynamic libraries
   std::string test_plugin = data[*test_iter]["physics"]["physics_plugin"];
   std::string voltage_plugin = data[*test_iter]["algorithm"]["voltage_plugin"];
-  void *dl_test_p = dlopen(test_plugin.c_str(), RTLD_NOW);
-  void *dl_voltage_p = dlopen(voltage_plugin.c_str(), RTLD_NOW);
-  
+  void *dl_test_p = dlopen(test_plugin.c_str(), RTLD_LAZY);
+  void *dl_voltage_p = dlopen(voltage_plugin.c_str(), RTLD_LAZY);
+
   // importing some problem params
   double T = data[*test_iter]["algorithm"]["T"];
   epsilon_0 = data[*test_iter]["physics"]["epsilon_0"];
@@ -535,11 +535,11 @@ main (int argc, char **argv)
   zeta1.assemble (replace_op);
   g1.assemble (replace_op);
 
-  if(rank == 0){
+
   std::filesystem::create_directory(output_folder);
   std::filesystem::create_directory(output_folder + "/" + *test_iter);
   std::filesystem::create_directory(output_folder + "/" + *test_iter + "/" + "sol");
-  }
+
   MPI_Barrier(MPI_COMM_WORLD);
   // Save inital conditions
   if (save_sol && !start_from_solution) {
@@ -590,12 +590,6 @@ main (int argc, char **argv)
     save_problem_data << std::setw(4) << data[*test_iter];
     save_problem_data.close();
   }
-        std::cout << "rank " << rank << " !start sol " << !start_from_solution <<std::endl;
-        std::cout << "rank " << rank << " warnings " << warnings_on <<std::endl;
-        std::cout << "rank " << rank << " error " << save_error_and_comp_time <<std::endl;
-        std::cout << "rank " << rank << " charges " << save_charges <<std::endl;
-        std::cout << "rank " << rank << " displ " << save_displ_current <<std::endl;
-
   if (!start_from_solution && warnings_on &&(
       (save_error_and_comp_time && check_before_overwriting(rank, error_file_name)) ||
       (save_charges && check_before_overwriting(rank, currents_file_name)) ||
@@ -678,6 +672,7 @@ main (int argc, char **argv)
   // Time cycle
   double time_in_step = 0;
   double dt_start_big_step = dt;
+  bool truncated_dt;
   double eps = 1.0e-8;
   double err_max;
   std::string last_saved_solution = "";
@@ -688,6 +683,7 @@ main (int argc, char **argv)
     start_time = MPI_Wtime();
   while (Time < T - eps) {
     exit_loop = false;
+    truncated_dt = 0;
     dt = dt_start_big_step;
     dt_start_big_step = 0.;
     if (rank == 0)
@@ -866,27 +862,29 @@ main (int argc, char **argv)
             MPI_Allreduce(MPI_IN_PLACE, rho_pi_k.data(), 4, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
             // Print on file
-            if (!compute_2_contacts)
-              currents_file << std::setw(20) << std::setprecision(5) << Time
-                            << std::setw(20) << std::setprecision(5) << I_c
-                            << std::setw(20) << std::setprecision(5) << I_displ1
-                            << std::setw(20) << std::setprecision(5) << rho_pi_k[0]
-                            << std::setw(20) << std::setprecision(5) << Ez_eps0 - rho_pi_k[0] + rho_pi_k[1] + rho_pi_k[2] + rho_pi_k[3]
-                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[1]
-                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[2]
-                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[3]
-                            << std::endl;
-            else
-              currents_file << std::setw(20) << std::setprecision(5) << Time
-                            << std::setw(20) << std::setprecision(5) << I_c
-                            << std::setw(20) << std::setprecision(5) << I_displ1
-                            << std::setw(20) << std::setprecision(5) << I_displ2
-                            << std::setw(20) << std::setprecision(5) << rho_pi_k[0]
-                            << std::setw(20) << std::setprecision(5) << Ez_eps0 - rho_pi_k[0] + rho_pi_k[1] + rho_pi_k[2] + rho_pi_k[3]
-                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[1]
-                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[2]
-                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[3]
-                            << std::endl;
+            if (rank == 0) {
+              if (!compute_2_contacts)
+                currents_file << std::setw(20) << std::setprecision(5) << Time
+                              << std::setw(20) << std::setprecision(5) << I_c
+                              << std::setw(20) << std::setprecision(5) << I_displ1
+                              << std::setw(20) << std::setprecision(5) << rho_pi_k[0]
+                              << std::setw(20) << std::setprecision(5) << Ez_eps0 - rho_pi_k[0] + rho_pi_k[1] + rho_pi_k[2] + rho_pi_k[3]
+                              << std::setw(20) << std::setprecision(5) << - rho_pi_k[1]
+                              << std::setw(20) << std::setprecision(5) << - rho_pi_k[2]
+                              << std::setw(20) << std::setprecision(5) << - rho_pi_k[3]
+                              << std::endl;
+              else
+                currents_file << std::setw(20) << std::setprecision(5) << Time
+                              << std::setw(20) << std::setprecision(5) << I_c
+                              << std::setw(20) << std::setprecision(5) << I_displ1
+                              << std::setw(20) << std::setprecision(5) << I_displ2
+                              << std::setw(20) << std::setprecision(5) << rho_pi_k[0]
+                              << std::setw(20) << std::setprecision(5) << Ez_eps0 - rho_pi_k[0] + rho_pi_k[1] + rho_pi_k[2] + rho_pi_k[3]
+                              << std::setw(20) << std::setprecision(5) << - rho_pi_k[1]
+                              << std::setw(20) << std::setprecision(5) << - rho_pi_k[2]
+                              << std::setw(20) << std::setprecision(5) << - rho_pi_k[3]
+                              << std::endl;
+            }
           }
 
           // Save solution
@@ -909,9 +907,10 @@ main (int argc, char **argv)
         
         // Update dt
         dt *= std::pow(err_max/tol,-0.5)*0.9;
-        dt_start_big_step = std::min(DT,std::max(dt_start_big_step, dt));
+        dt_start_big_step = std::min(DT,std::max(dt_start_big_step*truncated_dt, dt));
         if (dt > DT - time_in_step - eps) {
           dt = DT - time_in_step;
+          truncated_dt = 1;
         }
       }
       else {
@@ -955,16 +954,15 @@ main (int argc, char **argv)
       err_file_json.close();
     }
   }
-  dlclose(dl_test_p);
-  dlclose(dl_voltage_p);
+
 
   // Close MPI and print report
   MPI_Barrier (MPI_COMM_WORLD);
 
   // Clean linear solver
   lin_solver->cleanup ();
-  
-  
+
+
   }
   MPI_Finalize (); 
   return 0;
