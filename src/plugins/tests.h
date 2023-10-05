@@ -1,6 +1,5 @@
 #ifndef PARTICULAR_TEST_HPP
 #define PARTICULAR_TEST_HPP
-#include "test_factory.h"
 #include "generic_test.h"
 using json = nlohmann::json;
 

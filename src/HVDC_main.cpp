@@ -38,8 +38,7 @@
 #include <nlohmann/json.hpp>
 
 
-#include "plugins/test_factory.h"
-#include "plugins/voltage_factory.h"
+#include "plugins/generic_factory.h"
 #include <dlfcn.h>
 #include <filesystem>
 
@@ -261,6 +260,12 @@ main (int argc, char **argv)
   // Alias definition
   using q1_vec = q1_vec<distributed_vector>;
   using json = nlohmann::json;
+  using testfactory = Factory<tests::generic_test, std::function<std::unique_ptr<tests::generic_test>()>>;
+  using voltagefactory = Factory<voltages::generic_voltage, std::function<std::unique_ptr<voltages::generic_voltage>()>>;
+
+  // Get factories address
+  testfactory & T_factory = testfactory::Instance();
+  voltagefactory & V_factory = voltagefactory::Instance();
 
   // Parsing data file
   std::ifstream data_file("data.json");
@@ -284,16 +289,19 @@ main (int argc, char **argv)
     if (strcmp(argv[i],"--no-warnings") == 0)
       warnings_on = false;
   }
+
+  // Iterate over the tests to run
   for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
+  
   std::string vol_name = data[*test_iter]["algorithm"]["voltage_name"];
   
-  // opening dynamic libraries
+  // Opening dynamic libraries
   std::string test_plugin = data[*test_iter]["physics"]["physics_plugin"];
   std::string voltage_plugin = data[*test_iter]["algorithm"]["voltage_plugin"];
-  void *dl_test_p = dlopen(test_plugin.c_str(), RTLD_LAZY);
-  void *dl_voltage_p = dlopen(voltage_plugin.c_str(), RTLD_LAZY);
-
-  // importing some problem params
+  void *dl_test_p = dlopen(test_plugin.c_str(), RTLD_NOW);
+  void *dl_voltage_p = dlopen(voltage_plugin.c_str(), RTLD_NOW);
+  
+  // Importing some problem params
   double T = data[*test_iter]["algorithm"]["T"];
   epsilon_0 = data[*test_iter]["physics"]["epsilon_0"];
   double Time = 0.; int count = 0;
@@ -311,7 +319,7 @@ main (int argc, char **argv)
   double dt = data[*test_iter]["algorithm"]["initial_dt_for_adaptive_time_step"];
   double tol = data[*test_iter]["algorithm"]["tol_of_adaptive_time_step"];
   
-  // set output preferences
+  // Set output preferences
   double DT = data[*test_iter]["options"]["print_solution_every_n_seconds"];
   bool save_sol = data[*test_iter]["options"]["save_sol"];
   bool save_error_and_comp_time = data[*test_iter]["options"]["save_error_and_comp_time"];
@@ -319,16 +327,13 @@ main (int argc, char **argv)
   bool save_displ_current = data[*test_iter]["options"]["save_displ_current"];
   bool compute_2_contacts = data[*test_iter]["options"]["compute_2_contacts"];
 
-  // import from factories:
-  // test
-  auto which_test = tests::T_factory.find(*test_iter);
-  std::unique_ptr<tests::generic_test> test = (which_test->second)();
+  // Test
+  std::unique_ptr<tests::generic_test> test = T_factory.create(*test_iter);
   test->import_params(data);
-  // voltage
-  auto which_vol = voltages::V_factory.find(vol_name);
-  std::unique_ptr<voltages::generic_voltage> voltage = (which_vol->second)();
+  // Voltage
+  std::unique_ptr<voltages::generic_voltage> voltage = V_factory.create(vol_name);
   voltage->import_params(*test_iter, data);
-  
+
 
   /*
   Manegement of solutions ordering:   Equation ordering:

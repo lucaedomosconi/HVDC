@@ -12,33 +12,29 @@ LDFLAGS=-L/u/software/octave_file_io/1.0.91/lib -Wl,-rpath, -L.\
 -Wl,-rpath,. -ldl
 
 LIBS=-lNanoShaper -lbim -lbimmumps -lbimlis -lbimp4est -lbimlinalg -llis -ldmumps -lmumps_common \
--lscotcherr -lbz2 -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -ltestfactory -lvoltagefactory
+-lscotcherr -lbz2 -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lgenericfactory
 
 DOXYFILE= ../doc/Doxyfile
 
 include local_settings.mk
 
-plugs=libtestfactory.so libPhysics.so libvoltagefactory.so libVoltages.so
+plugs= libgenericfactory.so libPhysics.so libVoltages.so
 
 all : $(plugs) HVDC_main
 
 include HVDC_main.d
 
-libPhysics.so : libtestfactory.so plugins/tests.cpp plugins/tests.h plugins/generic_test.h
+libPhysics.so : plugins/tests.cpp plugins/tests.h plugins/generic_test.h
 	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/tests.cpp
 	g++ $(CXXFLAGS) $(LDFLAGS) -shared tests.o -o libPhysics.so
 
-libtestfactory.so : plugins/test_factory.cpp plugins/test_factory.h plugins/generic_test.h
-	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/test_factory.cpp
-	g++ $(CXXFLAGS) $(LDFLAGS) -shared test_factory.o -o libtestfactory.so
-
-libVoltages.so : libvoltagefactory.so plugins/voltages.cpp plugins/voltages.h plugins/generic_voltage.h
+libVoltages.so : plugins/voltages.cpp plugins/voltages.h plugins/generic_voltage.h
 	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/voltages.cpp
 	g++ $(CXXFLAGS) $(LDFLAGS) -shared voltages.o -o libVoltages.so
 
-libvoltagefactory.so : plugins/voltage_factory.cpp plugins/voltage_factory.h plugins/generic_voltage.h
-	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/voltage_factory.cpp
-	g++ $(CXXFLAGS) $(LDFLAGS) -shared voltage_factory.o -o libvoltagefactory.so
+libgenericfactory.so : plugins/generic_factory.cpp plugins/generic_factory.h plugins/generic_voltage.h plugins/generic_test.h
+	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/generic_factory.cpp
+	g++ $(CXXFLAGS) $(LDFLAGS) -shared generic_factory.o -o libgenericfactory.so
 
 %.d : %.cpp
 	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -MM $< -MF $@

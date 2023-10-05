@@ -3,7 +3,6 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <string>
-#include "voltage_factory.h"
 #include "generic_voltage.h"
 
 using json = nlohmann::json;
