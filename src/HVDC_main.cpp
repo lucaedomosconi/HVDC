@@ -66,25 +66,6 @@ auto makeorder(){
   return make_order_struct<N,std::make_integer_sequence<size_t,N>>::fun();
 }
 
-bool check_before_overwriting (int rank, const std::string &filename) {
-  if (std::filesystem::exists(filename)) {
-    char answer = ' ';
-    if (rank == 0) {
-      std::clog << "Warning:\nThe file \"" << filename
-                << "\" already exists and will be overwritten.\n"
-                << "Maybe you forgot to set the \"start_from_solution\" option.\n"
-                << "Do you want to proceed anyway? (\'y\' or \'n\')" << std::endl;
-      while (answer != 'y' && answer != 'n') {
-        std::cin >> answer;
-      }
-    }
-    MPI_Bcast(&answer, 1, MPI_CHAR, 0, MPI_COMM_WORLD);
-    return answer == 'y' ? false : true;
-  }
-  // MPI_Barrier prevents rank 0 to create files before other ranks enter this funtion!
-  MPI_Barrier(MPI_COMM_WORLD);
-  return false;
-}
 
 
 using q1_vector = q1_vec<distributed_vector>;
@@ -290,7 +271,7 @@ main (int argc, char **argv)
   try{output_folder = std::string(data["output_location"]);}
   catch(...) {std::cerr << "Error: Impossible to read object [output_location]" << std::endl; throw;}
   if (!output_folder.empty())
-    output_folder = output_folder +"/";
+    output_folder = output_folder + "/";
 
   // Select test to run and voltage function on contacts
   std::vector<std::string> test_name;
@@ -298,6 +279,49 @@ main (int argc, char **argv)
   try{test_name = data["test_to_run"];}
   catch (...) {std::cerr << "Error: Impossible to read object [test_to_run]" << std::endl; throw;}
 
+  // Check overwritings
+  if (warnings_on) {
+    bool  start_from_solution,
+          save_sol,
+          compute_charges_on_border,
+          save_displ_current,
+          save_error_and_comp_time;
+    std::vector<std::string> files;
+    for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
+      try {start_from_solution = data[*test_iter]["algorithm"]["start_from_solution"];}
+      catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][start_from_solution]" << std::endl; throw;}
+      try {save_sol = data[*test_iter]["options"]["save_sol"];}
+      catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_sol]" << std::endl; throw;}
+      try {compute_charges_on_border = data[*test_iter]["options"]["compute_charges_on_border"];}
+      catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][compute_charges_on_border]" << std::endl; throw;}
+      try {save_displ_current = data[*test_iter]["options"]["save_displ_current"];}
+      catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_displ_current]" << std::endl; throw;}
+      try {save_error_and_comp_time = data[*test_iter]["options"]["save_error_and_comp_time"];}
+      catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_error_and_comp_time]" << std::endl; throw;}
+      if (!start_from_solution) {
+        if (save_error_and_comp_time  && std::filesystem::exists(output_folder + *test_iter + "/error_and_comp_time.txt")) {files.push_back(output_folder + *test_iter + "/error_and_comp_time.txt");}
+        if (compute_charges_on_border && std::filesystem::exists(output_folder + *test_iter + "/charges_file.txt")) {files.push_back(output_folder + *test_iter + "/charges_file.txt");}
+        if (save_displ_current        && std::filesystem::exists(output_folder + *test_iter + "/I_displ_file.txt")) {files.push_back(output_folder + *test_iter + "/I_displ_file.txt");}
+        if (save_sol                  && std::filesystem::exists(output_folder + *test_iter + "/sol")) {files.push_back(output_folder + *test_iter + "/sol");}
+      }
+    }
+    if (!files.empty()) {
+      char proceed = ' ';
+      if (rank == 0) {
+        std::clog << "The following files will be overwritten:" << std::endl;
+        for (auto it = files.cbegin(); it != files.cend(); ++it)
+          std::clog << *it << std::endl;
+        std::clog << "Proceed anyway? ('y' or 'n')" << std::endl;
+        while (proceed != 'y' && proceed != 'n') 
+          std::cin >> proceed;
+      }
+      MPI_Bcast(&proceed, 1, MPI_CHAR, 0, MPI_COMM_WORLD);
+      if (proceed == 'n') {
+        MPI_Finalize();
+        return 0;
+      }
+    }
+  }
   // Iterate over the tests to run
   for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
   
@@ -380,7 +404,7 @@ main (int argc, char **argv)
   try{dt = data[*test_iter]["algorithm"]["initial_dt_for_adaptive_time_step"];}
   catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][initial_dt_for_adaptive_time_step]" << std::endl; throw;}
   try{tol = data[*test_iter]["algorithm"]["tol_of_adaptive_time_step"];}
-    catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][tol_of_adaptive_time_step]" << std::endl; throw;}
+  catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][tol_of_adaptive_time_step]" << std::endl; throw;}
   // Set output preferences
   try{DT = data[*test_iter]["options"]["print_solution_every_n_seconds"];}
   catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][print_solution_every_n_seconds]" << std::endl; throw;}
@@ -665,16 +689,6 @@ main (int argc, char **argv)
     save_problem_data.close();
   }
 
-  // Prints a warning
-  if (!start_from_solution && warnings_on &&(
-      (save_error_and_comp_time && check_before_overwriting(rank, error_file_name)) ||
-      (save_charges && check_before_overwriting(rank, charges_file_name)) ||
-      (save_displ_current && check_before_overwriting(rank, I_displ_file_name)) ) ) {
-    if (rank == 0)
-      std::clog << "Exiting" << std::endl;
-    MPI_Finalize (); 
-    return 0;
-  }
   // Print header of output files
   // ... for error_and_computation_file
   if (rank == 0 && save_error_and_comp_time) {

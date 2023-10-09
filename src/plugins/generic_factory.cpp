@@ -3,7 +3,6 @@
 template <class object, class builder>
 Factory<object, builder>& Factory<object, builder>::Instance(){
   static Factory<object, builder> TheFactory;
-  std::cout << "instance called" << std::endl;
   return TheFactory;
 }
 

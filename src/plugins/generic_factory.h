@@ -14,7 +14,7 @@ template
 <class object, class builder>
 class Factory {
 private:
-  Factory() {std::cout << "constructor called" << std::endl;}
+  Factory() = default;
   Factory(Factory const &) = delete;
   Factory & operator = (Factory const &) = delete;
   std::map<std::string, builder> Container;
