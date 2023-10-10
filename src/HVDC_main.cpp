@@ -229,7 +229,7 @@ main (int argc, char **argv)
   for (int i = 1; i < argc; ++i) {
     if (strcmp(argv[i], "--no-warnings") == 0)
       warnings_on = false;
-    if (strcmp(argv[i], "--output-json") == 0) {
+    if (strcmp(argv[i], "--export-json") == 0) {
       if ((argc - i == 1 || argv[++i][0] == '-') && rank == 0)
           std::clog << "missing or invalid argument for --output-json" << std::endl;
       else if (rank == 0) {
@@ -286,26 +286,31 @@ main (int argc, char **argv)
           compute_charges_on_border,
           save_displ_current,
           save_error_and_comp_time;
+    int give_warning;
     std::vector<std::string> files;
-    for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
-      try {start_from_solution = data[*test_iter]["algorithm"]["start_from_solution"];}
-      catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][start_from_solution]" << std::endl; throw;}
-      try {save_sol = data[*test_iter]["options"]["save_sol"];}
-      catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_sol]" << std::endl; throw;}
-      try {compute_charges_on_border = data[*test_iter]["options"]["compute_charges_on_border"];}
-      catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][compute_charges_on_border]" << std::endl; throw;}
-      try {save_displ_current = data[*test_iter]["options"]["save_displ_current"];}
-      catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_displ_current]" << std::endl; throw;}
-      try {save_error_and_comp_time = data[*test_iter]["options"]["save_error_and_comp_time"];}
-      catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_error_and_comp_time]" << std::endl; throw;}
-      if (!start_from_solution) {
-        if (save_error_and_comp_time  && std::filesystem::exists(output_folder + *test_iter + "/error_and_comp_time.txt")) {files.push_back(output_folder + *test_iter + "/error_and_comp_time.txt");}
-        if (compute_charges_on_border && std::filesystem::exists(output_folder + *test_iter + "/charges_file.txt")) {files.push_back(output_folder + *test_iter + "/charges_file.txt");}
-        if (save_displ_current        && std::filesystem::exists(output_folder + *test_iter + "/I_displ_file.txt")) {files.push_back(output_folder + *test_iter + "/I_displ_file.txt");}
-        if (save_sol                  && std::filesystem::exists(output_folder + *test_iter + "/sol")) {files.push_back(output_folder + *test_iter + "/sol");}
+    if (rank == 0) {
+      for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
+        try {start_from_solution = data[*test_iter]["algorithm"]["start_from_solution"];}
+        catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][start_from_solution]" << std::endl; throw;}
+        try {save_sol = data[*test_iter]["options"]["save_sol"];}
+        catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_sol]" << std::endl; throw;}
+        try {compute_charges_on_border = data[*test_iter]["options"]["compute_charges_on_border"];}
+        catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][compute_charges_on_border]" << std::endl; throw;}
+        try {save_displ_current = data[*test_iter]["options"]["save_displ_current"];}
+        catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_displ_current]" << std::endl; throw;}
+        try {save_error_and_comp_time = data[*test_iter]["options"]["save_error_and_comp_time"];}
+        catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_error_and_comp_time]" << std::endl; throw;}
+        if (!start_from_solution) {
+          if (save_error_and_comp_time  && std::filesystem::exists(output_folder + *test_iter + "/error_and_comp_time.txt")) {files.push_back(output_folder + *test_iter + "/error_and_comp_time.txt");}
+          if (compute_charges_on_border && std::filesystem::exists(output_folder + *test_iter + "/charges_file.txt")) {files.push_back(output_folder + *test_iter + "/charges_file.txt");}
+          if (save_displ_current        && std::filesystem::exists(output_folder + *test_iter + "/I_displ_file.txt")) {files.push_back(output_folder + *test_iter + "/I_displ_file.txt");}
+          if (save_sol                  && std::filesystem::exists(output_folder + *test_iter + "/sol")) {files.push_back(output_folder + *test_iter + "/sol");}
+        }
       }
+      give_warning = files.empty() ? 0 : 1;
     }
-    if (!files.empty()) {
+    MPI_Bcast(&give_warning, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    if (give_warning) {
       char proceed = ' ';
       if (rank == 0) {
         std::clog << "The following files will be overwritten:" << std::endl;

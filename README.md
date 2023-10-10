@@ -2,7 +2,7 @@
 
 Solves the charge distribution problem on Octree mesh.
 
-Solves the following system of PDEs 
+The system to be solved is the following:
 ```math
 \begin{cases}
     \frac{\partial \rho}{\partial t}&-\nabla\cdot(\sigma\nabla\varphi)&=0\\
@@ -16,7 +16,7 @@ on a cubic domain, for k = 1,2,3.
 ### Brief overview
 The application is basically composed of a main file `HVDC_main.cpp` in `HVDC/src`, some header files in `HVDC/include`, and some `cpp` files implementing plugins and related necessary structures in `HVDC/src/plugins`. Finally, to properly run the application a `json` parameter file is needed.
 
-The file `tests.h` defines a set of tests dercribing the problem to solve. The user can add his own test to the file or write it in a new plugin.
+The file `tests.h` defines a set of tests describing the problem to solve. The user can add his own test to the file or write it in a new plugin.
 
 Similarly the user can modify the function in the `voltages.h` file or add a new one.
 
@@ -39,7 +39,7 @@ make
 ```
 
 ### Parameters setup
-The application needs a `.json` object file in order to run. Changing variable names inside will cause a fail.
+The application needs a `.json` object file in order to run. Changing variable names inside will cause an exception.
 To generate a default parameter file run the command
 ```
 mpirun HVDC_main --generate-params <file-name>
@@ -57,7 +57,7 @@ Each test object has three sections inside:
 ```
 physics
     epsilon_0 -> dielectric constant in vacuum
-    physics_plugin -> name of the plugin cntaining the test
+    physics_plugin -> name of the plugin containing the test
     plugin_params {} -> object containing physical constants used by the test functions
 algorithm
     possibly some parameters for the mesh generation like (just as an example)
@@ -67,7 +67,7 @@ algorithm
     initial_dt_for_adaptive_time_step -> starting dt with wich to start the adaptive time step (small value suggested)
     tol_of_adaptive_time_step -> tol of relative error of displacement current
     voltage_plugin -> name of the plugin containing the voltage function
-    voltage_name -> name of the functio V(t)
+    voltage_name -> name of the function V(t)
     voltage_plugins_params -> contains parameters of the voltage function
     start_from_solution -> if true the application will resume a previous simulation from a temporary solution
     save_temp_solution -> if true the application will save the current solution and allow the user to resume the simulation later
@@ -96,15 +96,19 @@ If no parameter file is given the application will look for a `data.json` if thi
 If the application is starting a new simulation (start_from_solution = true) and finds that the directory `<output-folder>/<test-name>` already exists will give a warning before overwriting existing files. To disable this warning use the option `--overwrite` in the command line.
 
 ## Post-processing of Output Files
+
+The application output is composed of a series of frames to export and visualize in `Paraview`, and three files containing additional information.
+
 ### Visualize the solution
 
-The application output is so strucured:
 The problem solution at each time step is located in 
 ```
 <output_folder_name>/<test_name>/sol
 ```
+where \<output_folder_name\> is set in the data file.
+
 The user can use the `GNU Octave` function included in `export_phi_rho_p1_3.m` 
-(it is located in the  folder `script/m`) to generate the .vtu files,
+(located in the  folder `script/m`) to generate the .vtu files,
 which can by opened using Paraview. This function is a wrapper over the function `export_tmesh_data.m`
 provided with bim++, so it is necessary to add the path `script/m` of bim++ to the Octave path. 
 The usage is the following:
@@ -132,10 +136,8 @@ in the folder `<output_folder>/<test_name>`.
 
 By default the application will export these files also in `.json` format.
 
-It is possible anyway to explicitely export a file in `json` format by the command
+It is possible anyway to explicitly export a (txt) file in `json` format by the command
 ```
-mpirun HVDC_main --output-json <existing/file/name.txt>
+mpirun HVDC_main --export-json <file/name.txt>
 ```
 To import the data in `Octave` we use the script in `script/m/import_json_file.m`.
-
-
