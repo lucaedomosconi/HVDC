@@ -96,6 +96,7 @@ If no parameter file is given the application will look for a `data.json` if thi
 If the application is starting a new simulation (start_from_solution = true) and finds that the directory `<output-folder>/<test-name>` already exists will give a warning before overwriting existing files. To disable this warning use the option `--overwrite` in the command line.
 
 ## Post-processing of Output Files
+### Visualize the solution
 
 The application output is composed of a series of frames to export and visualize in `Paraview`, and three files containing additional information.
 
@@ -109,6 +110,7 @@ where \<output_folder_name\> is set in the data file.
 
 The user can use the `GNU Octave` function included in `export_phi_rho_p1_3.m` 
 (located in the  folder `script/m`) to generate the .vtu files,
+
 which can by opened using Paraview. This function is a wrapper over the function `export_tmesh_data.m`
 provided with bim++, so it is necessary to add the path `script/m` of bim++ to the Octave path. 
 The usage is the following:
