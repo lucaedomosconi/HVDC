@@ -12,7 +12,6 @@ namespace {
       T_factory.add("test1", []() {return std::make_unique<test1>();});
       T_factory.add("test2", []() {return std::make_unique<test2>();});
       T_factory.add("test3", []() {return std::make_unique<test3>();});
-      std::cout << "test factory loaded" << std::endl;
       }
     };
   const LoadTest loadtest;

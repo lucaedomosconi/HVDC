@@ -426,12 +426,10 @@ main (int argc, char **argv)
 
   // Test
   std::unique_ptr<tests::generic_test> test = T_factory.create(*test_iter);
-  try{test->import_params(data);}
-  catch(...){throw;}
+  test->import_params(data);
   // Voltage
   std::unique_ptr<voltages::generic_voltage> voltage = V_factory.create(vol_name);
-  try{voltage->import_params(*test_iter, data);}
-  catch(...){throw;}
+  voltage->import_params(*test_iter, data);
 
 
   /*
