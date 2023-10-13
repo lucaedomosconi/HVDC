@@ -45,10 +45,18 @@ To generate a default parameter file run the command
 mpirun HVDC_main --generate-params <file-name>
 ```
 If no \<file-name\> is provided the application will generate a file 'data.json'.
+
+Moreover, before running a series of tests in sequence it is recommended to check that all the parameters in the parameter file contain all the variables required by the application with the correct types. To this end it is possible to use the command
+```
+mpirun -np 1 HVDC_main --check-params
+```
+If there are any errors the application will fail producing a message helpfull for the user to quikly identify the first error in the parameter file.
+With this option no test will be run.
+
 The main variables in the file are
 ```
 output_location -> directory where to save results
-test_to_run -> vector with names of tests to run in sequence
+test_to_run -> vector with names of tests to run in sequence. 
 test1 {} -> object with parameters of test1
 test2 {} -> object with parameters of test2
 ...
@@ -58,6 +66,7 @@ Each test object has three sections inside:
 physics
     epsilon_0 -> dielectric constant in vacuum
     physics_plugin -> name of the plugin containing the test
+    plugin_test_index -> name associated to the test in the plugin file
     plugin_params {} -> object containing physical constants used by the test functions
 algorithm
     possibly some parameters for the mesh generation like (just as an example)
