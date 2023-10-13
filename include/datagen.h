@@ -8,12 +8,13 @@ R"({
 	"output_location" : "output",
 	"test_to_run" : 
 	[
-		"test1"
+		"a_test"
 	],
-	"test1" : {
+	"a_test" : {
 		"physics" : {
 			"epsilon_0" : 8.8542e-12,
 			"physics_plugin" : "libPhysics.so",
+			"plugin_test_index" : "test1",
 			"plugin_params" : {
 				"tau_p1" : 1.0,
 				"tau_p2" : 10.0,

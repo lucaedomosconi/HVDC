@@ -16,32 +16,32 @@ namespace tests {
       double epsilon_inf_1;		                // permittivity at infinite frequency
       double csi1, csi2, csi3;
       double tau_p1, tau_p2, tau_p3;
-      double sigma_;            					    // conducivity coeff
+      double sigma_;            					    // conductivity coeff
     public:
 
       test1() {extra_refinement = false;}
       
       void import_params (json & data) {
-        try{epsilon_inf_1 = data["test1"]["physics"]["plugin_params"]["epsilon_inf_1"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test1][physics][plugin_params][epsilon_inf_1]" << std::endl; throw;}
-        try{csi1 = data["test1"]["physics"]["plugin_params"]["csi1"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test1][physics][plugin_params][csi1]" << std::endl; throw;}
-        try{csi2 = data["test1"]["physics"]["plugin_params"]["csi2"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test1][physics][plugin_params][csi2]" << std::endl; throw;}
-        try{csi3 = data["test1"]["physics"]["plugin_params"]["csi3"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test1][physics][plugin_params][csi3]" << std::endl; throw;}
-        try{tau_p1 = data["test1"]["physics"]["plugin_params"]["tau_p1"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test1][physics][plugin_params][tau_p1]" << std::endl; throw;}
-        try{tau_p2 = data["test1"]["physics"]["plugin_params"]["tau_p2"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test1][physics][plugin_params][tau_p2]" << std::endl; throw;}
-        try{tau_p3 = data["test1"]["physics"]["plugin_params"]["tau_p3"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test1][physics][plugin_params][tau_p3]" << std::endl; throw;}
-        try{sigma_ = data["test1"]["physics"]["plugin_params"]["sigma"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test1][physics][plugin_params][sigma]" << std::endl; throw;}
-        try{NUM_REFINEMENTS = data["test1"]["algorithm"]["NUM_REFINEMENTS"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test1][algorithm][NUM_REFINEMENTS]" << std::endl; throw;}
-        try{maxlevel = data["test1"]["algorithm"]["maxlevel"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test1][algorithm][maxlevel]" << std::endl; throw;}
+        try{epsilon_inf_1 = data["physics"]["plugin_params"]["epsilon_inf_1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_inf_1]");}
+        try{csi1 = data["physics"]["plugin_params"]["csi1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][csi1]");}
+        try{csi2 = data["physics"]["plugin_params"]["csi2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][csi2]");}
+        try{csi3 = data["physics"]["plugin_params"]["csi3"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][csi3]");}
+        try{tau_p1 = data["physics"]["plugin_params"]["tau_p1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_p1]");}
+        try{tau_p2 = data["physics"]["plugin_params"]["tau_p2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_p2]");}
+        try{tau_p3 = data["physics"]["plugin_params"]["tau_p3"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_p3]");}
+        try{sigma_ = data["physics"]["plugin_params"]["sigma"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][sigma]");}
+        try{NUM_REFINEMENTS = data["algorithm"]["NUM_REFINEMENTS"];}
+        catch(...){throw std::runtime_error("[algorithm][NUM_REFINEMENTS]");}
+        try{maxlevel = data["algorithm"]["maxlevel"];}
+        catch(...){throw std::runtime_error("[algorithm][maxlevel]");}
         
         return;
       }
@@ -85,34 +85,34 @@ namespace tests {
       double epsilon_inf_1, epsilon_inf_2;		// permittivity at infinite frequency
       double csi1, csi2, csi3;
       double tau_p1, tau_p2, tau_p3;
-      double sigma_;            					    // conducivity coeff
+      double sigma_;            					    // conductivity coeff
     public:
 
       test2() {extra_refinement = true;}
       
       void import_params (json & data) {
-        try{epsilon_inf_1 = data["test2"]["physics"]["plugin_params"]["epsilon_inf_1"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test2][physics][plugin_params][epsilon_inf_1]" << std::endl; throw;}
-        try{epsilon_inf_2 = data["test2"]["physics"]["plugin_params"]["epsilon_inf_2"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test2][physics][plugin_params][epsilon_inf_1]" << std::endl; throw;}
-        try{csi1 = data["test2"]["physics"]["plugin_params"]["csi1"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test2][physics][plugin_params][csi1]" << std::endl; throw;}
-        try{csi2 = data["test2"]["physics"]["plugin_params"]["csi2"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test2][physics][plugin_params][csi2]" << std::endl; throw;}
-        try{csi3 = data["test2"]["physics"]["plugin_params"]["csi3"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test2][physics][plugin_params][csi3]" << std::endl; throw;}
-        try{tau_p1 = data["test2"]["physics"]["plugin_params"]["tau_p1"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test2][physics][plugin_params][tau_p1]" << std::endl; throw;}
-        try{tau_p2 = data["test2"]["physics"]["plugin_params"]["tau_p2"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test2][physics][plugin_params][tau_p2]" << std::endl; throw;}
-        try{tau_p3 = data["test2"]["physics"]["plugin_params"]["tau_p3"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test2][physics][plugin_params][tau_p3]" << std::endl; throw;}
-        try{sigma_ = data["test2"]["physics"]["plugin_params"]["sigma"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test2][physics][plugin_params][sigma]" << std::endl; throw;}
-        try{NUM_REFINEMENTS = data["test2"]["algorithm"]["NUM_REFINEMENTS"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test2][algorithm][NUM_REFINEMENTS]" << std::endl; throw;}
-        try{maxlevel = data["test2"]["algorithm"]["maxlevel"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test2][algorithm][maxlevel]" << std::endl; throw;}
+        try{epsilon_inf_1 = data["physics"]["plugin_params"]["epsilon_inf_1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_inf_1]");}
+        try{epsilon_inf_2 = data["physics"]["plugin_params"]["epsilon_inf_2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_inf_1]");}
+        try{csi1 = data["physics"]["plugin_params"]["csi1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][csi1]");}
+        try{csi2 = data["physics"]["plugin_params"]["csi2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][csi2]");}
+        try{csi3 = data["physics"]["plugin_params"]["csi3"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][csi3]");}
+        try{tau_p1 = data["physics"]["plugin_params"]["tau_p1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_p1]");}
+        try{tau_p2 = data["physics"]["plugin_params"]["tau_p2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_p2]");}
+        try{tau_p3 = data["physics"]["plugin_params"]["tau_p3"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_p3]");}
+        try{sigma_ = data["physics"]["plugin_params"]["sigma"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][sigma]");}
+        try{NUM_REFINEMENTS = data["algorithm"]["NUM_REFINEMENTS"];}
+        catch(...){throw std::runtime_error("[algorithm][NUM_REFINEMENTS]");}
+        try{maxlevel = data["algorithm"]["maxlevel"];}
+        catch(...){throw std::runtime_error("[algorithm][maxlevel]");}
         
         return;
       }
@@ -193,34 +193,34 @@ namespace tests {
       double epsilon_inf_1, epsilon_inf_2;		// permittivity at infinite frequency
       double csi1, csi2, csi3;
       double tau_p1, tau_p2, tau_p3;
-      double sigma_;							// conducivity coeff
+      double sigma_;							// conductivity coeff
     public:
 
       test3() {extra_refinement = true;}
       
       void import_params (json & data) {
-        try{epsilon_inf_1 = data["test3"]["physics"]["plugin_params"]["epsilon_inf_1"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test3][physics][plugin_params][epsilon_inf_1]" << std::endl; throw;}
-        try{epsilon_inf_2 = data["test3"]["physics"]["plugin_params"]["epsilon_inf_2"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test3][physics][plugin_params][epsilon_inf_1]" << std::endl; throw;}
-        try{csi1 = data["test3"]["physics"]["plugin_params"]["csi1"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test3][physics][plugin_params][csi1]" << std::endl; throw;}
-        try{csi2 = data["test3"]["physics"]["plugin_params"]["csi2"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test3][physics][plugin_params][csi2]" << std::endl; throw;}
-        try{csi3 = data["test3"]["physics"]["plugin_params"]["csi3"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test3][physics][plugin_params][csi3]" << std::endl; throw;}
-        try{tau_p1 = data["test3"]["physics"]["plugin_params"]["tau_p1"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test3][physics][plugin_params][tau_p1]" << std::endl; throw;}
-        try{tau_p2 = data["test3"]["physics"]["plugin_params"]["tau_p2"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test3][physics][plugin_params][tau_p2]" << std::endl; throw;}
-        try{tau_p3 = data["test3"]["physics"]["plugin_params"]["tau_p3"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test3][physics][plugin_params][tau_p3]" << std::endl; throw;}
-        try{sigma_ = data["test3"]["physics"]["plugin_params"]["sigma"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test3][physics][plugin_params][sigma]" << std::endl; throw;}
-        try{NUM_REFINEMENTS = data["test3"]["algorithm"]["NUM_REFINEMENTS"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test3][algorithm][NUM_REFINEMENTS]" << std::endl; throw;}
-        try{maxlevel = data["test3"]["algorithm"]["maxlevel"];}
-        catch(...){std::cerr << "Error: Impossible to read object [test3][algorithm][maxlevel]" << std::endl; throw;}
+        try{epsilon_inf_1 = data["physics"]["plugin_params"]["epsilon_inf_1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_inf_1]");}
+        try{epsilon_inf_2 = data["physics"]["plugin_params"]["epsilon_inf_2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_inf_1]");}
+        try{csi1 = data["physics"]["plugin_params"]["csi1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][csi1]");}
+        try{csi2 = data["physics"]["plugin_params"]["csi2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][csi2]");}
+        try{csi3 = data["physics"]["plugin_params"]["csi3"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][csi3]");}
+        try{tau_p1 = data["physics"]["plugin_params"]["tau_p1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_p1]");}
+        try{tau_p2 = data["physics"]["plugin_params"]["tau_p2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_p2]");}
+        try{tau_p3 = data["physics"]["plugin_params"]["tau_p3"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_p3]");}
+        try{sigma_ = data["physics"]["plugin_params"]["sigma"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][sigma]");}
+        try{NUM_REFINEMENTS = data["algorithm"]["NUM_REFINEMENTS"];}
+        catch(...){throw std::runtime_error("[algorithm][NUM_REFINEMENTS]");}
+        try{maxlevel = data["algorithm"]["maxlevel"];}
+        catch(...){throw std::runtime_error("[algorithm][maxlevel]");}
         return;
       }
 
@@ -237,7 +237,7 @@ namespace tests {
                 xcoord = q->p(0, ii);
                 zcoord = q->p(2, ii);
 
-                if (fabs(xcoord - 0.0005) < 1e-9 || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9)
+                if (fabs(xcoord - 0.0005) < 1e-9/* || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9*/)
                   {
                     retval = maxlevel - currentlevel;
                     break;
@@ -260,7 +260,7 @@ namespace tests {
                 xcoord = q->p(0, ii);
                 zcoord = q->p(2, ii);
 
-                  if (fabs(xcoord - 0.0005) < 1e-9 || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9)
+                  if (fabs(xcoord - 0.0005) < 1e-9/* || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9*/)
                     {
                       retval = 0;
                       break;

@@ -12,11 +12,11 @@ namespace voltages{
       double T_discharge;
       double tau;
     public:
-      void import_params (const std::string &test_name, json &data) {
-        try{T_discharge = data[test_name]["algorithm"]["voltage_plugin_params"]["T_discharge"];}
-        catch(...){std::cerr << "Error: Impossible to read object [" << test_name << "][algorithm][voltage_plugin_params][T_discharge]" << std::endl; throw;}
-        try{tau = data[test_name]["algorithm"]["voltage_plugin_params"]["tau"];}
-        catch(...){std::cerr << "Error: Impossible to read object [" << test_name << "][algorithm][voltage_plugin_params][tau]" << std::endl; throw;}
+      void import_params (json &data) {
+        try{T_discharge = data["T_discharge"];}
+        catch(...){throw std::runtime_error("[T_discharge]");}
+        try{tau = data["tau"];}
+        catch(...){throw std::runtime_error("[tau]");}
       }
       double V_in_time (int contact, double time, double x, double y, double z) {
         if (contact == 5)

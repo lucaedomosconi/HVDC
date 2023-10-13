@@ -229,7 +229,7 @@ main (int argc, char **argv)
   for (int i = 1; i < argc; ++i) {
     if (strcmp(argv[i], "--no-warnings") == 0)
       warnings_on = false;
-    if (strcmp(argv[i], "--export-json") == 0) {
+    else if (strcmp(argv[i], "--export-json") == 0) {
       if ((argc - i == 1 || argv[++i][0] == '-') && rank == 0)
           std::clog << "missing or invalid argument for --output-json" << std::endl;
       else if (rank == 0) {
@@ -241,7 +241,7 @@ main (int argc, char **argv)
       MPI_Finalize();
       return 0;
     }
-    if (strcmp(argv[i], "--generate-params") == 0) {
+    else if (strcmp(argv[i], "--generate-params") == 0) {
       if ((argc-i!=1 && argv[++i][0] != '-') && rank == 0)
         print_data(argv[i]);
       else if (rank == 0)
@@ -249,11 +249,17 @@ main (int argc, char **argv)
       MPI_Finalize();
       return 0;
     }
-    if (strcmp(argv[i], "-f") == 0) {
+    else if (strcmp(argv[i], "-f") == 0) {
       if ((argc - i == 1 || argv[++i][0] == '-') && rank == 0)
         std::clog << "missing or invalid argument after -f" << std::endl;
       else
         datafilename = argv[i];
+    }
+    else {
+      if (rank == 0)
+        std::clog << "Invalid argument" << std::endl;
+      MPI_Finalize();
+      return 0;
     }
   }
 
@@ -268,8 +274,8 @@ main (int argc, char **argv)
 
   // Set output folder
   std::string output_folder;
-  try{output_folder = std::string(data["output_location"]);}
-  catch(...) {std::cerr << "Error: Impossible to read object [output_location]" << std::endl; throw;}
+  try {output_folder = std::string(data["output_location"]);}
+  catch (...) {std::cerr << "Error: Unable to read object [output_location]" << std::endl; throw;}
   if (!output_folder.empty())
     output_folder = output_folder + "/";
 
@@ -277,7 +283,7 @@ main (int argc, char **argv)
   std::vector<std::string> test_name;
 
   try{test_name = data["test_to_run"];}
-  catch (...) {std::cerr << "Error: Impossible to read object [test_to_run]" << std::endl; throw;}
+  catch (...) {std::cerr << "Error: Unable to read object [test_to_run]" << std::endl; throw;}
 
   // Check overwritings
   if (warnings_on) {
@@ -291,15 +297,15 @@ main (int argc, char **argv)
     if (rank == 0) {
       for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
         try {start_from_solution = data[*test_iter]["algorithm"]["start_from_solution"];}
-        catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][start_from_solution]" << std::endl; throw;}
+        catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][algorithm][start_from_solution]" << std::endl; throw;}
         try {save_sol = data[*test_iter]["options"]["save_sol"];}
-        catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_sol]" << std::endl; throw;}
+        catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][options][save_sol]" << std::endl; throw;}
         try {compute_charges_on_border = data[*test_iter]["options"]["compute_charges_on_border"];}
-        catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][compute_charges_on_border]" << std::endl; throw;}
+        catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][options][compute_charges_on_border]" << std::endl; throw;}
         try {save_displ_current = data[*test_iter]["options"]["save_displ_current"];}
-        catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_displ_current]" << std::endl; throw;}
+        catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][options][save_displ_current]" << std::endl; throw;}
         try {save_error_and_comp_time = data[*test_iter]["options"]["save_error_and_comp_time"];}
-        catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_error_and_comp_time]" << std::endl; throw;}
+        catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][options][save_error_and_comp_time]" << std::endl; throw;}
         if (!start_from_solution) {
           if (save_error_and_comp_time  && std::filesystem::exists(output_folder + *test_iter + "/error_and_comp_time.txt")) {files.push_back(output_folder + *test_iter + "/error_and_comp_time.txt");}
           if (compute_charges_on_border && std::filesystem::exists(output_folder + *test_iter + "/charges_file.txt")) {files.push_back(output_folder + *test_iter + "/charges_file.txt");}
@@ -332,7 +338,7 @@ main (int argc, char **argv)
   
   std::string vol_name;
   try{vol_name = data[*test_iter]["algorithm"]["voltage_name"];}
-  catch(...) {std::cerr << "Error: Impossible to read object: ["
+  catch(...) {std::cerr << "Error: Unable to read object: ["
                         << *test_iter
                         << "][algorithm][voltage_name]"
                         << std::endl; throw;}
@@ -341,12 +347,12 @@ main (int argc, char **argv)
   std::string test_plugin;
   std::string voltage_plugin;
   try{test_plugin = data[*test_iter]["physics"]["physics_plugin"];}
-  catch(...) {std::cerr << "Error: Impossible to read object: ["
+  catch(...) {std::cerr << "Error: Unable to read object: ["
                         << *test_iter
                         << "][physics][physics_plugin]"
                         << std::endl; throw;}
   try{voltage_plugin = data[*test_iter]["algorithm"]["voltage_plugin"];}
-  catch(...) {std::cerr << "Error: Impossible to read object: ["
+  catch(...) {std::cerr << "Error: Unable to read object: ["
                         << *test_iter
                         << "][physics][voltage_plugin]"
                         << std::endl; throw;}
@@ -385,52 +391,65 @@ main (int argc, char **argv)
 
   Time = 0.; count = 0;
   try {T = data[*test_iter]["algorithm"]["T"];}
-  catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][T]" << std::endl; throw;}
+  catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][algorithm][T]" << std::endl; throw;}
   try {start_from_solution = data[*test_iter]["algorithm"]["start_from_solution"];}
-  catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][start_from_solution]" << std::endl; throw;}
+  catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][algorithm][start_from_solution]" << std::endl; throw;}
   try {epsilon_0 = data[*test_iter]["physics"]["epsilon_0"];}
-  catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][epsilon_0]" << std::endl; throw;}
+  catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][algorithm][epsilon_0]" << std::endl; throw;}
   try {save_temp_solution = data[*test_iter]["algorithm"]["save_temp_solution"];}
-  catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][save_temp_solution]" << std::endl; throw;}
+  catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][algorithm][save_temp_solution]" << std::endl; throw;}
   try {
-    if (start_from_solution || save_temp_solution) {
+    if (start_from_solution) {
       temp_solution_file_name = data[*test_iter]["algorithm"]["temp_sol"]["file_of_starting_sol"];
+      if (!std::filesystem::exists(temp_solution_file_name)) {
+        std::cerr << "Error: Temporary solution file \"" << temp_solution_file_name << " does not exist!" << std::endl;
+        std::exit(1);
+      }
     }
   }
-  catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][temp_sol][file_of_starting_sol]" << std::endl; throw;}
+  catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][algorithm][temp_sol][file_of_starting_sol]" << std::endl; throw;}
+  
   try {
     if (save_temp_solution) {
       save_every_n_steps = data[*test_iter]["algorithm"]["temp_sol"]["save_every_n_steps"];
     }
   }
-  catch(...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][temp_sol][sae_every_n_steps]" << std::endl; throw;}
+  catch(...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][algorithm][temp_sol][sae_every_n_steps]" << std::endl; throw;}
   comp_time_of_previous_simuls = 0.0;
 
-  try{dt = data[*test_iter]["algorithm"]["initial_dt_for_adaptive_time_step"];}
-  catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][initial_dt_for_adaptive_time_step]" << std::endl; throw;}
-  try{tol = data[*test_iter]["algorithm"]["tol_of_adaptive_time_step"];}
-  catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][algorithm][tol_of_adaptive_time_step]" << std::endl; throw;}
+  try {dt = data[*test_iter]["algorithm"]["initial_dt_for_adaptive_time_step"];}
+  catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][algorithm][initial_dt_for_adaptive_time_step]" << std::endl; throw;}
+  try {tol = data[*test_iter]["algorithm"]["tol_of_adaptive_time_step"];}
+  catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][algorithm][tol_of_adaptive_time_step]" << std::endl; throw;}
   // Set output preferences
-  try{DT = data[*test_iter]["options"]["print_solution_every_n_seconds"];}
-  catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][print_solution_every_n_seconds]" << std::endl; throw;}
-  try{save_sol = data[*test_iter]["options"]["save_sol"];}
-  catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_sol]" << std::endl; throw;}
-  try{save_error_and_comp_time = data[*test_iter]["options"]["save_error_and_comp_time"];}
-  catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_error_and_comp_time]" << std::endl; throw;}
-  try{save_charges = data[*test_iter]["options"]["compute_charges_on_border"];}
-  catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][compute_charges_on_border]" << std::endl; throw;}
-  try{save_displ_current = data[*test_iter]["options"]["save_displ_current"];}
-  catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][save_displ_current]" << std::endl; throw;}
-  try{compute_2_contacts = data[*test_iter]["options"]["compute_2_contacts"];}
-  catch (...) {std::cerr << "Error: Impossible to read object ["+*test_iter+"][options][compute_2_contacts]" << std::endl; throw;}
+  try {DT = data[*test_iter]["options"]["print_solution_every_n_seconds"];}
+  catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][options][print_solution_every_n_seconds]" << std::endl; throw;}
+  try {save_sol = data[*test_iter]["options"]["save_sol"];}
+  catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][options][save_sol]" << std::endl; throw;}
+  try {save_error_and_comp_time = data[*test_iter]["options"]["save_error_and_comp_time"];}
+  catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][options][save_error_and_comp_time]" << std::endl; throw;}
+  try {save_charges = data[*test_iter]["options"]["compute_charges_on_border"];}
+  catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][options][compute_charges_on_border]" << std::endl; throw;}
+  try {save_displ_current = data[*test_iter]["options"]["save_displ_current"];}
+  catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][options][save_displ_current]" << std::endl; throw;}
+  try {compute_2_contacts = data[*test_iter]["options"]["compute_2_contacts"];}
+  catch (...) {std::cerr << "Error: Unable to read object ["+*test_iter+"][options][compute_2_contacts]" << std::endl; throw;}
 
   // Test
-  std::unique_ptr<tests::generic_test> test = T_factory.create(*test_iter);
-  test->import_params(data);
+  std::unique_ptr<tests::generic_test> test = nullptr;
+  try {test = T_factory.create(data[*test_iter]["physics"]["plugin_test_index"]);}
+  catch (std::runtime_error const & e) {std::cerr << e.what() << std::endl; continue;}
+  try {test->import_params(data[*test_iter]);}
+  catch (std::runtime_error const & e) {std::cerr << "Error: Unable to read [" << *test_iter << "]" << e.what() <<std::endl;}
+  catch (...) {std::cerr << "Check typos or missing elements among phisics plugin parameters" << *test_iter << std::endl; throw;}
   // Voltage
-  std::unique_ptr<voltages::generic_voltage> voltage = V_factory.create(vol_name);
-  voltage->import_params(*test_iter, data);
-
+  std::unique_ptr<voltages::generic_voltage> voltage;
+  try{voltage = V_factory.create(vol_name);}
+  catch(std::runtime_error const & e) {std::cerr << e.what() << std::endl; continue;}
+  try{voltage->import_params(data[*test_iter]["algorithm"]["voltage_plugin_params"]);}
+  catch(std::runtime_error const & e) {std::cerr << "Error: Unable to read [" + *test_iter + "][algorithm][voltage_plugin_params]" << e.what() <<std::endl;}
+  catch(...) {std::cerr << "Check typos or missing elements among voltage plugin parameters in " << *test_iter << std::endl; throw;}
+  
 
   /*
   Manegement of solutions ordering:   Equation ordering:
@@ -818,6 +837,8 @@ main (int argc, char **argv)
 
       // Compute displacement current with Nanz method
       // Build vector
+      Bsol1.get_owned_data().assign(Bsol1.local_size(),0.0);
+      Bsol2.get_owned_data().assign(Bsol2.local_size(),0.0);
       for (auto quadrant = tmsh.begin_quadrant_sweep ();
           quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
         for (int ii = 0; ii < 8; ii++) {
