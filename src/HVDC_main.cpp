@@ -673,16 +673,16 @@ main (int argc, char **argv)
 
   // Functions to use for charge density computation (simple method)
   func3_quad free_charge_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
-    return (q->p(2,idx)-q->p(2,idx-4))*(sold[ord[0](q->gt(idx))] + sold[ord[0](q->gt(idx-4))])/2;
+    return (q->p(2,idx)-q->p(2,idx-4))*sold[ord[0](q->gt(idx))]/2;
   };
   func3_quad p1_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
-    return (q->p(2,idx)-q->p(2,idx-4))*(sold[ord[2](q->gt(idx))] + sold[ord[2](q->gt(idx-4))])/2;
+    return (q->p(2,idx)-q->p(2,idx-4))*sold[ord[2](q->gt(idx))]/2;
   };
   func3_quad p2_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
-    return (q->p(2,idx)-q->p(2,idx-4))*(sold[ord[3](q->gt(idx))] + sold[ord[3](q->gt(idx-4))])/2;
+    return (q->p(2,idx)-q->p(2,idx-4))*sold[ord[3](q->gt(idx))]/2;
   };
   func3_quad p3_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
-    return (q->p(2,idx)-q->p(2,idx-4))*(sold[ord[4](q->gt(idx))] + sold[ord[4](q->gt(idx-4))])/2;
+    return (q->p(2,idx)-q->p(2,idx-4))*sold[ord[4](q->gt(idx))]/2;
   };
 
   // Export test params
@@ -928,7 +928,7 @@ main (int argc, char **argv)
 
           if (save_charges) {
             // Prepare support vectors
-            rho_pi_k_vec.get_owned_data().assign(rho_pi_k_vec.get_owned_data().size(), 0.);
+            rho_pi_k_vec.get_owned_data().assign(rho_pi_k_vec.local_size(), 0.);
             rho_pi_k_vec.assemble(replace_op);
             
             // Wheight through apposite library function
@@ -936,7 +936,8 @@ main (int argc, char **argv)
             bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p1_mass, ord_c[1]);
             bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p2_mass, ord_c[2]);
             bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p3_mass, ord_c[3]);
-            
+            rho_pi_k_vec.assemble([] (const double & x, const double & y){return x+y;});
+
             // Integrate on the border part owned by current process
             rho_pi_k.fill(0.);
             for (size_t i = 0; i < rho_pi_k_vec.local_size() / (N_polcur+1); i++) {
