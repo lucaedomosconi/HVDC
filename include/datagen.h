@@ -51,7 +51,7 @@ R"({
 			"compute_charges_on_border" : true,
 			"save_displ_current" : true,
 			"compute_2_contacts" : true,
-	  		"save_error_and_comp_time" : true
+			"save_error_and_comp_time" : true
 		}
 	}
 })";

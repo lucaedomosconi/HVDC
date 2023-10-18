@@ -25,21 +25,21 @@ namespace tests{
       
       virtual int coarsening (tmesh_3d::quadrant_iterator q) const = 0;
 
-      virtual double epsilon_fun(const double & x, const double & y, const double & z) const = 0;
+      virtual double epsilon_fun(double x, double y, double z) const = 0;
 
-      virtual double csi_1_fun(const double & x, const double & y, const double & z) const = 0;
+      virtual double csi_1_fun(double x, double y, double z) const = 0;
 
-      virtual double csi_2_fun(const double & x, const double & y, const double & z) const = 0;
+      virtual double csi_2_fun(double x, double y, double z) const = 0;
 
-      virtual double csi_3_fun(const double & x, const double & y, const double & z) const = 0;
+      virtual double csi_3_fun(double x, double y, double z) const = 0;
 
-      virtual double tau_p1_fun(const double & x, const double & y, const double & z) const = 0;
+      virtual double tau_p1_fun(double x, double y, double z) const = 0;
 
-      virtual double tau_p2_fun(const double & x, const double & y, const double & z) const = 0;
+      virtual double tau_p2_fun(double x, double y, double z) const = 0;
 
-      virtual double tau_p3_fun(const double & x, const double & y, const double & z) const = 0;
+      virtual double tau_p3_fun(double x, double y, double z) const = 0;
 
-      virtual double sigma_fun(const double & x, const double & y, const double & z, const double & DT) const = 0;
+      virtual double sigma_fun(double x, double y, double z, double DT) const = 0;
 
   };
 }

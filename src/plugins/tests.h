@@ -55,28 +55,28 @@ namespace tests {
       int coarsening (tmesh_3d::quadrant_iterator q) const
         { return NUM_REFINEMENTS; }
         
-      double epsilon_fun (const double & x, const double & y, const double & z) const
+      double epsilon_fun (double x, double y, double z) const
         {return epsilon_0 * epsilon_inf_1;}
 
-      double csi_1_fun (const double & x, const double & y, const double & z) const
+      double csi_1_fun (double x, double y, double z) const
         {return csi1;}
 
-      double csi_2_fun (const double & x, const double & y, const double & z) const
+      double csi_2_fun (double x, double y, double z) const
         {return csi2;}
 
-      double csi_3_fun (const double & x, const double & y, const double & z) const
+      double csi_3_fun (double x, double y, double z) const
         {return csi3;}
 
-      double tau_p1_fun (const double & x, const double & y, const double & z) const
+      double tau_p1_fun (double x, double y, double z) const
         {return tau_p1;}
 
-      double tau_p2_fun (const double & x, const double & y, const double & z) const
+      double tau_p2_fun (double x, double y, double z) const
         {return tau_p2;}
 
-      double tau_p3_fun (const double & x, const double & y, const double & z) const
+      double tau_p3_fun (double x, double y, double z) const
         {return tau_p3;}
 
-      double sigma_fun (const double & x, const double & y, const double & z, const double & DT) const
+      double sigma_fun (double x, double y, double z, double DT) const
         {return sigma_ * DT;}
   };
 
@@ -164,28 +164,28 @@ namespace tests {
             return (retval);
         }
         
-      double epsilon_fun (const double & x, const double & y, const double & z) const
+      double epsilon_fun (double x, double y, double z) const
         {return z < 0.0005 ? epsilon_0 * epsilon_inf_1 : epsilon_0 * epsilon_inf_2;}
 
-      double csi_1_fun (const double & x, const double & y, const double & z) const
+      double csi_1_fun (double x, double y, double z) const
         {return csi1;}
 
-      double csi_2_fun (const double & x, const double & y, const double & z) const
+      double csi_2_fun (double x, double y, double z) const
         {return csi2;}
 
-      double csi_3_fun (const double & x, const double & y, const double & z) const
+      double csi_3_fun (double x, double y, double z) const
         {return csi3;}
 
-      double tau_p1_fun (const double & x, const double & y, const double & z) const
+      double tau_p1_fun (double x, double y, double z) const
         {return tau_p1;}
 
-      double tau_p2_fun (const double & x, const double & y, const double & z) const
+      double tau_p2_fun (double x, double y, double z) const
         {return tau_p2;}
 
-      double tau_p3_fun (const double & x, const double & y, const double & z) const
+      double tau_p3_fun (double x, double y, double z) const
         {return tau_p3;}
 
-      double sigma_fun (const double & x, const double & y, const double & z, const double & DT) const
+      double sigma_fun (double x, double y, double z, double DT) const
         {return sigma_ * DT;}
   };
   class test3 : public generic_test {
@@ -273,28 +273,28 @@ namespace tests {
             return (retval);
         }
         
-      double epsilon_fun (const double & x, const double & y, const double & z) const
+      double epsilon_fun (double x, double y, double z) const
         {return x < 0.0005 ? epsilon_0 * epsilon_inf_1 : epsilon_0 * epsilon_inf_2;}
 
-      double csi_1_fun (const double & x, const double & y, const double & z) const
+      double csi_1_fun (double x, double y, double z) const
         {return csi1;}
 
-      double csi_2_fun (const double & x, const double & y, const double & z) const
+      double csi_2_fun (double x, double y, double z) const
         {return csi2;}
 
-      double csi_3_fun (const double & x, const double & y, const double & z) const
+      double csi_3_fun (double x, double y, double z) const
         {return csi3;}
 
-      double tau_p1_fun (const double & x, const double & y, const double & z) const
+      double tau_p1_fun (double x, double y, double z) const
         {return tau_p1;}
 
-      double tau_p2_fun (const double & x, const double & y, const double & z) const
+      double tau_p2_fun (double x, double y, double z) const
         {return tau_p2;}
 
-      double tau_p3_fun (const double & x, const double & y, const double & z) const
+      double tau_p3_fun (double x, double y, double z) const
         {return tau_p3;}
 
-      double sigma_fun (const double & x, const double & y, const double & z, const double & DT) const
+      double sigma_fun (double x, double y, double z, double DT) const
         {return sigma_ * DT;}
   };
 }

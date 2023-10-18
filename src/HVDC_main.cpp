@@ -77,18 +77,21 @@ void time_step (const int rank, const double time, const double DELTAT,
                 tmesh_3d &tmsh, mumps *lin_solver,
                 distributed_sparse_matrix &A,
                 std::vector<double> &xa, std::vector<int> &ir, std::vector<int> &jc,
-                std::vector<double> &epsilon, std::vector<double> &sigma,
-                std::vector<double> &zero_std_vect, q1_vector &zero_q1,
-                std::vector<double> &delta1, std::vector<double> &delta0,
+                std::vector<double> &epsilon,
+                std::vector<double> &sigma,
+                q1_vector &null_q1_vec,
+                std::vector<double> &null_vec,
+                std::vector<double> &unitary_vec,
+                std::vector<double> &neg_unitary_vec,
                 std::vector<double> &reaction_term_p1,
                 std::vector<double> &reaction_term_p2,
                 std::vector<double> &reaction_term_p3,
                 std::vector<double> &diffusion_term_p1,
                 std::vector<double> &diffusion_term_p2,
                 std::vector<double> &diffusion_term_p3,
-                q1_vector &zeta0, q1_vector &zeta1,
-                std::vector<double> &f1, std::vector<double> &f0,
-                q1_vector &g1, q1_vector &g0, q1_vector &gp1, q1_vector &gp2, q1_vector &gp3,
+                q1_vector &unitary_q1_vec,
+                q1_vector &g1, q1_vector &g0, q1_vector &gp1,
+                q1_vector &gp2, q1_vector &gp3,
                 q1_vector &sold, q1_vector &sol) {
 
     // Define boundary conditions
@@ -148,28 +151,28 @@ void time_step (const int rank, const double time, const double DELTAT,
     gp3.assemble(replace_op);
     
     // Advection_diffusion
-    bim3a_advection_diffusion (tmsh, sigma, zero_q1, A, true, ord[0], ord[1]);
-    bim3a_advection_diffusion (tmsh, epsilon, zero_q1, A, true, ord[1], ord[1]);
-    bim3a_advection_diffusion (tmsh, diffusion_term_p1, zero_q1, A, true, ord[2], ord[1]);
-    bim3a_advection_diffusion (tmsh, diffusion_term_p2, zero_q1, A, true, ord[3], ord[1]);
-    bim3a_advection_diffusion (tmsh, diffusion_term_p3, zero_q1, A, true, ord[4], ord[1]);
+    bim3a_advection_diffusion (tmsh, sigma, null_q1_vec, A, true, ord[0], ord[1]);
+    bim3a_advection_diffusion (tmsh, epsilon, null_q1_vec, A, true, ord[1], ord[1]);
+    bim3a_advection_diffusion (tmsh, diffusion_term_p1, null_q1_vec, A, true, ord[2], ord[1]);
+    bim3a_advection_diffusion (tmsh, diffusion_term_p2, null_q1_vec, A, true, ord[3], ord[1]);
+    bim3a_advection_diffusion (tmsh, diffusion_term_p3, null_q1_vec, A, true, ord[4], ord[1]);
     
     // Reaction
-    bim3a_reaction (tmsh, delta0, zeta0, A, ord[0], ord[0]);
-    bim3a_reaction (tmsh, delta1, zeta1, A, ord[1], ord[0]);
-    bim3a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[2]);
-    bim3a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[3]);
-    bim3a_reaction (tmsh, delta0, zeta0, A, ord[1], ord[4]);
-    bim3a_reaction (tmsh, reaction_term_p1, zeta1, A, ord[2], ord[2]);
-    bim3a_reaction (tmsh, reaction_term_p2, zeta1, A, ord[3], ord[3]);
-    bim3a_reaction (tmsh, reaction_term_p3, zeta1, A, ord[4], ord[4]);
+    bim3a_reaction (tmsh, unitary_vec, unitary_q1_vec, A, ord[0], ord[0]);
+    bim3a_reaction (tmsh, neg_unitary_vec, unitary_q1_vec, A, ord[1], ord[0]);
+    bim3a_reaction (tmsh, unitary_vec, unitary_q1_vec, A, ord[1], ord[2]);
+    bim3a_reaction (tmsh, unitary_vec, unitary_q1_vec, A, ord[1], ord[3]);
+    bim3a_reaction (tmsh, unitary_vec, unitary_q1_vec, A, ord[1], ord[4]);
+    bim3a_reaction (tmsh, reaction_term_p1, unitary_q1_vec, A, ord[2], ord[2]);
+    bim3a_reaction (tmsh, reaction_term_p2, unitary_q1_vec, A, ord[3], ord[3]);
+    bim3a_reaction (tmsh, reaction_term_p3, unitary_q1_vec, A, ord[4], ord[4]);
 
     // Rhs
-    bim3a_rhs (tmsh, f0, g0, sol, ord[0]);
-    bim3a_rhs (tmsh, f1, g1, sol, ord[1]);
-    bim3a_rhs (tmsh, f0, gp1, sol, ord[2]);
-    bim3a_rhs (tmsh, f0, gp2, sol, ord[3]);
-    bim3a_rhs (tmsh, f0, gp3, sol, ord[4]);
+    bim3a_rhs (tmsh, unitary_vec, g0, sol, ord[0]);
+    bim3a_rhs (tmsh, null_vec, g1, sol, ord[1]);
+    bim3a_rhs (tmsh, unitary_vec, gp1, sol, ord[2]);
+    bim3a_rhs (tmsh, unitary_vec, gp2, sol, ord[3]);
+    bim3a_rhs (tmsh, unitary_vec, gp3, sol, ord[4]);
 
     // Boundary conditions
     bim3a_dirichlet_bc (tmsh, bcs0, A, sol, ord[0], ord[1], false);
@@ -433,6 +436,7 @@ main (int argc, char **argv)
   std::unique_ptr<tests::generic_test> test = nullptr;
   try {test = T_factory.create(data[*test_iter]["physics"]["plugin_test_index"]);}
   catch (std::runtime_error const & e) {std::cerr << e.what() << std::endl; if(parameters_check) throw; else continue;}
+  catch (...) {std::cerr << "Error: Unable to read [" << *test_iter << "][physics][plugin_test_index]" << std::endl;}
   try {test->import_params(data[*test_iter]);}
   catch (std::runtime_error const & e) {std::cerr << "Error: Unable to read [" << *test_iter << "]" << e.what() <<std::endl; if(parameters_check) throw; else continue;}
   catch (...) {std::cerr << "Check typos or missing elements among phisics plugin parameters" << *test_iter << std::endl; if(parameters_check) throw; else continue;}
@@ -507,43 +511,46 @@ main (int argc, char **argv)
   distributed_sparse_matrix B;
   B.set_ranges (ln_nodes *2);
 
+  // Declare constant matrix to compute flux of E*epsion0
+  distributed_sparse_matrix C;
+  C.set_ranges (ln_nodes *2);
+
   // Buffer for export filename
   char filename[255]="";
 
   // Compute coefficients
 
+  // Shared vectors
+  std::vector<double> null_vec (ln_elements, 0.);
+  std::vector<double> unitary_vec (ln_elements, 0.);
+  std::vector<double> neg_unitary_vec (ln_elements, 0.);
+
   // Diffusion
   std::vector<double> epsilon (ln_elements, 0.);
   std::vector<double> sigma (ln_elements, 0.);
-  std::vector<double> zero_std_vect(ln_elements, 0.);
   std::vector<double> diffusion_term_p1 (ln_elements,0.);
   std::vector<double> diffusion_term_p2 (ln_elements,0.);
   std::vector<double> diffusion_term_p3 (ln_elements,0.);
-  q1_vector zero_q1 (ln_nodes);
+  q1_vector null_q1_vec (ln_nodes);
 
   // Reaction
-  std::vector<double> delta1 (ln_elements, 0.);
-  std::vector<double> delta0 (ln_elements, 0.);
   std::vector<double> reaction_term_p1 (ln_elements,0.);
   std::vector<double> reaction_term_p2 (ln_elements,0.);
   std::vector<double> reaction_term_p3 (ln_elements,0.);
-  q1_vector zeta0 (ln_nodes);
-  q1_vector zeta1 (ln_nodes);
+  q1_vector unitary_q1_vec (ln_nodes);
 
   // Rhs
-  std::vector<double> f1 (ln_elements, 0.);
-  std::vector<double> f0 (ln_elements, 0.);
   std::vector<double> sigmaB (ln_elements, 0.);
-  q1_vector g1 (ln_nodes);
   q1_vector g0 (ln_nodes);
+  q1_vector g1 (ln_nodes);
   q1_vector gp1 (ln_nodes);
   q1_vector gp2 (ln_nodes);
   q1_vector gp3 (ln_nodes);
 
-  // Variables for I_displ computation
+  // Variables for currents computation
   q1_vector Bsol1 (ln_nodes * 2);
   q1_vector Bsol2 (ln_nodes * 2);
-  q1_vector Ivec1 (ln_nodes * 2), Ivec2 (ln_nodes *2);
+  q1_vector Idispl1_vec (ln_nodes * 2), Idispl2_vec (ln_nodes *2), Icond_vec(ln_nodes*2), E_eps0_vec(ln_nodes*2);
   std::unordered_set<size_t> Ivec_index1{};
   std::unordered_set<size_t> Ivec_index2{};
   
@@ -557,12 +564,9 @@ main (int argc, char **argv)
   std::array<double,4> rho_pi_k;
 
   double I_c;
-  double Ez_eps0;
-  double I_displ1, I_displ2, I_d1_c1, I_d2_c1, I_d1_c2, I_d2_c2;
-  q1_vector Jz_vec(ln_nodes), Ez_eps0_vec(ln_nodes);
+  double E_eps0;
+  double I_displ1, I_displ2, I_d1_c1, I_d2_c1, I_d1_c2, I_d2_c2, I_c_c1, I_c_c2;
   q1_vector rho_pi_k_vec(ln_nodes * (N_polcur+1));
-  Jz_vec.get_owned_data().assign(Jz_vec.get_owned_data().size(),0.);
-  Ez_eps0_vec.get_owned_data().assign(Ez_eps0_vec.get_owned_data().size(),0.);
   rho_pi_k_vec.get_owned_data().assign(rho_pi_k_vec.get_owned_data().size(),0.);
 
   // Initialize constant (in time) parameters and initial data
@@ -572,17 +576,15 @@ main (int argc, char **argv)
     double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)}, zz{quadrant->centroid(2)};  
 
     epsilon[quadrant->get_forest_quad_idx ()] = test->epsilon_fun(xx,yy,zz);
-    delta1[quadrant->get_forest_quad_idx ()] = -1.0;
-    delta0[quadrant->get_forest_quad_idx ()] = 1.0;
-    f1[quadrant->get_forest_quad_idx ()] = 0.0;
-    f0[quadrant->get_forest_quad_idx ()] = 1.0;
+    null_vec[quadrant->get_forest_quad_idx ()] = 0.0;
+    unitary_vec[quadrant->get_forest_quad_idx ()] = 1.0;
+    neg_unitary_vec[quadrant->get_forest_quad_idx ()] = -1.0;
     sigmaB[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,1.);
 
     for (int ii = 0; ii < 8; ++ii) {
       if (! quadrant->is_hanging (ii)) {
-        zero_q1[quadrant->gt (ii)] = 0.;
-        zeta0[quadrant->gt (ii)] = 1.0;
-        zeta1[quadrant->gt (ii)] = 1.0;
+        null_q1_vec[quadrant->gt (ii)] = 0.;
+        unitary_q1_vec[quadrant->gt (ii)] = 1.0;
         g1[quadrant->gt (ii)] = 0.;
 
         sol[ord[0](quadrant->gt (ii))] = 0.0;
@@ -591,8 +593,6 @@ main (int argc, char **argv)
         sol[ord[3](quadrant->gt (ii))] = 0.0;
         sol[ord[4](quadrant->gt (ii))] = 0.0;
 
-        Jz_vec[quadrant->gt(ii)] = 0.;
-        Ez_eps0_vec[quadrant->gt(ii)] = 0.;
         rho_pi_k_vec[ord_c[0](quadrant->gt(ii))] = 0.;
         rho_pi_k_vec[ord_c[1](quadrant->gt(ii))] = 0.;
         rho_pi_k_vec[ord_c[2](quadrant->gt(ii))] = 0.;
@@ -600,13 +600,10 @@ main (int argc, char **argv)
       }
       else
         for (int jj = 0; jj < quadrant->num_parents (ii); ++jj) {
-          zero_q1[quadrant->gparent (jj, ii)] += 0.;
-          zeta0[quadrant->gparent (jj, ii)] += 0.;
-          zeta1[quadrant->gparent (jj, ii)] += 0.;
+          null_q1_vec[quadrant->gparent (jj, ii)] += 0.;
+          unitary_q1_vec[quadrant->gparent (jj, ii)] += 0.;
           g1[quadrant->gparent (jj, ii)] += 0.;
 
-          Jz_vec[quadrant->gparent (jj, ii)] += 0.;
-          Ez_eps0_vec[quadrant->gparent (jj, ii)] += 0.;
           rho_pi_k_vec[ord_c[0](quadrant->gparent (jj, ii))] += 0.;
           rho_pi_k_vec[ord_c[1](quadrant->gparent (jj, ii))] += 0.;
           rho_pi_k_vec[ord_c[2](quadrant->gparent (jj, ii))] += 0.;
@@ -616,13 +613,19 @@ main (int argc, char **argv)
   }
   sold.get_owned_data().assign(sold.local_size(),0.0);
   
+  // Constant matrix C building
+  {
+    std::vector<double> epsilon_0_vec(ln_elements, epsilon_0);
+    bim3a_advection_diffusion (tmsh, epsilon_0_vec, null_q1_vec, C, true, ord_displ_curr[0], ord_displ_curr[1]);
+  }
+
   // Read temp. solution
   MPI_File temp_sol;
   if (start_from_solution) {
     MPI_File_open(MPI_COMM_WORLD, temp_solution_file_name.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &temp_sol);
     if (rank == 0) {
       MPI_File_read_at(temp_sol, 0, &count, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
-      MPI_File_read_at(temp_sol, sizeof(int), &Time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+      MPI_File_read_at(temp_sol, sizeof(double), &Time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
       MPI_File_read_at(temp_sol, sizeof(int)+sizeof(double), &comp_time_of_previous_simuls, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
       std::clog << "starting from solution_file \"" << temp_solution_file_name
                 << "\"\nAt time = " << Time << ";"
@@ -641,11 +644,8 @@ main (int argc, char **argv)
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[3], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[4]);
 
-
-
-  zero_q1.assemble (replace_op);
-  zeta0.assemble (replace_op);
-  zeta1.assemble (replace_op);
+  null_q1_vec.assemble (replace_op);
+  unitary_q1_vec.assemble (replace_op);
   g1.assemble (replace_op);
 
   // Create directories for output
@@ -671,30 +671,18 @@ main (int argc, char **argv)
 
 
 
-  // Functions to use for currents computation (simple method)
-  func3_quad Jz_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
-    return test->sigma_fun(q->centroid(0),q->centroid(1),q->centroid(2),1.)*
-        (sold[ord[1](q->gt(4))] + sold[ord[1](q->gt(5))] + sold[ord[1](q->gt(6))] + sold[ord[1](q->gt(7))]
-        -sold[ord[1](q->gt(0))] - sold[ord[1](q->gt(1))] - sold[ord[1](q->gt(2))] - sold[ord[1](q->gt(3))])/(q->p(2,4)-q->p(2,0))/4;
-  };
-  
-  func3_quad Ez_eps0_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
-    return epsilon_0*
-        (sold[ord[1](q->gt(4))] + sold[ord[1](q->gt(5))] + sold[ord[1](q->gt(6))] + sold[ord[1](q->gt(7))]
-        -sold[ord[1](q->gt(0))] - sold[ord[1](q->gt(1))] - sold[ord[1](q->gt(2))] - sold[ord[1](q->gt(3))])/(q->p(2,4)-q->p(2,0))/4;
-  };
-  
+  // Functions to use for charge density computation (simple method)
   func3_quad free_charge_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
-    return (q->p(2,4)-q->p(2,0))*(sold[ord[0](q->gt(4))] + sold[ord[0](q->gt(5))] + sold[ord[0](q->gt(6))] + sold[ord[0](q->gt(7))])/8;
+    return (q->p(2,idx)-q->p(2,idx-4))*(sold[ord[0](q->gt(idx))] + sold[ord[0](q->gt(idx-4))])/2;
   };
   func3_quad p1_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
-    return (q->p(2,4)-q->p(2,0))*(sold[ord[2](q->gt(4))] + sold[ord[2](q->gt(5))] + sold[ord[2](q->gt(6))] + sold[ord[2](q->gt(7))])/8;
+    return (q->p(2,idx)-q->p(2,idx-4))*(sold[ord[2](q->gt(idx))] + sold[ord[2](q->gt(idx-4))])/2;
   };
   func3_quad p2_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
-    return (q->p(2,4)-q->p(2,0))*(sold[ord[3](q->gt(4))] + sold[ord[3](q->gt(5))] + sold[ord[3](q->gt(6))] + sold[ord[3](q->gt(7))])/8;
+    return (q->p(2,idx)-q->p(2,idx-4))*(sold[ord[3](q->gt(idx))] + sold[ord[3](q->gt(idx-4))])/2;
   };
   func3_quad p3_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
-    return (q->p(2,4)-q->p(2,0))*(sold[ord[4](q->gt(4))] + sold[ord[4](q->gt(5))] + sold[ord[4](q->gt(6))] + sold[ord[4](q->gt(7))])/8;
+    return (q->p(2,idx)-q->p(2,idx-4))*(sold[ord[4](q->gt(idx))] + sold[ord[4](q->gt(idx-4))])/2;
   };
 
   // Export test params
@@ -724,29 +712,14 @@ main (int argc, char **argv)
   if (rank == 0 && save_charges) {
     if (!start_from_solution) {
       charges_file.open(charges_file_name);
-      if (! compute_2_contacts) {
-        charges_file << std::setw(20) << "time"
-                     << std::setw(20) << "I_c"
-                     << std::setw(20) << "I_displ"
-                     << std::setw(20) << "free_charge" 
-                     << std::setw(20) << "P_inf_charge" 
-                     << std::setw(20) << "P_1_charge" 
-                     << std::setw(20) << "P_2_charge" 
-                     << std::setw(20) << "P_3_charge" << std::endl;
-      }
-      else {
-        charges_file << std::setw(20) << "time"
-                     << std::setw(20) << "I_c"
-                     << std::setw(20) << "I_displ1"
-                     << std::setw(20) << "I_displ2"
-                     << std::setw(20) << "free_charge" 
-                     << std::setw(20) << "P_inf_charge" 
-                     << std::setw(20) << "P_1_charge" 
-                     << std::setw(20) << "P_2_charge" 
-                     << std::setw(20) << "P_3_charge" << std::endl;
-      }
+      charges_file << std::setw(20) << "time"
+                   << std::setw(20) << "free_charge" 
+                   << std::setw(20) << "P_inf_charge" 
+                   << std::setw(20) << "P_1_charge" 
+                   << std::setw(20) << "P_2_charge" 
+                   << std::setw(20) << "P_3_charge" << std::endl;
     }
-    else
+    else if (rank == 0)
       charges_file.open(charges_file_name, std::fstream::app);
   }
 
@@ -756,13 +729,16 @@ main (int argc, char **argv)
       I_displ_file.open(I_displ_file_name);
       if (!compute_2_contacts)
         I_displ_file  << std::setw(20) << "time"
-                      << std::setw(20) << "I_displ" << std::endl;
+                      << std::setw(20) << "I_displ" 
+                      << std::setw(20) << "I_c" << std::endl;
       else
         I_displ_file  << std::setw(20) << "time"
                       << std::setw(20) << "I_displ1"
-                      << std::setw(20) << "I_displ2" << std::endl;
+                      << std::setw(20) << "I_displ2"
+                      << std::setw(20) << "I_c_c1" 
+                      << std::setw(20) << "I_c_c2"  << std::endl;
     }
-    else
+    else if (rank == 0)
       I_displ_file.open(I_displ_file_name, std::fstream::app);
 
   }
@@ -809,27 +785,28 @@ main (int argc, char **argv)
       time_step<N_eqs>(rank, Time + time_in_step, dt, test, voltage,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
-                  zero_std_vect, zero_q1, delta1,delta0,
+                  null_q1_vec, null_vec, unitary_vec, neg_unitary_vec,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
-                  zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold1, sol1);
+                  unitary_q1_vec, g1, g0, gp1, gp2, gp3, sold1, sol1);
       time_step<N_eqs>(rank, Time + time_in_step, dt/2, test, voltage,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
-                  zero_std_vect, zero_q1, delta1,delta0,
+                  null_q1_vec, null_vec, unitary_vec, neg_unitary_vec,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
-                  zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold2, sol2);
+                  unitary_q1_vec, g1, g0, gp1, gp2, gp3, sold2, sol2);
       time_step<N_eqs>(rank, Time + time_in_step + dt/2, dt/2, test, voltage,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
-                  zero_std_vect, zero_q1, delta1,delta0,
+                  null_q1_vec, null_vec, unitary_vec, neg_unitary_vec,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
-                  zeta0, zeta1, f1, f0, g1, g0, gp1, gp2, gp3, sold2, sol2);
+                  unitary_q1_vec, g1, g0, gp1, gp2, gp3, sold2, sol2);
       err_max = 0.;
 
       // Compute displacement current with Nanz method
+      // Work properly only with uniform grid on the boundary
       // Build vector
       Bsol1.get_owned_data().assign(Bsol1.local_size(),0.0);
       Bsol2.get_owned_data().assign(Bsol2.local_size(),0.0);
@@ -847,25 +824,32 @@ main (int argc, char **argv)
       Bsol1.assemble(replace_op);
       Bsol2.assemble(replace_op);
       
-      // Build Matrix
+      // Build Matrix for conduction current
       B.reset();
-      bim3a_reaction (tmsh, delta0, zeta0, B, ord_displ_curr[0], ord_displ_curr[0]);
-      bim3a_advection_diffusion (tmsh, sigmaB, zero_q1, B, true, ord_displ_curr[0], ord_displ_curr[1]);
+      bim3a_advection_diffusion (tmsh, sigmaB, null_q1_vec, B, true, ord_displ_curr[0], ord_displ_curr[1]);
       
-      // Matrix * vector
-      Ivec1 = B*Bsol1;
-      Ivec2 = B*Bsol2;
+      // Matrix * vector for cunduction current
+      Icond_vec = B*Bsol2;
+
+      // Building Matrix for displacement current (B still has the adv_diff term)
+      bim3a_reaction (tmsh, unitary_vec, unitary_q1_vec, B, ord_displ_curr[0], ord_displ_curr[0]);
+      
+      // Matrix * vector for displacement current
+      Idispl1_vec = B*Bsol1;
+      Idispl2_vec = B*Bsol2;
 
       // Sum elements in the vectors corresponding to border nodes
-      I_d1_c1 = 0.; I_d2_c1 = 0.; I_d1_c2 = 0.; I_d2_c2 = 0.;
+      I_d1_c1 = 0.; I_d2_c1 = 0.; I_d1_c2 = 0.; I_d2_c2 = 0.; I_c_c1 = 0, I_c_c2 = 0;
       for (auto it = Ivec_index1.cbegin(); it != Ivec_index1.cend(); it++) {
-        I_d1_c1 += Ivec1[*it];
-        I_d2_c1 += Ivec2[*it];
+        I_d1_c1 += Idispl1_vec[*it];
+        I_d2_c1 += Idispl2_vec[*it];
+        I_c_c1  += Icond_vec[*it];
       }
       if (compute_2_contacts) {
         for (auto it = Ivec_index2.cbegin(); it != Ivec_index2.cend(); it++) {
-          I_d1_c2 += Ivec1[*it];
-          I_d2_c2 += Ivec2[*it];
+          I_d1_c2 += Idispl1_vec[*it];
+          I_d2_c2 += Idispl2_vec[*it];
+          I_c_c2  += Icond_vec[*it];
         }
       }
 
@@ -874,9 +858,11 @@ main (int argc, char **argv)
       std::cout << "c2 rank " << rank << "    " << I_d1_c2 << "   " << I_d2_c2 << std::endl;
       MPI_Allreduce(MPI_IN_PLACE, &I_d1_c1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
       MPI_Allreduce(MPI_IN_PLACE, &I_d2_c1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+      MPI_Allreduce(MPI_IN_PLACE, &I_c_c1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
       if (compute_2_contacts) {
         MPI_Allreduce(MPI_IN_PLACE, &I_d1_c2, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
         MPI_Allreduce(MPI_IN_PLACE, &I_d2_c2, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(MPI_IN_PLACE, &I_c_c2, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
       }
 
       I_displ1 = I_d2_c1;
@@ -904,16 +890,20 @@ main (int argc, char **argv)
           if (!compute_2_contacts)
             I_displ_file  << std::setw(20) << Time + time_in_step
                           << std::setw(20) << I_displ1
+                          << std::setw(20) << I_c_c1
                           << std::endl;
           else
             I_displ_file  << std::setw(20) << Time + time_in_step
                           << std::setw(20) << I_displ1
                           << std::setw(20) << I_displ2
+                          << std::setw(20) << I_c_c1
+                          << std::setw(20) << I_c_c2
                           << std::endl;
         }
         if (time_in_step > DT - eps) {
           Time += DT;
           ++count;
+
           // Save temp solution
           if (save_temp_solution && !(count % save_every_n_steps)) {
             MPI_File_open(MPI_COMM_WORLD, (temp_solution_file_name + "_" + std::to_string(count)).c_str(),
@@ -922,7 +912,7 @@ main (int argc, char **argv)
             if (rank == 0) {
               double total_time = time1 - start_time;
               MPI_File_write_at(temp_sol, 0, &count, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
-              MPI_File_write_at(temp_sol, sizeof(int), &Time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+              MPI_File_write_at(temp_sol, sizeof(double), &Time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
               MPI_File_write_at(temp_sol, sizeof(int)+sizeof(double), &total_time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
             }
             MPI_File_write_at(temp_sol, sizeof(int)+(sold.get_range_start()+2)*sizeof(double), sold.get_owned_data().data(),
@@ -935,69 +925,45 @@ main (int argc, char **argv)
             remove(last_saved_solution.c_str());
             last_saved_solution = temp_solution_file_name + "_" + std::to_string(count);
           }
-          if (save_charges) {
 
+          if (save_charges) {
             // Prepare support vectors
-            Jz_vec.get_owned_data().assign(Jz_vec.get_owned_data().size(), 0.);
-            Jz_vec.assemble(replace_op);
-            Ez_eps0_vec.get_owned_data().assign(Ez_eps0_vec.get_owned_data().size(), 0.);
-            Ez_eps0_vec.assemble(replace_op);
             rho_pi_k_vec.get_owned_data().assign(rho_pi_k_vec.get_owned_data().size(), 0.);
             rho_pi_k_vec.assemble(replace_op);
             
             // Wheight through apposite library function
-            bim3a_boundary_mass(tmsh, 0, 5, Jz_vec, Jz_mass);
-            bim3a_boundary_mass(tmsh, 0, 5, Ez_eps0_vec, Ez_eps0_mass);
             bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, free_charge_mass, ord_c[0]);
             bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p1_mass, ord_c[1]);
             bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p2_mass, ord_c[2]);
             bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p3_mass, ord_c[3]);
             
             // Integrate on the border part owned by current process
-            I_c = 0.;
-            Ez_eps0 = 0.;
             rho_pi_k.fill(0.);
-            if (Jz_vec.local_size() != rho_pi_k_vec.local_size() / (N_polcur+1) &&
-                Jz_vec.local_size() != Ez_eps0_vec.local_size())
-              std::cerr << "non conforming sizes" << std::endl;
-            for (size_t i = 0; i < Jz_vec.local_size(); i++) {
-              I_c += Jz_vec.get_owned_data()[i];
-              Ez_eps0 += Ez_eps0_vec.get_owned_data()[i];
+            for (size_t i = 0; i < rho_pi_k_vec.local_size() / (N_polcur+1); i++) {
               rho_pi_k[0] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)];
               rho_pi_k[1] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)+1];
               rho_pi_k[2] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)+2];
               rho_pi_k[3] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)+3];
             }
 
+            E_eps0_vec = C*Bsol2;
+            E_eps0 = 0;
+            for (auto it = Ivec_index1.cbegin(); it != Ivec_index1.cend(); it++)
+              E_eps0 += E_eps0_vec[*it];
+
             // Sum with that of the others
-            MPI_Allreduce(MPI_IN_PLACE, &I_c, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-            MPI_Allreduce(MPI_IN_PLACE, &Ez_eps0, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(MPI_IN_PLACE, &E_eps0, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
             MPI_Allreduce(MPI_IN_PLACE, rho_pi_k.data(), 4, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
             // Print on file
-            if (rank == 0) {
-              if (!compute_2_contacts)
-                charges_file << std::setw(20) << std::setprecision(5) << Time
-                             << std::setw(20) << std::setprecision(5) << I_c
-                             << std::setw(20) << std::setprecision(5) << I_displ1
-                             << std::setw(20) << std::setprecision(5) << rho_pi_k[0]
-                             << std::setw(20) << std::setprecision(5) << Ez_eps0 - rho_pi_k[0] + rho_pi_k[1] + rho_pi_k[2] + rho_pi_k[3]
-                             << std::setw(20) << std::setprecision(5) << - rho_pi_k[1]
-                             << std::setw(20) << std::setprecision(5) << - rho_pi_k[2]
-                             << std::setw(20) << std::setprecision(5) << - rho_pi_k[3]
-                             << std::endl;
-              else
-                charges_file << std::setw(20) << std::setprecision(5) << Time
-                             << std::setw(20) << std::setprecision(5) << I_c
-                             << std::setw(20) << std::setprecision(5) << I_displ1
-                             << std::setw(20) << std::setprecision(5) << I_displ2
-                             << std::setw(20) << std::setprecision(5) << rho_pi_k[0]
-                             << std::setw(20) << std::setprecision(5) << Ez_eps0 - rho_pi_k[0] + rho_pi_k[1] + rho_pi_k[2] + rho_pi_k[3]
-                             << std::setw(20) << std::setprecision(5) << - rho_pi_k[1]
-                             << std::setw(20) << std::setprecision(5) << - rho_pi_k[2]
-                             << std::setw(20) << std::setprecision(5) << - rho_pi_k[3]
-                             << std::endl;
-            }
+            if (rank == 0)
+              charges_file << std::setw(20) << std::setprecision(5) << Time
+                           << std::setw(20) << std::setprecision(5) << rho_pi_k[0]
+                           << std::setw(20) << std::setprecision(5) << E_eps0 - rho_pi_k[0] + rho_pi_k[1] + rho_pi_k[2] + rho_pi_k[3]
+                           << std::setw(20) << std::setprecision(5) << - rho_pi_k[1]
+                           << std::setw(20) << std::setprecision(5) << - rho_pi_k[2]
+                           << std::setw(20) << std::setprecision(5) << - rho_pi_k[3]
+                           << std::endl;
           }
 
           // Save solution
