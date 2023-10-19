@@ -37,6 +37,7 @@
 #include <mumps_class.h>
 #include <quad_operators_3d.h>
 
+#include "GetPot"
 #include <nlohmann/json.hpp>
 #include "export_json.h"
 #include "datagen.h"
@@ -227,47 +228,31 @@ main (int argc, char **argv)
   MPI_Comm_size (MPI_COMM_WORLD, &size);
 
   // Options from command line
-  bool warnings_on = true;
-  bool parameters_check = false;
-  std::string datafilename = "data.json";
-  for (int i = 1; i < argc; ++i) {
-    if (strcmp(argv[i], "--overwright") == 0)
-      warnings_on = false;
-    else if (strcmp(argv[i], "--export-json") == 0) {
-      if ((argc - i == 1 || argv[++i][0] == '-') && rank == 0)
-          std::clog << "missing or invalid argument for --output-json" << std::endl;
-      else if (rank == 0) {
-        std::string filename(argv[i]);
-        if (filename.substr(filename.length()-4, filename.length()) == ".txt")
-          filename = filename.substr(0,filename.length()-4);
-        txt2json(std::string(argv[i]), filename+".json");
-      }
-      MPI_Finalize();
-      return 0;
-    }
-    else if (strcmp(argv[i], "--generate-params") == 0) {
-      if ((argc-i!=1 && argv[++i][0] != '-') && rank == 0)
-        print_data(argv[i]);
-      else if (rank == 0)
-        print_data();
-      MPI_Finalize();
-      return 0;
-    }
-    else if (strcmp(argv[i], "-f") == 0) {
-      if ((argc - i == 1 || argv[++i][0] == '-') && rank == 0)
-        std::clog << "missing or invalid argument after -f" << std::endl;
-      else
-        datafilename = argv[i];
-    }
-    else if (strcmp(argv[i],"--check-params") == 0) parameters_check = true;
-    else {
-      if (rank == 0)
-        std::clog << "Invalid argument" << std::endl;
-      MPI_Finalize();
-      return 0;
-    }
-  }
+  GetPot cl(argc,argv);
+  bool warnings_on = !cl.search("--overwright");
+  bool parameters_check = cl.search("--check-params");
   if (parameters_check) warnings_on = false;
+  if (cl.search("--generate-params")) {
+    if (rank == 0)
+      print_data(cl.next("new_data_file.json"));
+    MPI_Finalize();
+    return 0;
+  }
+  if (cl.search("--export-json")) {
+    std::string filename = cl.next("");
+    std::string prefix;
+    if (filename.empty() && rank == 0) {
+      std::cerr << "missing argument for option --export-json" << std::endl;
+    }
+    else if (rank == 0) {
+      if (filename.substr(filename.length()-4, filename.length()) == ".txt")
+          prefix = filename.substr(0,filename.length()-4);
+        txt2json(filename, prefix+".json");
+    }
+    MPI_Finalize();
+    return 0;
+  }
+  std::string datafilename = cl.follow("data.json", 2, "-f", "--file");
 
   // Get factories address
   testfactory & T_factory = testfactory::Instance();
@@ -292,7 +277,7 @@ main (int argc, char **argv)
   catch (...) {std::cerr << "Error: Unable to read [test_to_run]" << std::endl; throw;}
 
   // Check overwritings
-  if (warnings_on) {
+  if (warnings_on) {warnings_on = false;
     bool  start_from_solution,
           save_sol,
           compute_charges_on_border,
@@ -341,7 +326,11 @@ main (int argc, char **argv)
   }
   // Iterate over the tests to run
   for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
-  
+  if (std::find(data.begin(),data.end(),json(*test_iter)) == data.end()) {
+    if (rank == 0)
+      std::cerr << "Error: test \"" << *test_iter << "\" not found" << std::endl;
+    exit(1);
+  }
   std::string vol_name;
   try{vol_name = data[*test_iter]["algorithm"]["voltage_name"];}
   catch(...) {std::cerr << "Error: Unable to read: [" << *test_iter << "][algorithm][voltage_name]" << std::endl; if(parameters_check) throw; else continue;}

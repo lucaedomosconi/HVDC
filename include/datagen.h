@@ -1,6 +1,6 @@
 #include <string>
 #include <fstream>
-void print_data (std::string const & ofile = "data.json") {
+void print_data (std::string const & ofile) {
   std::ofstream ostream;
   ostream.open(ofile);
   std::string object_string =
