@@ -39,8 +39,7 @@
 
 #include "GetPot"
 #include <nlohmann/json.hpp>
-#include "export_json.h"
-#include "datagen.h"
+#include "json_fun.h"
 
 #include "plugins/generic_factory.h"
 
@@ -216,12 +215,12 @@ void time_step (const int rank, const double time, const double DELTAT,
 int
 main (int argc, char **argv)
 {
-  // Alias definition
+  // Defining alias
   using json = nlohmann::json;
   using testfactory = Factory<tests::generic_test, std::function<std::unique_ptr<tests::generic_test>()>>;
   using voltagefactory = Factory<voltages::generic_voltage, std::function<std::unique_ptr<voltages::generic_voltage>()>>;
 
-  // Initialize MPI
+  // Initializing MPI
   MPI_Init (&argc, &argv);
   int rank=0, size=1;
   MPI_Comm_rank (MPI_COMM_WORLD, &rank);
@@ -254,7 +253,7 @@ main (int argc, char **argv)
   }
   std::string datafilename = cl.follow("data.json", 2, "-f", "--file");
 
-  // Get factories address
+  // Getting factories address
   testfactory & T_factory = testfactory::Instance();
   voltagefactory & V_factory = voltagefactory::Instance();
 
@@ -263,74 +262,32 @@ main (int argc, char **argv)
   json data = json::parse(data_file);
   data_file.close();
 
-  // Set output folder
+  // Setting output folder
   std::string output_folder;
   try {output_folder = std::string(data["output_location"]);}
   catch (...) {std::cerr << "Error: Unable to read [output_location]" << std::endl; throw;}
   if (!output_folder.empty())
     output_folder = output_folder + "/";
 
-  // Select test to run and voltage function on contacts
+  // Selecting test to run and voltage function on contacts
   std::vector<std::string> test_name;
-
   try{test_name = data["test_to_run"];}
   catch (...) {std::cerr << "Error: Unable to read [test_to_run]" << std::endl; throw;}
-
-  // Check overwritings
-  if (warnings_on) {warnings_on = false;
-    bool  start_from_solution,
-          save_sol,
-          compute_charges_on_border,
-          save_displ_cond_current,
-          save_error_and_comp_time;
-    int give_warning;
-    std::vector<std::string> files;
-    if (rank == 0) {
-      for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
-        try {start_from_solution = data[*test_iter]["algorithm"]["start_from_solution"];}
-        catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][algorithm][start_from_solution]" << std::endl; throw;}
-        try {save_sol = data[*test_iter]["options"]["save_sol"];}
-        catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_sol]" << std::endl; throw;}
-        try {compute_charges_on_border = data[*test_iter]["options"]["compute_charges_on_border"];}
-        catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][compute_charges_on_border]" << std::endl; throw;}
-        try {save_displ_cond_current = data[*test_iter]["options"]["save_displ_cond_current"];}
-        catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_displ_cond_current]" << std::endl; throw;}
-        try {save_error_and_comp_time = data[*test_iter]["options"]["save_error_and_comp_time"];}
-        catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_error_and_comp_time]" << std::endl; throw;}
-        if (!start_from_solution) {
-          if (save_error_and_comp_time  && std::filesystem::exists(output_folder + *test_iter + "/error_and_comp_time.txt")) {files.push_back(output_folder + *test_iter + "/error_and_comp_time.txt");}
-          if (compute_charges_on_border && std::filesystem::exists(output_folder + *test_iter + "/charges_file.txt")) {files.push_back(output_folder + *test_iter + "/charges_file.txt");}
-          if (save_displ_cond_current        && std::filesystem::exists(output_folder + *test_iter + "/currents_file.txt")) {files.push_back(output_folder + *test_iter + "/currents_file.txt");}
-          if (save_sol                  && std::filesystem::exists(output_folder + *test_iter + "/sol")) {files.push_back(output_folder + *test_iter + "/sol");}
-        }
-      }
-      give_warning = files.empty() ? 0 : 1;
-    }
-    MPI_Bcast(&give_warning, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    if (give_warning) {
-      char proceed = ' ';
-      if (rank == 0) {
-        std::clog << "The following files will be overwritten:" << std::endl;
-        for (auto it = files.cbegin(); it != files.cend(); ++it)
-          std::clog << *it << std::endl;
-        std::clog << "Proceed anyway? ('y' or 'n')" << std::endl;
-        while (proceed != 'y' && proceed != 'n') 
-          std::cin >> proceed;
-      }
-      MPI_Bcast(&proceed, 1, MPI_CHAR, 0, MPI_COMM_WORLD);
-      if (proceed == 'n') {
-        MPI_Finalize();
-        return 0;
-      }
-    }
-  }
-  // Iterate over the tests to run
   for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
-  if (std::find(data.begin(),data.end(),json(*test_iter)) == data.end()) {
-    if (rank == 0)
-      std::cerr << "Error: test \"" << *test_iter << "\" not found" << std::endl;
-    exit(1);
+    if (!data.contains(*test_iter)) {
+      if (rank == 0)
+        std::cerr << "Error: test \"" << *test_iter << "\" not found" << std::endl;
+      exit(1);
+    }
   }
+
+  // Checking overwritings
+  if (warnings_on && check_overwritings(rank, data, output_folder, test_name))
+    return 0;
+
+
+  // Iterating over the tests to run
+  for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
   std::string vol_name;
   try{vol_name = data[*test_iter]["algorithm"]["voltage_name"];}
   catch(...) {std::cerr << "Error: Unable to read: [" << *test_iter << "][algorithm][voltage_name]" << std::endl; if(parameters_check) throw; else continue;}
@@ -375,52 +332,16 @@ main (int argc, char **argv)
   // name of temporary solution file to resume the simulation with
   std::string temp_solution_file_name;
 
-  Time = 0.; count = 0;
-  try {T = data[*test_iter]["algorithm"]["T"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][algorithm][T]" << std::endl; if(parameters_check) throw; else continue;}
-  try {start_from_solution = data[*test_iter]["algorithm"]["start_from_solution"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][algorithm][start_from_solution]" << std::endl; if(parameters_check) throw; else continue;}
-  try {epsilon_0 = data[*test_iter]["physics"]["epsilon_0"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][algorithm][epsilon_0]" << std::endl; if(parameters_check) throw; else continue;}
-  try {save_temp_solution = data[*test_iter]["algorithm"]["save_temp_solution"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][algorithm][save_temp_solution]" << std::endl; if(parameters_check) throw; else continue;}
-  try {
-    if (start_from_solution) {
-      temp_solution_file_name = data[*test_iter]["algorithm"]["temp_sol"]["file_of_starting_sol"];
-      if (!std::filesystem::exists(temp_solution_file_name)) {
-        std::cerr << "Error: Temporary solution file \"" << temp_solution_file_name << " does not exist!" << std::endl;
-        std::exit(1);
-      }
-    }
-  }
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][algorithm][temp_sol][file_of_starting_sol]" << std::endl; if(parameters_check) throw; else continue;}
-  
-  try {
-    if (save_temp_solution) {
-      save_every_n_steps = data[*test_iter]["algorithm"]["temp_sol"]["save_every_n_steps"];
-    }
-  }
-  catch(...) {std::cerr << "Error: Unable to read ["+*test_iter+"][algorithm][temp_sol][save_every_n_steps]" << std::endl; if(parameters_check) throw; else continue;}
-  comp_time_of_previous_simuls = 0.0;
+  Time = 0.;
+  count = 0;
+  comp_time_of_previous_simuls = 0.;
 
-  try {dt = data[*test_iter]["algorithm"]["initial_dt_for_adaptive_time_step"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][algorithm][initial_dt_for_adaptive_time_step]" << std::endl; if(parameters_check) throw; else continue;}
-  try {tol = data[*test_iter]["algorithm"]["tol_of_adaptive_time_step"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][algorithm][tol_of_adaptive_time_step]" << std::endl; if(parameters_check) throw; else continue;}
-  // Set output preferences
-  try {DT = data[*test_iter]["options"]["biggest_time_step"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][biggest_time_step]" << std::endl; if(parameters_check) throw; else continue;}
-  try {save_sol = data[*test_iter]["options"]["save_sol"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_sol]" << std::endl; if(parameters_check) throw; else continue;}
-  try {save_error_and_comp_time = data[*test_iter]["options"]["save_error_and_comp_time"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_error_and_comp_time]" << std::endl; if(parameters_check) throw; else continue;}
-  try {save_charges = data[*test_iter]["options"]["compute_charges_on_border"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][compute_charges_on_border]" << std::endl; if(parameters_check) throw; else continue;}
-  try {save_displ_cond_current = data[*test_iter]["options"]["save_displ_cond_current"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_displ_cond_current]" << std::endl; if(parameters_check) throw; else continue;}
-  try {compute_2_contacts = data[*test_iter]["options"]["compute_2_contacts"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][compute_2_contacts]" << std::endl; if(parameters_check) throw; else continue;}
+  try{set_params(data, *test_iter, T, epsilon_0, DT, dt, tol, save_every_n_steps,start_from_solution,
+                 save_temp_solution, save_sol, save_error_and_comp_time, save_charges,
+                 save_displ_cond_current, compute_2_contacts, temp_solution_file_name);}
+  catch (...) {if(parameters_check) throw; else continue;}
 
+  // Factory loading and parameters setting
   // Test
   std::unique_ptr<tests::generic_test> test = nullptr;
   try {test = T_factory.create(data[*test_iter]["physics"]["plugin_test_index"]);}
@@ -428,14 +349,14 @@ main (int argc, char **argv)
   catch (...) {std::cerr << "Error: Unable to read [" << *test_iter << "][physics][plugin_test_index]" << std::endl;}
   try {test->import_params(data[*test_iter]);}
   catch (std::runtime_error const & e) {std::cerr << "Error: Unable to read [" << *test_iter << "]" << e.what() <<std::endl; if(parameters_check) throw; else continue;}
-  catch (...) {std::cerr << "Check typos or missing elements among phisics plugin parameters" << *test_iter << std::endl; if(parameters_check) throw; else continue;}
+  catch (...) {std::cerr << *test_iter  << ": check typos or missing elements among phisics plugin parameters"<< std::endl; if(parameters_check) throw; else continue;}
   // Voltage
   std::unique_ptr<voltages::generic_voltage> voltage = nullptr;
   try {voltage = V_factory.create(vol_name);}
   catch (std::runtime_error const & e) {std::cerr << e.what() << std::endl; if(parameters_check) throw; else continue;}
   try {voltage->import_params(data[*test_iter]["algorithm"]["voltage_plugin_params"]);}
   catch (std::runtime_error const & e) {std::cerr << "Error: Unable to read [" + *test_iter + "][algorithm][voltage_plugin_params]" << e.what() <<std::endl; if(parameters_check) throw; else continue;}
-  catch (...) {std::cerr << "Check typos or missing elements among voltage plugin parameters in " << *test_iter << std::endl; if(parameters_check) throw; else continue;}
+  catch (...) {std::cerr << *test_iter  << ": check typos or missing elements among voltage plugin parameters in "<< std::endl; if(parameters_check) throw; else continue;}
   
   if (parameters_check) continue;
   /*
@@ -450,9 +371,9 @@ main (int argc, char **argv)
   // Setup number of equations, number of polarization currents and ordering arrays
   constexpr size_t N_eqs= 5;
   constexpr size_t N_polcur = 3;
-  const std::array<ordering,N_eqs> ord(makeorder<N_eqs>());
-  const std::array<ordering,N_polcur+1> ord_c(makeorder<N_polcur+1>());
-  const std::array<ordering,2> ord_displ_curr(makeorder<2>());
+  const auto ord(makeorder<N_eqs>());
+  const auto ord_c(makeorder<N_polcur+1>());
+  const auto ord_displ_curr(makeorder<2>());
 
 
   // Generate the mesh in 3d
@@ -498,12 +419,12 @@ main (int argc, char **argv)
 
   // Declare matrix to compute currents
   distributed_sparse_matrix B;
-  B.set_ranges (ln_nodes *2);
+  B.set_ranges (ln_nodes * 2);
 
   // Declare constant matrix to compute flux of E*epsion0
   distributed_sparse_matrix C;
-  C.set_ranges (ln_nodes *2);
-
+  C.set_ranges (ln_nodes * 2);
+  
   // Buffer for export filename
   char filename[255]="";
 
@@ -517,15 +438,15 @@ main (int argc, char **argv)
   // Diffusion
   std::vector<double> epsilon (ln_elements, 0.);
   std::vector<double> sigma (ln_elements, 0.);
-  std::vector<double> diffusion_term_p1 (ln_elements,0.);
-  std::vector<double> diffusion_term_p2 (ln_elements,0.);
-  std::vector<double> diffusion_term_p3 (ln_elements,0.);
+  std::vector<double> diffusion_term_p1 (ln_elements, 0.);
+  std::vector<double> diffusion_term_p2 (ln_elements, 0.);
+  std::vector<double> diffusion_term_p3 (ln_elements, 0.);
   q1_vector null_q1_vec (ln_nodes);
 
   // Reaction
-  std::vector<double> reaction_term_p1 (ln_elements,0.);
-  std::vector<double> reaction_term_p2 (ln_elements,0.);
-  std::vector<double> reaction_term_p3 (ln_elements,0.);
+  std::vector<double> reaction_term_p1 (ln_elements, 0.);
+  std::vector<double> reaction_term_p2 (ln_elements, 0.);
+  std::vector<double> reaction_term_p3 (ln_elements, 0.);
   q1_vector unitary_q1_vec (ln_nodes);
 
   // Rhs
@@ -539,10 +460,10 @@ main (int argc, char **argv)
   // Variables for currents computation
   q1_vector Bsol1 (ln_nodes * 2);
   q1_vector Bsol2 (ln_nodes * 2);
-  q1_vector Idispl1_vec (ln_nodes * 2), Idispl2_vec (ln_nodes *2), Icond_vec(ln_nodes*2), E_eps0_vec(ln_nodes*2);
+  q1_vector Idispl1_vec (ln_nodes * 2), Idispl2_vec (ln_nodes * 2), Icond_vec(ln_nodes * 2), E_eps0_vec(ln_nodes * 2);
   std::unordered_set<size_t> Ivec_index1{};
   std::unordered_set<size_t> Ivec_index2{};
-  
+
   // Setup streamings
   std::ofstream error_file, charges_file, currents_file;
   const std::string error_file_name = output_folder + *test_iter + "/" + "error_and_comp_time.txt";
@@ -602,12 +523,6 @@ main (int argc, char **argv)
   }
   sold.get_owned_data().assign(sold.local_size(),0.0);
   
-  // Constant matrix C building
-  {
-    std::vector<double> epsilon_0_vec(ln_elements, epsilon_0);
-    bim3a_advection_diffusion (tmsh, epsilon_0_vec, null_q1_vec, C, true, ord_displ_curr[0], ord_displ_curr[1]);
-  }
-
   // Read temp. solution
   MPI_File temp_sol;
   if (start_from_solution) {
@@ -636,6 +551,12 @@ main (int argc, char **argv)
   null_q1_vec.assemble (replace_op);
   unitary_q1_vec.assemble (replace_op);
   g1.assemble (replace_op);
+
+  // Constant matrix C building
+  {
+    std::vector<double> epsilon_0_vec(ln_elements, epsilon_0);
+    bim3a_advection_diffusion (tmsh, epsilon_0_vec, null_q1_vec, C, true, ord_displ_curr[0], ord_displ_curr[1]);
+  }
 
   // Create directories for output
   if (!output_folder.empty())
@@ -712,16 +633,16 @@ main (int argc, char **argv)
       charges_file.open(charges_file_name, std::fstream::app);
   }
 
-  // For currents_file
+  // ... for currents_file
   if (rank == 0 && save_displ_cond_current) {
     if (!start_from_solution) {
       currents_file.open(currents_file_name);
       if (!compute_2_contacts)
-        currents_file  << std::setw(20) << "time"
+        currents_file << std::setw(20) << "time"
                       << std::setw(20) << "I_displ" 
                       << std::setw(20) << "I_c" << std::endl;
       else
-        currents_file  << std::setw(20) << "time"
+        currents_file << std::setw(20) << "time"
                       << std::setw(20) << "I_displ1"
                       << std::setw(20) << "I_displ2"
                       << std::setw(20) << "I_c_c1" 
