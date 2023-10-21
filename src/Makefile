@@ -18,7 +18,7 @@ DOXYFILE= ../doc/Doxyfile
 
 include local_settings.mk
 
-plugs= libgenericfactory.so libPhysics.so libVoltages.so
+plugs= libgenericfactory.so libPhysics.so libVoltages.so libMIPaper.so
 
 all : $(plugs) HVDC_main
 
@@ -27,6 +27,10 @@ include HVDC_main.d
 libPhysics.so : plugins/tests.cpp plugins/tests.h plugins/generic_test.h
 	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/tests.cpp
 	g++ $(CXXFLAGS) $(LDFLAGS) -shared tests.o -o libPhysics.so
+
+libMIPaper.so : plugins/MI_paper.cpp plugins/MI_paper.h plugins/generic_test.h
+	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/MI_paper.cpp
+	g++ $(CXXFLAGS) $(LDFLAGS) -shared MI_paper.o -o libMIPaper.so
 
 libVoltages.so : plugins/voltages.cpp plugins/voltages.h plugins/generic_voltage.h
 	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/voltages.cpp

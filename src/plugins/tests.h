@@ -3,11 +3,10 @@
 #include "generic_test.h"
 using json = nlohmann::json;
 
-int NUM_REFINEMENTS = 4;
-int maxlevel = 6;
-
-
-
+namespace {
+  int NUM_REFINEMENTS = 4;
+  int maxlevel = 6;
+}
 
 namespace tests {
 
@@ -188,6 +187,7 @@ namespace tests {
       double sigma_fun (double x, double y, double z, double DT) const
         {return sigma_ * DT;}
   };
+  
   class test3 : public generic_test {
     private:
       double epsilon_inf_1, epsilon_inf_2;		// permittivity at infinite frequency
@@ -237,7 +237,7 @@ namespace tests {
                 xcoord = q->p(0, ii);
                 zcoord = q->p(2, ii);
 
-                if (fabs(xcoord - 0.0005) < 1e-9/* || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9*/)
+                if (fabs(xcoord - 0.0005) < 1e-9 || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9)
                   {
                     retval = maxlevel - currentlevel;
                     break;
@@ -260,7 +260,7 @@ namespace tests {
                 xcoord = q->p(0, ii);
                 zcoord = q->p(2, ii);
 
-                  if (fabs(xcoord - 0.0005) < 1e-9/* || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9*/)
+                  if (fabs(xcoord - 0.0005) < 1e-9 || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9)
                     {
                       retval = 0;
                       break;
