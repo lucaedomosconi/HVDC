@@ -50,7 +50,7 @@ Moreover, before running a series of tests in sequence it is recommended to chec
 ```
 mpirun -np 1 HVDC_main --check-params
 ```
-If there are any errors the application will fail producing a message helpfull for the user to quikly identify the first error in the parameter file.
+If there are any errors the application will fail producing a message helpfull for the user to quickly identify the first error in the parameter file.
 With this option no test will be run.
 
 The main variables in the file are

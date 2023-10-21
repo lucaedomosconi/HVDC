@@ -229,7 +229,7 @@ main (int argc, char **argv)
 
   // Options from command line
   GetPot cl(argc,argv);
-  bool warnings_on = !cl.search("--overwright");
+  bool warnings_on = !cl.search("--overwrite");
   bool parameters_check = cl.search("--check-params");
   if (parameters_check) warnings_on = false;
   if (cl.search("--generate-params")) {
@@ -281,7 +281,7 @@ main (int argc, char **argv)
     bool  start_from_solution,
           save_sol,
           compute_charges_on_border,
-          save_displ_current,
+          save_displ_cond_current,
           save_error_and_comp_time;
     int give_warning;
     std::vector<std::string> files;
@@ -293,14 +293,14 @@ main (int argc, char **argv)
         catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_sol]" << std::endl; throw;}
         try {compute_charges_on_border = data[*test_iter]["options"]["compute_charges_on_border"];}
         catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][compute_charges_on_border]" << std::endl; throw;}
-        try {save_displ_current = data[*test_iter]["options"]["save_displ_current"];}
-        catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_displ_current]" << std::endl; throw;}
+        try {save_displ_cond_current = data[*test_iter]["options"]["save_displ_cond_current"];}
+        catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_displ_cond_current]" << std::endl; throw;}
         try {save_error_and_comp_time = data[*test_iter]["options"]["save_error_and_comp_time"];}
         catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_error_and_comp_time]" << std::endl; throw;}
         if (!start_from_solution) {
           if (save_error_and_comp_time  && std::filesystem::exists(output_folder + *test_iter + "/error_and_comp_time.txt")) {files.push_back(output_folder + *test_iter + "/error_and_comp_time.txt");}
           if (compute_charges_on_border && std::filesystem::exists(output_folder + *test_iter + "/charges_file.txt")) {files.push_back(output_folder + *test_iter + "/charges_file.txt");}
-          if (save_displ_current        && std::filesystem::exists(output_folder + *test_iter + "/I_displ_file.txt")) {files.push_back(output_folder + *test_iter + "/I_displ_file.txt");}
+          if (save_displ_cond_current        && std::filesystem::exists(output_folder + *test_iter + "/currents_file.txt")) {files.push_back(output_folder + *test_iter + "/currents_file.txt");}
           if (save_sol                  && std::filesystem::exists(output_folder + *test_iter + "/sol")) {files.push_back(output_folder + *test_iter + "/sol");}
         }
       }
@@ -370,7 +370,7 @@ main (int argc, char **argv)
   bool save_sol;
   bool save_error_and_comp_time;
   bool save_charges;
-  bool save_displ_current;
+  bool save_displ_cond_current;
   bool compute_2_contacts;
   // name of temporary solution file to resume the simulation with
   std::string temp_solution_file_name;
@@ -408,16 +408,16 @@ main (int argc, char **argv)
   try {tol = data[*test_iter]["algorithm"]["tol_of_adaptive_time_step"];}
   catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][algorithm][tol_of_adaptive_time_step]" << std::endl; if(parameters_check) throw; else continue;}
   // Set output preferences
-  try {DT = data[*test_iter]["options"]["print_solution_every_n_seconds"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][print_solution_every_n_seconds]" << std::endl; if(parameters_check) throw; else continue;}
+  try {DT = data[*test_iter]["options"]["biggest_time_step"];}
+  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][biggest_time_step]" << std::endl; if(parameters_check) throw; else continue;}
   try {save_sol = data[*test_iter]["options"]["save_sol"];}
   catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_sol]" << std::endl; if(parameters_check) throw; else continue;}
   try {save_error_and_comp_time = data[*test_iter]["options"]["save_error_and_comp_time"];}
   catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_error_and_comp_time]" << std::endl; if(parameters_check) throw; else continue;}
   try {save_charges = data[*test_iter]["options"]["compute_charges_on_border"];}
   catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][compute_charges_on_border]" << std::endl; if(parameters_check) throw; else continue;}
-  try {save_displ_current = data[*test_iter]["options"]["save_displ_current"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_displ_current]" << std::endl; if(parameters_check) throw; else continue;}
+  try {save_displ_cond_current = data[*test_iter]["options"]["save_displ_cond_current"];}
+  catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_displ_cond_current]" << std::endl; if(parameters_check) throw; else continue;}
   try {compute_2_contacts = data[*test_iter]["options"]["compute_2_contacts"];}
   catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][compute_2_contacts]" << std::endl; if(parameters_check) throw; else continue;}
 
@@ -544,10 +544,10 @@ main (int argc, char **argv)
   std::unordered_set<size_t> Ivec_index2{};
   
   // Setup streamings
-  std::ofstream error_file, charges_file, I_displ_file;
+  std::ofstream error_file, charges_file, currents_file;
   const std::string error_file_name = output_folder + *test_iter + "/" + "error_and_comp_time.txt";
   const std::string charges_file_name = output_folder + *test_iter + "/" + "charges_file.txt";
-  const std::string I_displ_file_name = output_folder + *test_iter + "/" + "I_displ_file.txt";
+  const std::string currents_file_name = output_folder + *test_iter + "/" + "currents_file.txt";
 
   // Data to print
   std::array<double,4> rho_pi_k;
@@ -712,23 +712,23 @@ main (int argc, char **argv)
       charges_file.open(charges_file_name, std::fstream::app);
   }
 
-  // For I_displ_file
-  if (rank == 0 && save_displ_current) {
+  // For currents_file
+  if (rank == 0 && save_displ_cond_current) {
     if (!start_from_solution) {
-      I_displ_file.open(I_displ_file_name);
+      currents_file.open(currents_file_name);
       if (!compute_2_contacts)
-        I_displ_file  << std::setw(20) << "time"
+        currents_file  << std::setw(20) << "time"
                       << std::setw(20) << "I_displ" 
                       << std::setw(20) << "I_c" << std::endl;
       else
-        I_displ_file  << std::setw(20) << "time"
+        currents_file  << std::setw(20) << "time"
                       << std::setw(20) << "I_displ1"
                       << std::setw(20) << "I_displ2"
                       << std::setw(20) << "I_c_c1" 
                       << std::setw(20) << "I_c_c2"  << std::endl;
     }
     else if (rank == 0)
-      I_displ_file.open(I_displ_file_name, std::fstream::app);
+      currents_file.open(currents_file_name, std::fstream::app);
 
   }
   q1_vector sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
@@ -874,15 +874,15 @@ main (int argc, char **argv)
                      << std::setw(20) << std::setprecision(7) << time1 - start_time
                      << std::endl;
         }
-        if (rank == 0 && save_displ_current) {
+        if (rank == 0 && save_displ_cond_current) {
           // Save displacement currents
           if (!compute_2_contacts)
-            I_displ_file  << std::setw(20) << Time + time_in_step
+            currents_file  << std::setw(20) << Time + time_in_step
                           << std::setw(20) << I_displ1
                           << std::setw(20) << I_c_c1
                           << std::endl;
           else
-            I_displ_file  << std::setw(20) << Time + time_in_step
+            currents_file  << std::setw(20) << Time + time_in_step
                           << std::setw(20) << I_displ1
                           << std::setw(20) << I_displ2
                           << std::setw(20) << I_c_c1
@@ -995,11 +995,11 @@ main (int argc, char **argv)
   if (rank==0){
     error_file.close();
     charges_file.close();
-    I_displ_file.close();
+    currents_file.close();
     if(save_charges)
       txt2json(charges_file_name, output_folder + *test_iter + "/" + "charges_file.json");
-    if (save_displ_current)
-      txt2json(I_displ_file_name, output_folder + *test_iter + "/" + "I_displ_file.json");
+    if (save_displ_cond_current)
+      txt2json(currents_file_name, output_folder + *test_iter + "/" + "currents_file.json");
     if (save_error_and_comp_time)
       txt2json(error_file_name, output_folder + *test_iter + "/" + "error_and_comp_time.json");
   }

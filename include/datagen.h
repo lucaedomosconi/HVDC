@@ -46,10 +46,10 @@ R"({
 			}
 		},
 		"options" : {
-			"print_solution_every_n_seconds" : 1,
+			"biggest_time_step" : 1,
 			"save_sol" : true,
 			"compute_charges_on_border" : true,
-			"save_displ_current" : true,
+			"save_displ_cond_current" : true,
 			"compute_2_contacts" : true,
 			"save_error_and_comp_time" : true
 		}
