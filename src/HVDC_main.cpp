@@ -671,7 +671,7 @@ main (int argc, char **argv)
   double dt_start_big_step = dt;
   bool truncated_dt;
   double eps = 1.0e-8;
-  double err_max;
+  double est_err;
   std::string last_saved_solution = "";
   double start_time, time0, time1;
   bool exit_loop;
@@ -713,7 +713,7 @@ main (int argc, char **argv)
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
                   unitary_q1_vec, g1, g0, gp1, gp2, gp3, sold2, sol2);
-      err_max = 0.;
+      est_err = 0.;
 
       // Compute displacement current with Nanz method
       // Work properly only with uniform grid on the boundary
@@ -777,20 +777,20 @@ main (int argc, char **argv)
 
       I_displ1 = I_d2_c1;
       I_displ2 = I_d2_c2;
-      err_max = std::fabs((I_d2_c1-I_d1_c1) / (std::fabs(I_d2_c1) + 1.0e-50));
+      est_err = std::fabs((I_d2_c1-I_d1_c1) / (std::fabs(I_d2_c1) + 1.0e-50));
       
       if (rank == 0)
-        std::cout << "error/tol = " << err_max/tol << std::endl;
+        std::cout << "error/tol = " << est_err/tol << std::endl;
       
       // If the error on the displacement current is small enough go on otherwise half dt and repeat
-      if (err_max < tol) {
+      if (est_err < tol) {
         time_in_step += dt;
         sold = sold2;
         if (rank == 0 && save_error_and_comp_time) {
           // Save error and computation times
           time1 = comp_time_of_previous_simuls + MPI_Wtime();
           error_file << std::setw(20) << std::setprecision(5) << Time + time_in_step
-                     << std::setw(20) << std::setprecision(7) << err_max
+                     << std::setw(20) << std::setprecision(7) << est_err
                      << std::setw(20) << std::setprecision(7) << time1 - time0
                      << std::setw(20) << std::setprecision(7) << time1 - start_time
                      << std::endl;
@@ -896,7 +896,7 @@ main (int argc, char **argv)
         }
         
         // Update dt
-        dt *= std::pow(err_max/tol,-0.5)*0.9;
+        dt *= std::pow(est_err/tol,-0.5)*0.9;
         dt_start_big_step = std::min(DT,std::max(dt_start_big_step*truncated_dt, dt));
         if (dt > DT - time_in_step - eps) {
           dt = DT - time_in_step;

@@ -4,7 +4,7 @@
 using json = nlohmann::json;
 
 namespace {
-  int NUM_REFINEMENTS = 4;
+  int num_refinements = 4;
   int maxlevel = 6;
 }
 
@@ -37,8 +37,8 @@ namespace tests {
         catch(...){throw std::runtime_error("[physics][plugin_params][tau_p3]");}
         try{sigma_ = data["physics"]["plugin_params"]["sigma"];}
         catch(...){throw std::runtime_error("[physics][plugin_params][sigma]");}
-        try{NUM_REFINEMENTS = data["algorithm"]["NUM_REFINEMENTS"];}
-        catch(...){throw std::runtime_error("[algorithm][NUM_REFINEMENTS]");}
+        try{num_refinements = data["algorithm"]["num_refinements"];}
+        catch(...){throw std::runtime_error("[algorithm][num_refinements]");}
         try{maxlevel = data["algorithm"]["maxlevel"];}
         catch(...){throw std::runtime_error("[algorithm][maxlevel]");}
         
@@ -46,13 +46,13 @@ namespace tests {
       }
 
       int	uniform_refinement (tmesh_3d::quadrant_iterator q) const
-        { return NUM_REFINEMENTS; }
+        { return num_refinements; }
 
       int refinement (tmesh_3d::quadrant_iterator q) const
-        { return NUM_REFINEMENTS; }
+        { return num_refinements; }
 
       int coarsening (tmesh_3d::quadrant_iterator q) const
-        { return NUM_REFINEMENTS; }
+        { return num_refinements; }
         
       double epsilon_fun (double x, double y, double z) const
         {return epsilon_0 * epsilon_inf_1;}
@@ -108,8 +108,8 @@ namespace tests {
         catch(...){throw std::runtime_error("[physics][plugin_params][tau_p3]");}
         try{sigma_ = data["physics"]["plugin_params"]["sigma"];}
         catch(...){throw std::runtime_error("[physics][plugin_params][sigma]");}
-        try{NUM_REFINEMENTS = data["algorithm"]["NUM_REFINEMENTS"];}
-        catch(...){throw std::runtime_error("[algorithm][NUM_REFINEMENTS]");}
+        try{num_refinements = data["algorithm"]["num_refinements"];}
+        catch(...){throw std::runtime_error("[algorithm][num_refinements]");}
         try{maxlevel = data["algorithm"]["maxlevel"];}
         catch(...){throw std::runtime_error("[algorithm][maxlevel]");}
         
@@ -117,7 +117,7 @@ namespace tests {
       }
 
       int	uniform_refinement (tmesh_3d::quadrant_iterator q) const
-        { return NUM_REFINEMENTS; }
+        { return num_refinements; }
 
       int refinement (tmesh_3d::quadrant_iterator q) const
         {
@@ -145,7 +145,7 @@ namespace tests {
         {
           int currentlevel = static_cast<int> (q->the_quadrant->level);
             double zcoord;
-            int retval = currentlevel - NUM_REFINEMENTS;
+            int retval = currentlevel - num_refinements;
             for (int ii = 0; ii < 8; ++ii)
               {     
                   zcoord = q->p(2, ii);
@@ -157,7 +157,7 @@ namespace tests {
                   }
               }
 
-          if (currentlevel <= NUM_REFINEMENTS)
+          if (currentlevel <= num_refinements)
               retval = 0;
       
             return (retval);
@@ -217,15 +217,15 @@ namespace tests {
         catch(...){throw std::runtime_error("[physics][plugin_params][tau_p3]");}
         try{sigma_ = data["physics"]["plugin_params"]["sigma"];}
         catch(...){throw std::runtime_error("[physics][plugin_params][sigma]");}
-        try{NUM_REFINEMENTS = data["algorithm"]["NUM_REFINEMENTS"];}
-        catch(...){throw std::runtime_error("[algorithm][NUM_REFINEMENTS]");}
+        try{num_refinements = data["algorithm"]["num_refinements"];}
+        catch(...){throw std::runtime_error("[algorithm][num_refinements]");}
         try{maxlevel = data["algorithm"]["maxlevel"];}
         catch(...){throw std::runtime_error("[algorithm][maxlevel]");}
         return;
       }
 
       int	uniform_refinement (tmesh_3d::quadrant_iterator q) const
-        { return NUM_REFINEMENTS; }
+        { return num_refinements; }
 
       int refinement (tmesh_3d::quadrant_iterator q) const
         {
@@ -254,7 +254,7 @@ namespace tests {
         {
           int currentlevel = static_cast<int> (q->the_quadrant->level);
             double xcoord, zcoord;
-            int retval = currentlevel - NUM_REFINEMENTS;
+            int retval = currentlevel - num_refinements;
             for (int ii = 0; ii < 8; ++ii)
               {
                 xcoord = q->p(0, ii);
@@ -267,7 +267,7 @@ namespace tests {
                     }
               }
 
-          if (currentlevel <= NUM_REFINEMENTS)
+          if (currentlevel <= num_refinements)
               retval = 0;
       
             return (retval);
