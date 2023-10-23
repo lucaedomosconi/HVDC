@@ -12,8 +12,8 @@ namespace tests {
 
   class test1 : public generic_test {
     private:
-      double epsilon_inf_1;		                // permittivity at infinite frequency
-      double csi1, csi2, csi3;
+      double epsilon_r1;		                // permittivity at infinite frequency
+      double chi1, chi2, chi3;
       double tau_p1, tau_p2, tau_p3;
       double sigma_;            					    // conductivity coeff
     public:
@@ -21,14 +21,14 @@ namespace tests {
       test1() {extra_refinement = false;}
       
       void import_params (json & data) {
-        try{epsilon_inf_1 = data["physics"]["plugin_params"]["epsilon_inf_1"];}
-        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_inf_1]");}
-        try{csi1 = data["physics"]["plugin_params"]["csi1"];}
-        catch(...){throw std::runtime_error("[physics][plugin_params][csi1]");}
-        try{csi2 = data["physics"]["plugin_params"]["csi2"];}
-        catch(...){throw std::runtime_error("[physics][plugin_params][csi2]");}
-        try{csi3 = data["physics"]["plugin_params"]["csi3"];}
-        catch(...){throw std::runtime_error("[physics][plugin_params][csi3]");}
+        try{epsilon_r1 = data["physics"]["plugin_params"]["epsilon_r1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_r1]");}
+        try{chi1 = data["physics"]["plugin_params"]["chi1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi1]");}
+        try{chi2 = data["physics"]["plugin_params"]["chi2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi2]");}
+        try{chi3 = data["physics"]["plugin_params"]["chi3"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi3]");}
         try{tau_p1 = data["physics"]["plugin_params"]["tau_p1"];}
         catch(...){throw std::runtime_error("[physics][plugin_params][tau_p1]");}
         try{tau_p2 = data["physics"]["plugin_params"]["tau_p2"];}
@@ -55,16 +55,16 @@ namespace tests {
         { return num_refinements; }
         
       double epsilon_fun (double x, double y, double z) const
-        {return epsilon_0 * epsilon_inf_1;}
+        {return epsilon_0 * epsilon_r1;}
 
-      double csi_1_fun (double x, double y, double z) const
-        {return csi1;}
+      double chi_1_fun (double x, double y, double z) const
+        {return chi1;}
 
-      double csi_2_fun (double x, double y, double z) const
-        {return csi2;}
+      double chi_2_fun (double x, double y, double z) const
+        {return chi2;}
 
-      double csi_3_fun (double x, double y, double z) const
-        {return csi3;}
+      double chi_3_fun (double x, double y, double z) const
+        {return chi3;}
 
       double tau_p1_fun (double x, double y, double z) const
         {return tau_p1;}
@@ -81,8 +81,8 @@ namespace tests {
 
   class test2 : public generic_test {
     private:
-      double epsilon_inf_1, epsilon_inf_2;		// permittivity at infinite frequency
-      double csi1, csi2, csi3;
+      double epsilon_r1, epsilon_r2;		// permittivity at infinite frequency
+      double chi1, chi2, chi3;
       double tau_p1, tau_p2, tau_p3;
       double sigma_;            					    // conductivity coeff
     public:
@@ -90,16 +90,16 @@ namespace tests {
       test2() {extra_refinement = true;}
       
       void import_params (json & data) {
-        try{epsilon_inf_1 = data["physics"]["plugin_params"]["epsilon_inf_1"];}
-        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_inf_1]");}
-        try{epsilon_inf_2 = data["physics"]["plugin_params"]["epsilon_inf_2"];}
-        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_inf_1]");}
-        try{csi1 = data["physics"]["plugin_params"]["csi1"];}
-        catch(...){throw std::runtime_error("[physics][plugin_params][csi1]");}
-        try{csi2 = data["physics"]["plugin_params"]["csi2"];}
-        catch(...){throw std::runtime_error("[physics][plugin_params][csi2]");}
-        try{csi3 = data["physics"]["plugin_params"]["csi3"];}
-        catch(...){throw std::runtime_error("[physics][plugin_params][csi3]");}
+        try{epsilon_r1 = data["physics"]["plugin_params"]["epsilon_r1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_r1]");}
+        try{epsilon_r2 = data["physics"]["plugin_params"]["epsilon_r2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_r1]");}
+        try{chi1 = data["physics"]["plugin_params"]["chi1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi1]");}
+        try{chi2 = data["physics"]["plugin_params"]["chi2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi2]");}
+        try{chi3 = data["physics"]["plugin_params"]["chi3"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi3]");}
         try{tau_p1 = data["physics"]["plugin_params"]["tau_p1"];}
         catch(...){throw std::runtime_error("[physics][plugin_params][tau_p1]");}
         try{tau_p2 = data["physics"]["plugin_params"]["tau_p2"];}
@@ -164,16 +164,16 @@ namespace tests {
         }
         
       double epsilon_fun (double x, double y, double z) const
-        {return z < 0.0005 ? epsilon_0 * epsilon_inf_1 : epsilon_0 * epsilon_inf_2;}
+        {return z < 0.0005 ? epsilon_0 * epsilon_r1 : epsilon_0 * epsilon_r2;}
 
-      double csi_1_fun (double x, double y, double z) const
-        {return csi1;}
+      double chi_1_fun (double x, double y, double z) const
+        {return chi1;}
 
-      double csi_2_fun (double x, double y, double z) const
-        {return csi2;}
+      double chi_2_fun (double x, double y, double z) const
+        {return chi2;}
 
-      double csi_3_fun (double x, double y, double z) const
-        {return csi3;}
+      double chi_3_fun (double x, double y, double z) const
+        {return chi3;}
 
       double tau_p1_fun (double x, double y, double z) const
         {return tau_p1;}
@@ -190,8 +190,8 @@ namespace tests {
   
   class test3 : public generic_test {
     private:
-      double epsilon_inf_1, epsilon_inf_2;		// permittivity at infinite frequency
-      double csi1, csi2, csi3;
+      double epsilon_r1, epsilon_r2;		// permittivity at infinite frequency
+      double chi1, chi2, chi3;
       double tau_p1, tau_p2, tau_p3;
       double sigma_;							// conductivity coeff
     public:
@@ -199,16 +199,16 @@ namespace tests {
       test3() {extra_refinement = true;}
       
       void import_params (json & data) {
-        try{epsilon_inf_1 = data["physics"]["plugin_params"]["epsilon_inf_1"];}
-        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_inf_1]");}
-        try{epsilon_inf_2 = data["physics"]["plugin_params"]["epsilon_inf_2"];}
-        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_inf_1]");}
-        try{csi1 = data["physics"]["plugin_params"]["csi1"];}
-        catch(...){throw std::runtime_error("[physics][plugin_params][csi1]");}
-        try{csi2 = data["physics"]["plugin_params"]["csi2"];}
-        catch(...){throw std::runtime_error("[physics][plugin_params][csi2]");}
-        try{csi3 = data["physics"]["plugin_params"]["csi3"];}
-        catch(...){throw std::runtime_error("[physics][plugin_params][csi3]");}
+        try{epsilon_r1 = data["physics"]["plugin_params"]["epsilon_r1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_r1]");}
+        try{epsilon_r2 = data["physics"]["plugin_params"]["epsilon_r2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_r1]");}
+        try{chi1 = data["physics"]["plugin_params"]["chi1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi1]");}
+        try{chi2 = data["physics"]["plugin_params"]["chi2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi2]");}
+        try{chi3 = data["physics"]["plugin_params"]["chi3"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi3]");}
         try{tau_p1 = data["physics"]["plugin_params"]["tau_p1"];}
         catch(...){throw std::runtime_error("[physics][plugin_params][tau_p1]");}
         try{tau_p2 = data["physics"]["plugin_params"]["tau_p2"];}
@@ -274,16 +274,16 @@ namespace tests {
         }
         
       double epsilon_fun (double x, double y, double z) const
-        {return x < 0.0005 ? epsilon_0 * epsilon_inf_1 : epsilon_0 * epsilon_inf_2;}
+        {return x < 0.0005 ? epsilon_0 * epsilon_r1 : epsilon_0 * epsilon_r2;}
 
-      double csi_1_fun (double x, double y, double z) const
-        {return csi1;}
+      double chi_1_fun (double x, double y, double z) const
+        {return chi1;}
 
-      double csi_2_fun (double x, double y, double z) const
-        {return csi2;}
+      double chi_2_fun (double x, double y, double z) const
+        {return chi2;}
 
-      double csi_3_fun (double x, double y, double z) const
-        {return csi3;}
+      double chi_3_fun (double x, double y, double z) const
+        {return chi3;}
 
       double tau_p1_fun (double x, double y, double z) const
         {return tau_p1;}

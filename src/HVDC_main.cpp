@@ -122,11 +122,11 @@ void time_step (const int rank, const double time, const double DELTAT,
       reaction_term_p3[quadrant->get_forest_quad_idx ()] =
         1 + DELTAT / test->tau_p3_fun(xx,yy,zz);
       diffusion_term_p1[quadrant->get_forest_quad_idx ()] =
-        - DELTAT / test->tau_p1_fun(xx,yy,zz) * epsilon_0 * test->csi_1_fun(xx,yy,zz);
+        - DELTAT / test->tau_p1_fun(xx,yy,zz) * epsilon_0 * test->chi_1_fun(xx,yy,zz);
       diffusion_term_p2[quadrant->get_forest_quad_idx ()] =
-        - DELTAT / test->tau_p2_fun(xx,yy,zz) * epsilon_0 * test->csi_2_fun(xx,yy,zz);
+        - DELTAT / test->tau_p2_fun(xx,yy,zz) * epsilon_0 * test->chi_2_fun(xx,yy,zz);
       diffusion_term_p3[quadrant->get_forest_quad_idx ()] =
-        - DELTAT / test->tau_p3_fun(xx,yy,zz) * epsilon_0 * test->csi_3_fun(xx,yy,zz);
+        - DELTAT / test->tau_p3_fun(xx,yy,zz) * epsilon_0 * test->chi_3_fun(xx,yy,zz);
       sigma[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,DELTAT);
       for (int ii = 0; ii < 8; ++ii) {
         if (! quadrant->is_hanging (ii)){
@@ -528,8 +528,8 @@ main (int argc, char **argv)
   if (start_from_solution) {
     MPI_File_open(MPI_COMM_WORLD, temp_solution_file_name.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &temp_sol);
     if (rank == 0) {
-      MPI_File_read_at(temp_sol, 0, &count, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
-      MPI_File_read_at(temp_sol, sizeof(double), &Time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+      MPI_File_read_at(temp_sol, 0, &count, 1, MPI_INT, MPI_STATUS_IGNORE);
+      MPI_File_read_at(temp_sol, sizeof(int), &Time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
       MPI_File_read_at(temp_sol, sizeof(int)+sizeof(double), &comp_time_of_previous_simuls, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
       std::clog << "starting from solution_file \"" << temp_solution_file_name
                 << "\"\nAt time = " << Time << ";"
@@ -789,7 +789,7 @@ main (int argc, char **argv)
         if (rank == 0 && save_error_and_comp_time) {
           // Save error and computation times
           time1 = comp_time_of_previous_simuls + MPI_Wtime();
-          error_file << std::setw(20) << std::setprecision(5) << Time + time_in_step
+          error_file << std::setw(20) << Time + time_in_step
                      << std::setw(20) << std::setprecision(7) << est_err
                      << std::setw(20) << std::setprecision(7) << time1 - time0
                      << std::setw(20) << std::setprecision(7) << time1 - start_time
@@ -821,8 +821,8 @@ main (int argc, char **argv)
                           MPI_INFO_NULL, &temp_sol);
             if (rank == 0) {
               double total_time = time1 - start_time;
-              MPI_File_write_at(temp_sol, 0, &count, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
-              MPI_File_write_at(temp_sol, sizeof(double), &Time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+              MPI_File_write_at(temp_sol, 0, &count, 1, MPI_INT, MPI_STATUS_IGNORE);
+              MPI_File_write_at(temp_sol, sizeof(int), &Time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
               MPI_File_write_at(temp_sol, sizeof(int)+sizeof(double), &total_time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
             }
             MPI_File_write_at(temp_sol, sizeof(int)+(sold.get_range_start()+2)*sizeof(double), sold.get_owned_data().data(),

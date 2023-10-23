@@ -27,11 +27,11 @@ namespace tests{
 
       virtual double epsilon_fun(double x, double y, double z) const = 0;
 
-      virtual double csi_1_fun(double x, double y, double z) const = 0;
+      virtual double chi_1_fun(double x, double y, double z) const = 0;
 
-      virtual double csi_2_fun(double x, double y, double z) const = 0;
+      virtual double chi_2_fun(double x, double y, double z) const = 0;
 
-      virtual double csi_3_fun(double x, double y, double z) const = 0;
+      virtual double chi_3_fun(double x, double y, double z) const = 0;
 
       virtual double tau_p1_fun(double x, double y, double z) const = 0;
 
