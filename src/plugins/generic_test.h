@@ -15,7 +15,7 @@ double epsilon_0;
 namespace tests{
   class generic_test {
     public:
-      virtual void import_params(json & data) = 0; // Necessary to pass by non const reference to let exceptions work fine
+      virtual void import_params(json & data) = 0;
 
       bool extra_refinement;
 

@@ -79,7 +79,6 @@ void time_step (const int rank, const double time, const double DELTAT,
                 std::vector<double> &xa, std::vector<int> &ir, std::vector<int> &jc,
                 std::vector<double> &epsilon,
                 std::vector<double> &sigma,
-                q1_vector &null_q1_vec,
                 std::vector<double> &null_vec,
                 std::vector<double> &unitary_vec,
                 std::vector<double> &neg_unitary_vec,
@@ -89,6 +88,7 @@ void time_step (const int rank, const double time, const double DELTAT,
                 std::vector<double> &diffusion_term_p1,
                 std::vector<double> &diffusion_term_p2,
                 std::vector<double> &diffusion_term_p3,
+                q1_vector &null_q1_vec,
                 q1_vector &unitary_q1_vec,
                 q1_vector &g1, q1_vector &g0, q1_vector &gp1,
                 q1_vector &gp2, q1_vector &gp3,
@@ -208,13 +208,93 @@ void time_step (const int rank, const double time, const double DELTAT,
 
 }
 
+double conduction_current (std::string test_name_,
+                           const distributed_vector & sol1,
+                           const distributed_vector & sol0,
+                           tmesh_3d & tmsh,
+                           const std::vector<double> & sigma,
+                           const std::vector<double> & unitary_vec,
+                           const distributed_vector & null_q1_vec,
+                           const distributed_vector & unitary_q1_vec,
+                           double dt, int ln_nodes, int side,
+                           int ord_rho = 0, int ord_phi = 1, int N_vars = 5) {
+  static std::string test_name;
+  
+  // static matrices declaration
+  static distributed_sparse_matrix phi_stiffness;
+  static distributed_sparse_matrix rho_mass;
 
+  // Structures to store nodes on the boundaries
+  static std::array<std::set<size_t>,6> border_nodes;
+  static std::array<bool,6> border_built {0,0,0,0,0,0};
+  
+  // If true the function will build the matrices
+  static bool init_matrices = true;
+
+  // If this function is being called the first time by the test => resetting static variables
+  if (test_name != test_name_) {
+    std::cout << "setting up matrix" << std::endl;
+    test_name = test_name_;
+    for (size_t ii = 0; ii < border_nodes.size(); ++ii)
+      border_nodes[ii].clear();
+    border_built.fill(false);
+    init_matrices = true;
+  }
+
+  // Building matrices
+  if (init_matrices) {
+    init_matrices = false;
+
+    phi_stiffness.reset();
+    rho_mass.reset();
+    
+    phi_stiffness.set_ranges(ln_nodes);
+    rho_mass.set_ranges(ln_nodes);
+
+    bim3a_advection_diffusion (tmsh, sigma, null_q1_vec, phi_stiffness, true);
+    bim3a_reaction (tmsh, unitary_vec, unitary_q1_vec, rho_mass);
+
+    phi_stiffness.assemble();
+    rho_mass.assemble();
+  }
+
+  // Building vectors
+  distributed_vector drho_dt (ln_nodes), phi (ln_nodes);
+  for (int ii = 0; ii < ln_nodes; ++ii) {
+    drho_dt[drho_dt.get_range_start()+ii] = (sol1.get_owned_data()[ii*N_vars+ord_rho]-sol0.get_owned_data()[ii*N_vars+ord_rho]) / dt;
+    phi[phi.get_range_start()+ii] = sol1.get_owned_data()[ii*N_vars+ord_phi];
+  }
+
+  // Matrix * vector
+  distributed_vector I_term1 = phi_stiffness * phi;
+  distributed_vector I_term2 = rho_mass * drho_dt;
+
+  // Store nodes on boundary "side" if not already stored
+  if (!border_built[side]) {
+    border_built[side] = true;
+    border_nodes[side].clear();
+    for (auto quadrant = tmsh.begin_quadrant_sweep ();
+          quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
+      for (int ii = 0; ii < 8; ii++)
+        if (quadrant->e(ii) == side)
+          border_nodes[side].insert(quadrant->gt (ii));
+  }
+
+  // Summing terms of I_term1 and I_term2 on nodes of boundary "side"
+  double ret_value = 0.0;
+  for (auto it = border_nodes[side].cbegin(); it != border_nodes[side].cend(); ++it)
+    ret_value += I_term1[*it] + I_term2[*it];
+  
+  // Summing with border parts owned by other ranks
+  MPI_Allreduce(MPI_IN_PLACE, &ret_value, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+  return ret_value;
+}
 
 
 
 int
-main (int argc, char **argv)
-{
+main (int argc, char **argv) {
   // Defining alias
   using json = nlohmann::json;
   using testfactory = Factory<tests::generic_test, std::function<std::unique_ptr<tests::generic_test>()>>;
@@ -239,7 +319,7 @@ main (int argc, char **argv)
   }
   if (cl.search("--export-json")) {
     std::string filename = cl.next("");
-    std::string prefix;
+    std::string prefix = filename;
     if (filename.empty() && rank == 0) {
       std::cerr << "missing argument for option --export-json" << std::endl;
     }
@@ -327,8 +407,7 @@ main (int argc, char **argv)
   bool save_sol;
   bool save_error_and_comp_time;
   bool save_charges;
-  bool save_displ_cond_current;
-  bool compute_2_contacts;
+  bool save_cond_current;
   // name of temporary solution file to resume the simulation with
   std::string temp_solution_file_name;
 
@@ -338,7 +417,7 @@ main (int argc, char **argv)
 
   try{set_params(data, *test_iter, T, epsilon_0, DT, dt, tol, save_every_n_steps,start_from_solution,
                  save_temp_solution, save_sol, save_error_and_comp_time, save_charges,
-                 save_displ_cond_current, compute_2_contacts, temp_solution_file_name);}
+                 save_cond_current, temp_solution_file_name);}
   catch (...) {if(parameters_check) throw; else continue;}
 
   // Factory loading and parameters setting
@@ -372,8 +451,7 @@ main (int argc, char **argv)
   constexpr size_t N_eqs= 5;
   constexpr size_t N_polcur = 3;
   const auto ord(makeorder<N_eqs>());
-  const auto ord_c(makeorder<N_polcur+1>());
-  const auto ord_displ_curr(makeorder<2>());
+  const auto ord_charges(makeorder<N_polcur+1>());
 
 
   // Generate the mesh in 3d
@@ -416,14 +494,6 @@ main (int argc, char **argv)
   // Declare system matrix
   distributed_sparse_matrix A;
   A.set_ranges (ln_nodes * N_eqs);
-
-  // Declare matrix to compute currents
-  distributed_sparse_matrix B;
-  B.set_ranges (ln_nodes * 2);
-
-  // Declare constant matrix to compute flux of E*epsion0
-  distributed_sparse_matrix C;
-  C.set_ranges (ln_nodes * 2);
   
   // Buffer for export filename
   char filename[255]="";
@@ -450,7 +520,6 @@ main (int argc, char **argv)
   q1_vector unitary_q1_vec (ln_nodes);
 
   // Rhs
-  std::vector<double> sigmaB (ln_elements, 0.);
   q1_vector g0 (ln_nodes);
   q1_vector g1 (ln_nodes);
   q1_vector gp1 (ln_nodes);
@@ -458,11 +527,7 @@ main (int argc, char **argv)
   q1_vector gp3 (ln_nodes);
 
   // Variables for currents computation
-  q1_vector Bsol1 (ln_nodes * 2);
-  q1_vector Bsol2 (ln_nodes * 2);
-  q1_vector Idispl1_vec (ln_nodes * 2), Idispl2_vec (ln_nodes * 2), Icond_vec(ln_nodes * 2), E_eps0_vec(ln_nodes * 2);
-  std::unordered_set<size_t> Ivec_index1{};
-  std::unordered_set<size_t> Ivec_index2{};
+  std::vector<double> sigma_c (ln_elements, 0.);
 
   // Setup streamings
   std::ofstream error_file, charges_file, currents_file;
@@ -472,10 +537,8 @@ main (int argc, char **argv)
 
   // Data to print
   std::array<double,4> rho_pi_k;
+  double I_cond1_c1 = 0, I_cond1_c2 = 0, I_cond2_c1 = 0, I_cond2_c2;
 
-  double I_c;
-  double E_eps0;
-  double I_displ1, I_displ2, I_d1_c1, I_d2_c1, I_d1_c2, I_d2_c2, I_c_c1, I_c_c2;
   q1_vector rho_pi_k_vec(ln_nodes * (N_polcur+1));
   rho_pi_k_vec.get_owned_data().assign(rho_pi_k_vec.get_owned_data().size(),0.);
 
@@ -489,7 +552,7 @@ main (int argc, char **argv)
     null_vec[quadrant->get_forest_quad_idx ()] = 0.0;
     unitary_vec[quadrant->get_forest_quad_idx ()] = 1.0;
     neg_unitary_vec[quadrant->get_forest_quad_idx ()] = -1.0;
-    sigmaB[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,1.);
+    sigma_c[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,1.);
 
     for (int ii = 0; ii < 8; ++ii) {
       if (! quadrant->is_hanging (ii)) {
@@ -503,10 +566,10 @@ main (int argc, char **argv)
         sol[ord[3](quadrant->gt (ii))] = 0.0;
         sol[ord[4](quadrant->gt (ii))] = 0.0;
 
-        rho_pi_k_vec[ord_c[0](quadrant->gt(ii))] = 0.;
-        rho_pi_k_vec[ord_c[1](quadrant->gt(ii))] = 0.;
-        rho_pi_k_vec[ord_c[2](quadrant->gt(ii))] = 0.;
-        rho_pi_k_vec[ord_c[3](quadrant->gt(ii))] = 0.;
+        rho_pi_k_vec[ord_charges[0](quadrant->gt(ii))] = 0.;
+        rho_pi_k_vec[ord_charges[1](quadrant->gt(ii))] = 0.;
+        rho_pi_k_vec[ord_charges[2](quadrant->gt(ii))] = 0.;
+        rho_pi_k_vec[ord_charges[3](quadrant->gt(ii))] = 0.;
       }
       else
         for (int jj = 0; jj < quadrant->num_parents (ii); ++jj) {
@@ -514,16 +577,16 @@ main (int argc, char **argv)
           unitary_q1_vec[quadrant->gparent (jj, ii)] += 0.;
           g1[quadrant->gparent (jj, ii)] += 0.;
 
-          rho_pi_k_vec[ord_c[0](quadrant->gparent (jj, ii))] += 0.;
-          rho_pi_k_vec[ord_c[1](quadrant->gparent (jj, ii))] += 0.;
-          rho_pi_k_vec[ord_c[2](quadrant->gparent (jj, ii))] += 0.;
-          rho_pi_k_vec[ord_c[3](quadrant->gparent (jj, ii))] += 0.;
+          rho_pi_k_vec[ord_charges[0](quadrant->gparent (jj, ii))] += 0.;
+          rho_pi_k_vec[ord_charges[1](quadrant->gparent (jj, ii))] += 0.;
+          rho_pi_k_vec[ord_charges[2](quadrant->gparent (jj, ii))] += 0.;
+          rho_pi_k_vec[ord_charges[3](quadrant->gparent (jj, ii))] += 0.;
         }
     }
   }
   sold.get_owned_data().assign(sold.local_size(),0.0);
   
-  // Read temp. solution
+  // Read temp. solution: if enabled overwrites the null default starting solution
   MPI_File temp_sol;
   if (start_from_solution) {
     MPI_File_open(MPI_COMM_WORLD, temp_solution_file_name.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &temp_sol);
@@ -542,6 +605,7 @@ main (int argc, char **argv)
   }
   temp_solution_file_name = *test_iter + "_temp_sol";
   
+  // Assembling starting solution
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[1], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[2], false);
@@ -551,12 +615,6 @@ main (int argc, char **argv)
   null_q1_vec.assemble (replace_op);
   unitary_q1_vec.assemble (replace_op);
   g1.assemble (replace_op);
-
-  // Constant matrix C building
-  {
-    std::vector<double> epsilon_0_vec(ln_elements, epsilon_0);
-    bim3a_advection_diffusion (tmsh, epsilon_0_vec, null_q1_vec, C, true, ord_displ_curr[0], ord_displ_curr[1]);
-  }
 
   // Create directories for output
   if (!output_folder.empty())
@@ -581,7 +639,7 @@ main (int argc, char **argv)
 
 
 
-  // Functions to use for charge density computation (simple method)
+  // Functions to use for charge integration on border
   func3_quad free_charge_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
     return (q->p(2,idx)-q->p(2,idx-4))*sold[ord[0](q->gt(idx))]/2;
   };
@@ -623,8 +681,7 @@ main (int argc, char **argv)
     if (!start_from_solution) {
       charges_file.open(charges_file_name);
       charges_file << std::setw(20) << "time"
-                   << std::setw(20) << "free_charge" 
-                   << std::setw(20) << "P_inf_charge" 
+                   << std::setw(20) << "free_charge"
                    << std::setw(20) << "P_1_charge" 
                    << std::setw(20) << "P_2_charge" 
                    << std::setw(20) << "P_3_charge" << std::endl;
@@ -634,19 +691,13 @@ main (int argc, char **argv)
   }
 
   // ... for currents_file
-  if (rank == 0 && save_displ_cond_current) {
+  if (rank == 0 && save_cond_current) {
     if (!start_from_solution) {
       currents_file.open(currents_file_name);
-      if (!compute_2_contacts)
-        currents_file << std::setw(20) << "time"
-                      << std::setw(20) << "I_displ" 
-                      << std::setw(20) << "I_c" << std::endl;
-      else
-        currents_file << std::setw(20) << "time"
-                      << std::setw(20) << "I_displ1"
-                      << std::setw(20) << "I_displ2"
-                      << std::setw(20) << "I_c_c1" 
-                      << std::setw(20) << "I_c_c2"  << std::endl;
+      currents_file << std::setw(20) << "time"
+                    << std::setw(20) << "I_cond_c1"
+                    << std::setw(20) << "I_cond_c2"
+                    << std::endl;
     }
     else if (rank == 0)
       currents_file.open(currents_file_name, std::fstream::app);
@@ -654,18 +705,6 @@ main (int argc, char **argv)
   }
   q1_vector sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
 
-  // Store indexes of nodes on border where to estimate current
-  for (auto quadrant = tmsh.begin_quadrant_sweep ();
-      quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
-    for (int ii = 0; ii < 8; ii++) {
-      if (quadrant->e(ii) == 5) {
-        Ivec_index1.insert(ord_displ_curr[0](quadrant->gt (ii)));
-      }
-      else if (compute_2_contacts && quadrant->e(ii) == 4) {
-        Ivec_index2.insert(ord_displ_curr[0](quadrant->gt (ii)));
-      }
-    }
-  
   // Time cycle
   double time_in_step = 0;
   double dt_start_big_step = dt;
@@ -695,94 +734,45 @@ main (int argc, char **argv)
       time_step<N_eqs>(rank, Time + time_in_step, dt, test, voltage,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
-                  null_q1_vec, null_vec, unitary_vec, neg_unitary_vec,
+                  null_vec, unitary_vec, neg_unitary_vec,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
-                  unitary_q1_vec, g1, g0, gp1, gp2, gp3, sold1, sol1);
+                  null_q1_vec, unitary_q1_vec, g1, g0, gp1, gp2, gp3, sold1, sol1);
       time_step<N_eqs>(rank, Time + time_in_step, dt/2, test, voltage,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
-                  null_q1_vec, null_vec, unitary_vec, neg_unitary_vec,
+                  null_vec, unitary_vec, neg_unitary_vec,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
-                  unitary_q1_vec, g1, g0, gp1, gp2, gp3, sold2, sol2);
+                  null_q1_vec, unitary_q1_vec, g1, g0, gp1, gp2, gp3, sold2, sol2);
       time_step<N_eqs>(rank, Time + time_in_step + dt/2, dt/2, test, voltage,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
-                  null_q1_vec, null_vec, unitary_vec, neg_unitary_vec,
+                  null_vec, unitary_vec, neg_unitary_vec,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
-                  unitary_q1_vec, g1, g0, gp1, gp2, gp3, sold2, sol2);
+                  null_q1_vec, unitary_q1_vec, g1, g0, gp1, gp2, gp3, sold2, sol2);
       est_err = 0.;
 
-      // Compute displacement current with Nanz method
-      // Work properly only with uniform grid on the boundary
-      // Build vector
-      Bsol1.get_owned_data().assign(Bsol1.local_size(),0.0);
-      Bsol2.get_owned_data().assign(Bsol2.local_size(),0.0);
-      for (auto quadrant = tmsh.begin_quadrant_sweep ();
-          quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
-        for (int ii = 0; ii < 8; ii++) {
-            Bsol1[ord_displ_curr[0](quadrant->gt (ii))] =
-              (sold1[ord[0](quadrant->gt (ii))] - sold[ord[0](quadrant->gt (ii))]) / dt;
-            Bsol2[ord_displ_curr[0](quadrant->gt (ii))] =
-              (sold2[ord[0](quadrant->gt (ii))] - sold[ord[0](quadrant->gt (ii))]) / dt;
-            Bsol1[ord_displ_curr[1](quadrant->gt (ii))] = sold1[ord[1](quadrant->gt (ii))];
-            Bsol2[ord_displ_curr[1](quadrant->gt (ii))] = sold2[ord[1](quadrant->gt (ii))];
-        }
 
-      Bsol1.assemble(replace_op);
-      Bsol2.assemble(replace_op);
-      
-      // Build Matrix for conduction current
-      B.reset();
-      bim3a_advection_diffusion (tmsh, sigmaB, null_q1_vec, B, true, ord_displ_curr[0], ord_displ_curr[1]);
-      
-      // Matrix * vector for cunduction current
-      Icond_vec = B*Bsol2;
+      // Computing conduction currents on contacts along z axis
+      I_cond1_c1 = conduction_current (*test_iter, sold1, sold, tmsh, sigma_c,
+                                       unitary_vec, null_q1_vec, unitary_q1_vec, dt, ln_nodes, 5);
+      I_cond2_c1 = conduction_current (*test_iter, sold2, sold, tmsh, sigma_c,
+                                       unitary_vec, null_q1_vec, unitary_q1_vec, dt, ln_nodes, 5);
+      I_cond1_c2 = conduction_current (*test_iter, sold1, sold, tmsh, sigma_c,
+                                       unitary_vec, null_q1_vec, unitary_q1_vec, dt, ln_nodes, 4);
+      I_cond2_c2 = conduction_current (*test_iter, sold2, sold, tmsh, sigma_c,
+                                       unitary_vec, null_q1_vec, unitary_q1_vec, dt, ln_nodes, 4);
 
-      // Building Matrix for displacement current (B still has the adv_diff term)
-      bim3a_reaction (tmsh, unitary_vec, unitary_q1_vec, B, ord_displ_curr[0], ord_displ_curr[0]);
-      
-      // Matrix * vector for displacement current
-      Idispl1_vec = B*Bsol1;
-      Idispl2_vec = B*Bsol2;
 
-      // Sum elements in the vectors corresponding to border nodes
-      I_d1_c1 = 0.; I_d2_c1 = 0.; I_d1_c2 = 0.; I_d2_c2 = 0.; I_c_c1 = 0, I_c_c2 = 0;
-      for (auto it = Ivec_index1.cbegin(); it != Ivec_index1.cend(); it++) {
-        I_d1_c1 += Idispl1_vec[*it];
-        I_d2_c1 += Idispl2_vec[*it];
-        I_c_c1  += Icond_vec[*it];
-      }
-      if (compute_2_contacts) {
-        for (auto it = Ivec_index2.cbegin(); it != Ivec_index2.cend(); it++) {
-          I_d1_c2 += Idispl1_vec[*it];
-          I_d2_c2 += Idispl2_vec[*it];
-          I_c_c2  += Icond_vec[*it];
-        }
-      }
-
-      // Sum with results on border nodes of other processes
-      std::cout << "c1 rank " << rank << "    " << I_d1_c1 << "   " << I_d2_c1 << std::endl;
-      std::cout << "c2 rank " << rank << "    " << I_d1_c2 << "   " << I_d2_c2 << std::endl;
-      MPI_Allreduce(MPI_IN_PLACE, &I_d1_c1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-      MPI_Allreduce(MPI_IN_PLACE, &I_d2_c1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-      MPI_Allreduce(MPI_IN_PLACE, &I_c_c1, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-      if (compute_2_contacts) {
-        MPI_Allreduce(MPI_IN_PLACE, &I_d1_c2, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(MPI_IN_PLACE, &I_d2_c2, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(MPI_IN_PLACE, &I_c_c2, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-      }
-
-      I_displ1 = I_d2_c1;
-      I_displ2 = I_d2_c2;
-      est_err = std::fabs((I_d2_c1-I_d1_c1) / (std::fabs(I_d2_c1) + 1.0e-50));
+      // Computing estimated relative error with conduction current on contact 1
+      est_err = std::fabs((I_cond2_c1-I_cond1_c1) / I_cond2_c1);
       
       if (rank == 0)
         std::cout << "error/tol = " << est_err/tol << std::endl;
       
-      // If the error on the displacement current is small enough go on otherwise half dt and repeat
+      // If the error on the conduction current is small enough go on, otherwise halve dt and repeat
       if (est_err < tol) {
         time_in_step += dt;
         sold = sold2;
@@ -795,21 +785,15 @@ main (int argc, char **argv)
                      << std::setw(20) << std::setprecision(7) << time1 - start_time
                      << std::endl;
         }
-        if (rank == 0 && save_displ_cond_current) {
-          // Save displacement currents
-          if (!compute_2_contacts)
-            currents_file  << std::setw(20) << Time + time_in_step
-                          << std::setw(20) << I_displ1
-                          << std::setw(20) << I_c_c1
-                          << std::endl;
-          else
-            currents_file  << std::setw(20) << Time + time_in_step
-                          << std::setw(20) << I_displ1
-                          << std::setw(20) << I_displ2
-                          << std::setw(20) << I_c_c1
-                          << std::setw(20) << I_c_c2
-                          << std::endl;
+        if (rank == 0 && save_cond_current) {
+          // Save conduction currents
+          currents_file << std::setw(20) << Time + time_in_step
+                        << std::setw(20) << I_cond2_c1
+                        << std::setw(20) << I_cond2_c2
+                        << std::endl;
         }
+
+        // Ending of macro time step. Enter this when you have reached T^{k+1} = T^{k} + DT
         if (time_in_step > DT - eps) {
           Time += DT;
           ++count;
@@ -836,19 +820,20 @@ main (int argc, char **argv)
             last_saved_solution = temp_solution_file_name + "_" + std::to_string(count);
           }
 
+          // Save charges on contact 1
           if (save_charges) {
             // Prepare support vectors
             rho_pi_k_vec.get_owned_data().assign(rho_pi_k_vec.local_size(), 0.);
             rho_pi_k_vec.assemble(replace_op);
             
             // Wheight through apposite library function
-            bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, free_charge_mass, ord_c[0]);
-            bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p1_mass, ord_c[1]);
-            bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p2_mass, ord_c[2]);
-            bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p3_mass, ord_c[3]);
+            bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, free_charge_mass, ord_charges[0]);
+            bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p1_mass, ord_charges[1]);
+            bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p2_mass, ord_charges[2]);
+            bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p3_mass, ord_charges[3]);
             rho_pi_k_vec.assemble([] (const double & x, const double & y){return x+y;});
 
-            // Integrate on the border part owned by current process
+            // Integrate on the border part owned by current rank
             rho_pi_k.fill(0.);
             for (size_t i = 0; i < rho_pi_k_vec.local_size() / (N_polcur+1); i++) {
               rho_pi_k[0] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)];
@@ -857,20 +842,10 @@ main (int argc, char **argv)
               rho_pi_k[3] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)+3];
             }
 
-            E_eps0_vec = C*Bsol2;
-            E_eps0 = 0;
-            for (auto it = Ivec_index1.cbegin(); it != Ivec_index1.cend(); it++)
-              E_eps0 += E_eps0_vec[*it];
-
-            // Sum with that of the others
-            MPI_Allreduce(MPI_IN_PLACE, &E_eps0, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-            MPI_Allreduce(MPI_IN_PLACE, rho_pi_k.data(), 4, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
             // Print on file
             if (rank == 0)
               charges_file << std::setw(20) << std::setprecision(5) << Time
                            << std::setw(20) << std::setprecision(5) << rho_pi_k[0]
-                           << std::setw(20) << std::setprecision(5) << E_eps0 - rho_pi_k[0] + rho_pi_k[1] + rho_pi_k[2] + rho_pi_k[3]
                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[1]
                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[2]
                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[3]
@@ -903,8 +878,8 @@ main (int argc, char **argv)
           truncated_dt = 1;
         }
       }
+      // Halving dt when error estimate is larger than tolerance
       else {
-        // Half dt
         dt /= 2;
         dt_start_big_step = 0.;
       }
@@ -912,14 +887,14 @@ main (int argc, char **argv)
   }
   
 
-  // Export in json format
+  // Exporting in json format
   if (rank==0){
     error_file.close();
     charges_file.close();
     currents_file.close();
     if(save_charges)
       txt2json(charges_file_name, output_folder + *test_iter + "/" + "charges_file.json");
-    if (save_displ_cond_current)
+    if (save_cond_current)
       txt2json(currents_file_name, output_folder + *test_iter + "/" + "currents_file.json");
     if (save_error_and_comp_time)
       txt2json(error_file_name, output_folder + *test_iter + "/" + "error_and_comp_time.json");

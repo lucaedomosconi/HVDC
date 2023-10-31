@@ -26,10 +26,8 @@ public:
   }
   std::unique_ptr<object> create (std::string const & identifier) const {
     auto which_test = Container.find(identifier);
-    if (which_test == Container.end()) {
-      //std::cerr << "Error: test \"" << identifier << " not found in the selected plugin!" << std::endl;
+    if (which_test == Container.end())
       throw std::runtime_error("Test \"" + identifier + "\" not found in the selected plugin!\n skip to next test\n");
-    }
 
     return which_test->second();
   }

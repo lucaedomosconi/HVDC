@@ -58,7 +58,6 @@ R"({
 			"save_sol" : true,
 			"compute_charges_on_border" : true,
 			"save_displ_cond_current" : true,
-			"compute_2_contacts" : true,
 			"save_error_and_comp_time" : true
 		}
 	}
@@ -173,7 +172,6 @@ void set_params (json & data,
                  bool & save_error_and_comp_time,
                  bool & save_charges,
                  bool & save_displ_cond_current,
-                 bool & compute_2_contacts,
                  std::string & temp_solution_file_name
                  ) {
   try {T = data[test_name]["algorithm"]["T"];}
@@ -216,9 +214,6 @@ void set_params (json & data,
   catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][options][compute_charges_on_border]" << std::endl; throw;}
   try {save_displ_cond_current = data[test_name]["options"]["save_displ_cond_current"];}
   catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][options][save_displ_cond_current]" << std::endl; throw;}
-  try {compute_2_contacts = data[test_name]["options"]["compute_2_contacts"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][options][compute_2_contacts]" << std::endl; throw;}
-
 }
 
 #endif
