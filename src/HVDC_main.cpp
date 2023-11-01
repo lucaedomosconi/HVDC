@@ -220,7 +220,7 @@ double conduction_current (std::string test_name_,
                            int ord_rho = 0, int ord_phi = 1, int N_vars = 5) {
   static std::string test_name;
   
-  // static matrices declaration
+  // Static matrices declaration
   static distributed_sparse_matrix phi_stiffness;
   static distributed_sparse_matrix rho_mass;
 
@@ -231,7 +231,7 @@ double conduction_current (std::string test_name_,
   // If true the function will build the matrices
   static bool init_matrices = true;
 
-  // If this function is being called the first time by the test => resetting static variables
+  // If this function is being called the first time by the test => setting up static variables
   if (test_name != test_name_) {
     std::cout << "setting up matrix" << std::endl;
     test_name = test_name_;
@@ -241,7 +241,7 @@ double conduction_current (std::string test_name_,
     init_matrices = true;
   }
 
-  // Building matrices
+  // Building matrices. This operation is necessary only the first time a test calls the function
   if (init_matrices) {
     init_matrices = false;
 
@@ -269,7 +269,7 @@ double conduction_current (std::string test_name_,
   distributed_vector I_term1 = phi_stiffness * phi;
   distributed_vector I_term2 = rho_mass * drho_dt;
 
-  // Store nodes on boundary "side" if not already stored
+  // Storing nodes on boundary "side" if not already stored
   if (!border_built[side]) {
     border_built[side] = true;
     border_nodes[side].clear();
@@ -292,6 +292,58 @@ double conduction_current (std::string test_name_,
 }
 
 
+void read_starting_solution(MPI_File & temp_sol,
+                            std::string & temp_solution_file_name,
+                            distributed_vector & sold,
+                            int & count, double & Time,
+                            double & comp_time_of_previous_simuls,
+                            const std::string * c_test_name,
+                            int rank) {
+    MPI_File_open(MPI_COMM_WORLD, temp_solution_file_name.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &temp_sol);
+    if (rank == 0) {
+      MPI_File_read_at(temp_sol, 0, &count, 1, MPI_INT, MPI_STATUS_IGNORE);
+      MPI_File_read_at(temp_sol, sizeof(int), &Time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+      MPI_File_read_at(temp_sol, sizeof(int)+sizeof(double), &comp_time_of_previous_simuls, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+      std::clog << "starting from solution_file \"" << temp_solution_file_name
+                << "\"\nAt time = " << Time << ";"
+                << "\ncount = " << count << std::endl;
+    }
+    MPI_File_read_at(temp_sol, sizeof(int)+(sold.get_range_start()+2)*sizeof(double), sold.get_owned_data().data(), sold.local_size(), MPI_DOUBLE, MPI_STATUS_IGNORE);
+    MPI_File_close(&temp_sol);
+    MPI_Bcast(&Time, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&count, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    temp_solution_file_name = *c_test_name + "_temp_sol";
+    return;
+  }
+
+
+void write_current_solution(MPI_File & temp_sol,
+                            std::string & temp_solution_file_name,
+                            std::string & last_saved_solution,
+                            distributed_vector & sold,
+                            int & count,
+                            double & Time,
+                            double & total_time,
+                            int rank) {
+  MPI_File_open(MPI_COMM_WORLD, (temp_solution_file_name +  std::to_string(count)).c_str(),
+                MPI_MODE_CREATE | MPI_MODE_WRONLY,
+                MPI_INFO_NULL, &temp_sol);
+  if (rank == 0) {
+    MPI_File_write_at(temp_sol, 0, &count, 1, MPI_INT, MPI_STATUS_IGNORE);
+    MPI_File_write_at(temp_sol, sizeof(int), &Time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+    MPI_File_write_at(temp_sol, sizeof(int)+sizeof(double), &total_time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
+  }
+  MPI_File_write_at(temp_sol, sizeof(int)+(sold.get_range_start()+2)*sizeof(double), sold.get_owned_data().data(),
+                    sold.local_size(), MPI_DOUBLE, MPI_STATUS_IGNORE);
+  MPI_File_close(&temp_sol);
+  MPI_Barrier(MPI_COMM_WORLD);
+  if (rank == 0)
+  std::cout << "saved temp solution at time " + std::to_string(Time) 
+            << " and count " << count << std::endl;
+  remove(last_saved_solution.c_str());
+  last_saved_solution = temp_solution_file_name + std::to_string(count);
+  return;
+}
 
 int
 main (int argc, char **argv) {
@@ -368,6 +420,7 @@ main (int argc, char **argv) {
 
   // Iterating over the tests to run
   for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
+
   std::string vol_name;
   try{vol_name = data[*test_iter]["algorithm"]["voltage_name"];}
   catch(...) {std::cerr << "Error: Unable to read: [" << *test_iter << "][algorithm][voltage_name]" << std::endl; if(parameters_check) throw; else continue;}
@@ -588,22 +641,10 @@ main (int argc, char **argv) {
   
   // Read temp. solution: if enabled overwrites the null default starting solution
   MPI_File temp_sol;
-  if (start_from_solution) {
-    MPI_File_open(MPI_COMM_WORLD, temp_solution_file_name.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &temp_sol);
-    if (rank == 0) {
-      MPI_File_read_at(temp_sol, 0, &count, 1, MPI_INT, MPI_STATUS_IGNORE);
-      MPI_File_read_at(temp_sol, sizeof(int), &Time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
-      MPI_File_read_at(temp_sol, sizeof(int)+sizeof(double), &comp_time_of_previous_simuls, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
-      std::clog << "starting from solution_file \"" << temp_solution_file_name
-                << "\"\nAt time = " << Time << ";"
-                << "\ncount = " << count << std::endl;
-    }
-    MPI_File_read_at(temp_sol, sizeof(int)+(sold.get_range_start()+2)*sizeof(double), sold.get_owned_data().data(), sold.local_size(), MPI_DOUBLE, MPI_STATUS_IGNORE);
-    MPI_File_close(&temp_sol);
-    MPI_Bcast(&Time, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&count, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  }
-  temp_solution_file_name = *test_iter + "_temp_sol";
+  if (start_from_solution)
+    read_starting_solution(temp_sol, temp_solution_file_name, sold, count, Time, comp_time_of_previous_simuls, &(*test_iter), rank);
+  // Setting name for temporary solutions to be saved
+  temp_solution_file_name = output_folder + *test_iter + "/temp_sol_";
   
   // Assembling starting solution
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
@@ -776,9 +817,9 @@ main (int argc, char **argv) {
       if (est_err < tol) {
         time_in_step += dt;
         sold = sold2;
+        if (rank == 0) {time1 = comp_time_of_previous_simuls + MPI_Wtime();}
         if (rank == 0 && save_error_and_comp_time) {
-          // Save error and computation times
-          time1 = comp_time_of_previous_simuls + MPI_Wtime();
+          // Saving error and computation times
           error_file << std::setw(20) << Time + time_in_step
                      << std::setw(20) << std::setprecision(7) << est_err
                      << std::setw(20) << std::setprecision(7) << time1 - time0
@@ -786,38 +827,23 @@ main (int argc, char **argv) {
                      << std::endl;
         }
         if (rank == 0 && save_cond_current) {
-          // Save conduction currents
+          // Saving conduction currents
           currents_file << std::setw(20) << Time + time_in_step
                         << std::setw(20) << I_cond2_c1
                         << std::setw(20) << I_cond2_c2
                         << std::endl;
         }
 
-        // Ending of macro time step. Enter this when you have reached T^{k+1} = T^{k} + DT
+        // Ending of inner time step. Enter this when you have reached T^{k+1} = T^{k} + DT
         if (time_in_step > DT - eps) {
           Time += DT;
           ++count;
 
           // Save temp solution
           if (save_temp_solution && !(count % save_every_n_steps)) {
-            MPI_File_open(MPI_COMM_WORLD, (temp_solution_file_name + "_" + std::to_string(count)).c_str(),
-                          MPI_MODE_CREATE | MPI_MODE_WRONLY,
-                          MPI_INFO_NULL, &temp_sol);
-            if (rank == 0) {
-              double total_time = time1 - start_time;
-              MPI_File_write_at(temp_sol, 0, &count, 1, MPI_INT, MPI_STATUS_IGNORE);
-              MPI_File_write_at(temp_sol, sizeof(int), &Time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
-              MPI_File_write_at(temp_sol, sizeof(int)+sizeof(double), &total_time, 1, MPI_DOUBLE, MPI_STATUS_IGNORE);
-            }
-            MPI_File_write_at(temp_sol, sizeof(int)+(sold.get_range_start()+2)*sizeof(double), sold.get_owned_data().data(),
-                          sold.local_size(), MPI_DOUBLE, MPI_STATUS_IGNORE);
-            MPI_File_close(&temp_sol);
-            MPI_Barrier(MPI_COMM_WORLD);
-            if (rank == 0)
-              std::cout << "saved temp solution at time " + std::to_string(Time) 
-                        << " and count " << count << std::endl;
-            remove(last_saved_solution.c_str());
-            last_saved_solution = temp_solution_file_name + "_" + std::to_string(count);
+            double total_time;
+            if (rank == 0) {total_time = time1 - start_time;}
+            write_current_solution(temp_sol, temp_solution_file_name, last_saved_solution, sold, count, Time, total_time, rank);
           }
 
           // Save charges on contact 1
