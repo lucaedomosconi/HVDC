@@ -35,10 +35,11 @@ R"({
 			}
 		},
 		"algorithm" : {
-			"NUM_REFINEMENTS" : 4,
+			"num_refinements" : 4,
 			"maxlevel" : 6,
 			"T" : 2000,
 			"initial_dt_for_adaptive_time_step" : 0.00001,
+			"biggest_time_step" : 1,
 			"tol_of_adaptive_time_step" : 0.005,
 			"voltage_plugin" : "libVoltages.so",
 			"voltage_name" : "voltage1",
@@ -53,11 +54,10 @@ R"({
 				"save_every_n_steps" : 10
 			}
 		},
-		"options" : {
-			"biggest_time_step" : 1,
+		"output" : {
 			"save_sol" : true,
 			"compute_charges_on_border" : true,
-			"save_displ_cond_current" : true,
+			"save_cond_current" : true,
 			"save_error_and_comp_time" : true
 		}
 	}
@@ -113,7 +113,7 @@ int check_overwritings (int rank,
   bool  start_from_solution,
         save_sol,
         compute_charges_on_border,
-        save_displ_cond_current,
+        save_cond_current,
         save_error_and_comp_time;
   int give_warning;
   std::vector<std::string> files;
@@ -121,18 +121,18 @@ int check_overwritings (int rank,
     for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
       try {start_from_solution = data[*test_iter]["algorithm"]["start_from_solution"];}
       catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][algorithm][start_from_solution]" << std::endl; throw;}
-      try {save_sol = data[*test_iter]["options"]["save_sol"];}
-      catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_sol]" << std::endl; throw;}
-      try {compute_charges_on_border = data[*test_iter]["options"]["compute_charges_on_border"];}
-      catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][compute_charges_on_border]" << std::endl; throw;}
-      try {save_displ_cond_current = data[*test_iter]["options"]["save_displ_cond_current"];}
-      catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_displ_cond_current]" << std::endl; throw;}
-      try {save_error_and_comp_time = data[*test_iter]["options"]["save_error_and_comp_time"];}
-      catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][options][save_error_and_comp_time]" << std::endl; throw;}
+      try {save_sol = data[*test_iter]["output"]["save_sol"];}
+      catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][output][save_sol]" << std::endl; throw;}
+      try {compute_charges_on_border = data[*test_iter]["output"]["compute_charges_on_border"];}
+      catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][output][compute_charges_on_border]" << std::endl; throw;}
+      try {save_cond_current = data[*test_iter]["output"]["save_cond_current"];}
+      catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][output][save_cond_current]" << std::endl; throw;}
+      try {save_error_and_comp_time = data[*test_iter]["output"]["save_error_and_comp_time"];}
+      catch (...) {std::cerr << "Error: Unable to read ["+*test_iter+"][output][save_error_and_comp_time]" << std::endl; throw;}
       if (!start_from_solution) {
         if (save_error_and_comp_time  && std::filesystem::exists(output_folder + *test_iter + "/error_and_comp_time.txt")) {files.push_back(output_folder + *test_iter + "/error_and_comp_time.txt");}
         if (compute_charges_on_border && std::filesystem::exists(output_folder + *test_iter + "/charges_file.txt")) {files.push_back(output_folder + *test_iter + "/charges_file.txt");}
-        if (save_displ_cond_current   && std::filesystem::exists(output_folder + *test_iter + "/currents_file.txt")) {files.push_back(output_folder + *test_iter + "/currents_file.txt");}
+        if (save_cond_current         && std::filesystem::exists(output_folder + *test_iter + "/currents_file.txt")) {files.push_back(output_folder + *test_iter + "/currents_file.txt");}
         if (save_sol                  && std::filesystem::exists(output_folder + *test_iter + "/sol")) {files.push_back(output_folder + *test_iter + "/sol");}
       }
     }
@@ -171,7 +171,7 @@ void set_params (json & data,
                  bool & save_sol,
                  bool & save_error_and_comp_time,
                  bool & save_charges,
-                 bool & save_displ_cond_current,
+                 bool & save_cond_current,
                  std::string & temp_solution_file_name
                  ) {
   try {T = data[test_name]["algorithm"]["T"];}
@@ -204,16 +204,16 @@ void set_params (json & data,
   try {tol = data[test_name]["algorithm"]["tol_of_adaptive_time_step"];}
   catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][algorithm][tol_of_adaptive_time_step]" << std::endl; throw;}
   // Set output preferences
-  try {DT = data[test_name]["options"]["biggest_time_step"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][options][biggest_time_step]" << std::endl; throw;}
-  try {save_sol = data[test_name]["options"]["save_sol"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][options][save_sol]" << std::endl; throw;}
-  try {save_error_and_comp_time = data[test_name]["options"]["save_error_and_comp_time"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][options][save_error_and_comp_time]" << std::endl; throw;}
-  try {save_charges = data[test_name]["options"]["compute_charges_on_border"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][options][compute_charges_on_border]" << std::endl; throw;}
-  try {save_displ_cond_current = data[test_name]["options"]["save_displ_cond_current"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][options][save_displ_cond_current]" << std::endl; throw;}
+  try {DT = data[test_name]["algorithm"]["biggest_time_step"];}
+  catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][algorithm][biggest_time_step]" << std::endl; throw;}
+  try {save_sol = data[test_name]["output"]["save_sol"];}
+  catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][output][save_sol]" << std::endl; throw;}
+  try {save_error_and_comp_time = data[test_name]["output"]["save_error_and_comp_time"];}
+  catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][output][save_error_and_comp_time]" << std::endl; throw;}
+  try {save_charges = data[test_name]["output"]["compute_charges_on_border"];}
+  catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][output][compute_charges_on_border]" << std::endl; throw;}
+  try {save_cond_current = data[test_name]["output"]["save_cond_current"];}
+  catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][output][save_cond_current]" << std::endl; throw;}
 }
 
 #endif
