@@ -69,6 +69,8 @@ auto makeorder(){
 
 
 using q1_vector = q1_vec<distributed_vector>;
+
+
 template <size_t N_eqs>
 void time_step (const int rank, const double time, const double DELTAT,
                 std::unique_ptr<tests::generic_test> const &test,
@@ -208,14 +210,14 @@ void time_step (const int rank, const double time, const double DELTAT,
 
 }
 
-double conduction_current (std::string test_name_,
-                           const distributed_vector & sol1,
-                           const distributed_vector & sol0,
+double conduction_current (const std::string * test_name_,
+                           const q1_vector & sol1,
+                           const q1_vector & sol0,
                            tmesh_3d & tmsh,
                            const std::vector<double> & sigma,
                            const std::vector<double> & unitary_vec,
-                           const distributed_vector & null_q1_vec,
-                           const distributed_vector & unitary_q1_vec,
+                           const q1_vector & null_q1_vec,
+                           const q1_vector & unitary_q1_vec,
                            double dt, int ln_nodes, int side,
                            int ord_rho = 0, int ord_phi = 1, int N_vars = 5) {
   static std::string test_name;
@@ -232,9 +234,9 @@ double conduction_current (std::string test_name_,
   static bool init_matrices = true;
 
   // If this function is being called the first time by the test => setting up static variables
-  if (test_name != test_name_) {
+  if (test_name != *test_name_) {
     std::cout << "setting up matrix" << std::endl;
-    test_name = test_name_;
+    test_name = *test_name_;
     for (size_t ii = 0; ii < border_nodes.size(); ++ii)
       border_nodes[ii].clear();
     border_built.fill(false);
@@ -259,15 +261,15 @@ double conduction_current (std::string test_name_,
   }
 
   // Building vectors
-  distributed_vector drho_dt (ln_nodes), phi (ln_nodes);
+  q1_vector drho_dt (ln_nodes), phi (ln_nodes);
   for (int ii = 0; ii < ln_nodes; ++ii) {
     drho_dt[drho_dt.get_range_start()+ii] = (sol1.get_owned_data()[ii*N_vars+ord_rho]-sol0.get_owned_data()[ii*N_vars+ord_rho]) / dt;
     phi[phi.get_range_start()+ii] = sol1.get_owned_data()[ii*N_vars+ord_phi];
   }
 
   // Matrix * vector
-  distributed_vector I_term1 = phi_stiffness * phi;
-  distributed_vector I_term2 = rho_mass * drho_dt;
+  q1_vector I_term1 = phi_stiffness * phi;
+  q1_vector I_term2 = rho_mass * drho_dt;
 
   // Storing nodes on boundary "side" if not already stored
   if (!border_built[side]) {
@@ -294,7 +296,7 @@ double conduction_current (std::string test_name_,
 
 void read_starting_solution(MPI_File & temp_sol,
                             std::string & temp_solution_file_name,
-                            distributed_vector & sold,
+                            q1_vector & sold,
                             int & count, double & Time,
                             double & comp_time_of_previous_simuls,
                             const std::string * c_test_name,
@@ -320,7 +322,7 @@ void read_starting_solution(MPI_File & temp_sol,
 void write_current_solution(MPI_File & temp_sol,
                             std::string & temp_solution_file_name,
                             std::string & last_saved_solution,
-                            distributed_vector & sold,
+                            q1_vector & sold,
                             int & count,
                             double & Time,
                             double & total_time,
@@ -490,6 +492,7 @@ main (int argc, char **argv) {
   catch (std::runtime_error const & e) {std::cerr << "Error: Unable to read [" + *test_iter + "][algorithm][voltage_plugin_params]" << e.what() <<std::endl; if(parameters_check) throw; else continue;}
   catch (...) {std::cerr << *test_iter  << ": check typos or missing elements among voltage plugin parameters in "<< std::endl; if(parameters_check) throw; else continue;}
   
+  // If in parameters check mode, do not run the tests
   if (parameters_check) continue;
   /*
   Manegement of solutions ordering:   Equation ordering:
@@ -797,13 +800,13 @@ main (int argc, char **argv) {
 
 
       // Computing conduction currents on contacts along z axis
-      I_cond1_c1 = conduction_current (*test_iter, sold1, sold, tmsh, sigma_c,
+      I_cond1_c1 = conduction_current (&(*test_iter), sold1, sold, tmsh, sigma_c,
                                        unitary_vec, null_q1_vec, unitary_q1_vec, dt, ln_nodes, 5);
-      I_cond2_c1 = conduction_current (*test_iter, sold2, sold, tmsh, sigma_c,
+      I_cond2_c1 = conduction_current (&(*test_iter), sold2, sold, tmsh, sigma_c,
                                        unitary_vec, null_q1_vec, unitary_q1_vec, dt, ln_nodes, 5);
-      I_cond1_c2 = conduction_current (*test_iter, sold1, sold, tmsh, sigma_c,
+      I_cond1_c2 = conduction_current (&(*test_iter), sold1, sold, tmsh, sigma_c,
                                        unitary_vec, null_q1_vec, unitary_q1_vec, dt, ln_nodes, 4);
-      I_cond2_c2 = conduction_current (*test_iter, sold2, sold, tmsh, sigma_c,
+      I_cond2_c2 = conduction_current (&(*test_iter), sold2, sold, tmsh, sigma_c,
                                        unitary_vec, null_q1_vec, unitary_q1_vec, dt, ln_nodes, 4);
 
 
@@ -817,7 +820,8 @@ main (int argc, char **argv) {
       if (est_err < tol) {
         time_in_step += dt;
         sold = sold2;
-        if (rank == 0) {time1 = comp_time_of_previous_simuls + MPI_Wtime();}
+        if (rank == 0)
+          time1 = comp_time_of_previous_simuls + MPI_Wtime();
         if (rank == 0 && save_error_and_comp_time) {
           // Saving error and computation times
           error_file << std::setw(20) << Time + time_in_step
@@ -852,7 +856,7 @@ main (int argc, char **argv) {
             rho_pi_k_vec.get_owned_data().assign(rho_pi_k_vec.local_size(), 0.);
             rho_pi_k_vec.assemble(replace_op);
             
-            // Wheight through apposite library function
+            // Compute charges on boundary nodes through apposite library function
             bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, free_charge_mass, ord_charges[0]);
             bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p1_mass, ord_charges[1]);
             bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p2_mass, ord_charges[2]);
@@ -867,6 +871,9 @@ main (int argc, char **argv) {
               rho_pi_k[2] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)+2];
               rho_pi_k[3] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)+3];
             }
+
+            // Sum with results from other ranks
+            MPI_Allreduce(MPI_IN_PLACE, rho_pi_k.data(), 4, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
             // Print on file
             if (rank == 0)
