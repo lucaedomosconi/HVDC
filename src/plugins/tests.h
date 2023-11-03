@@ -10,7 +10,7 @@ namespace {
 
 namespace tests {
 
-  class test1 : public generic_test {
+  class homogeneous : public generic_test {
     private:
       double epsilon_r1;		                // permittivity at infinite frequency
       double chi1, chi2, chi3;
@@ -18,7 +18,7 @@ namespace tests {
       double sigma_;            					    // conductivity coeff
     public:
 
-      test1() {extra_refinement = false;}
+      homogeneous() {extra_refinement = false;}
       
       void import_params (json & data) {
         try{epsilon_r1 = data["physics"]["plugin_params"]["epsilon_r1"];}
@@ -79,7 +79,7 @@ namespace tests {
         {return sigma_ * DT;}
   };
 
-  class test2 : public generic_test {
+  class two_phase_serial : public generic_test {
     private:
       double epsilon_r1, epsilon_r2;		// permittivity at infinite frequency
       double chi1, chi2, chi3;
@@ -87,7 +87,7 @@ namespace tests {
       double sigma_1, sigma_2;            					    // conductivity coeff
     public:
 
-      test2() {extra_refinement = true;}
+      two_phase_serial() {extra_refinement = true;}
       
       void import_params (json & data) {
         try{epsilon_r1 = data["physics"]["plugin_params"]["epsilon_r1"];}
@@ -198,7 +198,7 @@ namespace tests {
         {return z < 0.0005 ? sigma_1 * DT : sigma_2 * DT;}
   };
   
-  class test3 : public generic_test {
+  class two_phase_parallel : public generic_test {
     private:
       double epsilon_r1, epsilon_r2;		// permittivity at infinite frequency
       double chi1, chi2, chi3;
@@ -206,7 +206,7 @@ namespace tests {
       double sigma_1, sigma_2;							// conductivity coeff
     public:
 
-      test3() {extra_refinement = true;}
+      two_phase_parallel() {extra_refinement = true;}
       
       void import_params (json & data) {
         try{epsilon_r1 = data["physics"]["plugin_params"]["epsilon_r1"];}

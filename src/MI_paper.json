@@ -1,0 +1,55 @@
+{
+	"output_location" : "MI_paper",
+	"test_to_run" : 
+	[
+		"butt_gap"
+	],
+	"butt_gap" : {
+		"physics" : {
+			"epsilon_0" : 8.8542e-12,
+			"physics_plugin" : "libMIPaper.so",
+			"plugin_test_index" : "MI_paper",
+			"plugin_params" : {
+				"tau_p1" : 1.0,
+				"tau_p2" : 10.0,
+				"tau_p3" : 100.0,
+				"epsilon_r_1" : 2.0,
+				"epsilon_r_2" : 4.0,
+				"epsilon_r_gap" : 1.0,
+				"chi1" : 0.5,
+				"chi2" : 1.0,
+				"chi3" : 2.0,
+				"sigma_1" : 3.21e-14,
+				"sigma_2" : 3.21e-14,
+				"sigma_gap" : 1e-12
+			}
+		},
+		"algorithm" : {
+			"num_refinements" : 5,
+			"maxlevel" : 6,
+			"minlevel" : 4,
+			"T" : 5000,
+			"biggest_time_step" : 50,
+			"initial_dt_for_adaptive_time_step" : 0.00005,
+			"tol_of_adaptive_time_step" : 0.005,
+			"voltage_plugin" : "libVoltages.so",
+			"voltage_name" : "voltage1",
+			"voltage_plugin_params" : {
+				"T_discharge" : 10000,
+				"tau" : 50.0
+			},
+			"start_from_solution" : false,
+			"save_temp_solution" : true,
+			"temp_sol" : {
+				"file_of_starting_sol" : "butt_gap_temp_sol_max_charges_100",
+				"save_every_n_steps" : 10
+			}
+		},
+		"output" : {
+			"save_sol" : true,
+			"compute_charges_on_border" : true,
+			"save_cond_current" : true,
+			"save_error_and_comp_time" : true
+		}
+	}
+}

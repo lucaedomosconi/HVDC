@@ -40,8 +40,9 @@
 #include "GetPot"
 #include <nlohmann/json.hpp>
 #include "json_fun.h"
-
+#include "currents_comp.h"
 #include "plugins/generic_factory.h"
+
 
 
 
@@ -210,89 +211,6 @@ void time_step (const int rank, const double time, const double DELTAT,
 
 }
 
-double conduction_current (const std::string * test_name_,
-                           const q1_vector & sol1,
-                           const q1_vector & sol0,
-                           tmesh_3d & tmsh,
-                           const std::vector<double> & sigma,
-                           const std::vector<double> & unitary_vec,
-                           const q1_vector & null_q1_vec,
-                           const q1_vector & unitary_q1_vec,
-                           double dt, int ln_nodes, int side,
-                           int ord_rho = 0, int ord_phi = 1, int N_vars = 5) {
-  static std::string test_name;
-  
-  // Static matrices declaration
-  static distributed_sparse_matrix phi_stiffness;
-  static distributed_sparse_matrix rho_mass;
-
-  // Structures to store nodes on the boundaries
-  static std::array<std::set<size_t>,6> border_nodes;
-  static std::array<bool,6> border_built {0,0,0,0,0,0};
-  
-  // If true the function will build the matrices
-  static bool init_matrices = true;
-
-  // If this function is being called the first time by the test => setting up static variables
-  if (test_name != *test_name_) {
-    std::cout << "setting up matrix" << std::endl;
-    test_name = *test_name_;
-    for (size_t ii = 0; ii < border_nodes.size(); ++ii)
-      border_nodes[ii].clear();
-    border_built.fill(false);
-    init_matrices = true;
-  }
-
-  // Building matrices. This operation is necessary only the first time a test calls the function
-  if (init_matrices) {
-    init_matrices = false;
-
-    phi_stiffness.reset();
-    rho_mass.reset();
-    
-    phi_stiffness.set_ranges(ln_nodes);
-    rho_mass.set_ranges(ln_nodes);
-
-    bim3a_advection_diffusion (tmsh, sigma, null_q1_vec, phi_stiffness, true);
-    bim3a_reaction (tmsh, unitary_vec, unitary_q1_vec, rho_mass);
-
-    phi_stiffness.assemble();
-    rho_mass.assemble();
-  }
-
-  // Building vectors
-  q1_vector drho_dt (ln_nodes), phi (ln_nodes);
-  for (int ii = 0; ii < ln_nodes; ++ii) {
-    drho_dt[drho_dt.get_range_start()+ii] = (sol1.get_owned_data()[ii*N_vars+ord_rho]-sol0.get_owned_data()[ii*N_vars+ord_rho]) / dt;
-    phi[phi.get_range_start()+ii] = sol1.get_owned_data()[ii*N_vars+ord_phi];
-  }
-
-  // Matrix * vector
-  q1_vector I_term1 = phi_stiffness * phi;
-  q1_vector I_term2 = rho_mass * drho_dt;
-
-  // Storing nodes on boundary "side" if not already stored
-  if (!border_built[side]) {
-    border_built[side] = true;
-    border_nodes[side].clear();
-    for (auto quadrant = tmsh.begin_quadrant_sweep ();
-          quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
-      for (int ii = 0; ii < 8; ii++)
-        if (quadrant->e(ii) == side)
-          border_nodes[side].insert(quadrant->gt (ii));
-  }
-
-  // Summing terms of I_term1 and I_term2 on nodes of boundary "side"
-  double ret_value = 0.0;
-  for (auto it = border_nodes[side].cbegin(); it != border_nodes[side].cend(); ++it)
-    ret_value += I_term1[*it] + I_term2[*it];
-  
-  // Summing with border parts owned by other ranks
-  MPI_Allreduce(MPI_IN_PLACE, &ret_value, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-  return ret_value;
-}
-
 
 void read_starting_solution(MPI_File & temp_sol,
                             std::string & temp_solution_file_name,
@@ -321,7 +239,6 @@ void read_starting_solution(MPI_File & temp_sol,
 
 void write_current_solution(MPI_File & temp_sol,
                             std::string & temp_solution_file_name,
-                            std::string & last_saved_solution,
                             q1_vector & sold,
                             int & count,
                             double & Time,
@@ -342,8 +259,6 @@ void write_current_solution(MPI_File & temp_sol,
   if (rank == 0)
   std::cout << "saved temp solution at time " + std::to_string(Time) 
             << " and count " << count << std::endl;
-  remove(last_saved_solution.c_str());
-  last_saved_solution = temp_solution_file_name + std::to_string(count);
   return;
 }
 
@@ -387,13 +302,15 @@ main (int argc, char **argv) {
   }
   std::string datafilename = cl.follow("data.json", 2, "-f", "--file");
 
-  // Getting factories address
+  // Initializing factory instances
   testfactory & T_factory = testfactory::Instance();
   voltagefactory & V_factory = voltagefactory::Instance();
 
   // Parsing data file
   std::ifstream data_file(datafilename);
-  json data = json::parse(data_file);
+  json data;
+  try{data = json::parse(data_file);}
+  catch (...) {if (rank == 0) std::cerr << "No parameter file named \"data.json\" was found\\Please create one or specify an other parameter file with -f option" << std::endl; throw;}
   data_file.close();
 
   // Setting output folder
@@ -411,7 +328,8 @@ main (int argc, char **argv) {
     if (!data.contains(*test_iter)) {
       if (rank == 0)
         std::cerr << "Error: test \"" << *test_iter << "\" not found" << std::endl;
-      exit(1);
+      MPI_Finalize();
+      return 0;
     }
   }
 
@@ -456,7 +374,7 @@ main (int argc, char **argv) {
   int count;
   // how frequently save a temporary solution
   int save_every_n_steps;
-  // list of options, reference to README.md
+  // list of options, reference to documentation
   bool start_from_solution;
   bool save_temp_solution;
   bool save_sol;
@@ -470,6 +388,8 @@ main (int argc, char **argv) {
   count = 0;
   comp_time_of_previous_simuls = 0.;
 
+  // If check-params mode is on, when a failure happens in reading parameters the program stops
+  // and reports the errpr, otherwise it may skip to the subsequent test
   try{set_params(data, *test_iter, T, epsilon_0, DT, dt, tol, save_every_n_steps,start_from_solution,
                  save_temp_solution, save_sol, save_error_and_comp_time, save_charges,
                  save_cond_current, temp_solution_file_name);}
@@ -492,7 +412,7 @@ main (int argc, char **argv) {
   catch (std::runtime_error const & e) {std::cerr << "Error: Unable to read [" + *test_iter + "][algorithm][voltage_plugin_params]" << e.what() <<std::endl; if(parameters_check) throw; else continue;}
   catch (...) {std::cerr << *test_iter  << ": check typos or missing elements among voltage plugin parameters in "<< std::endl; if(parameters_check) throw; else continue;}
   
-  // If in parameters check mode, do not run the tests
+  // If in parameters_check mode, do not run the tests, just check params compiance for all the tests
   if (parameters_check) continue;
   /*
   Manegement of solutions ordering:   Equation ordering:
@@ -521,8 +441,7 @@ main (int argc, char **argv) {
   tmsh.refine (recursive);
 
   // According to the test we may refine the grid or just leave it uniform
-  if (test->extra_refinement) 
-  {
+  if (test->extra_refinement) {
     tmsh.set_refine_marker([&test](tmesh_3d::quadrant_iterator q) {return test->refinement(q);});
     tmsh.refine (recursive);
 
@@ -547,19 +466,21 @@ main (int argc, char **argv) {
   std::vector<double> xa;
   std::vector<int> ir, jc;
   
-  // Declare system matrix
+  // Declaring system matrix
   distributed_sparse_matrix A;
   A.set_ranges (ln_nodes * N_eqs);
   
   // Buffer for export filename
   char filename[255]="";
 
-  // Compute coefficients
+  // Computing coefficients used to build matrices and vectors
 
-  // Shared vectors
+  // Shared vectors, used for different tasks
   std::vector<double> null_vec (ln_elements, 0.);
   std::vector<double> unitary_vec (ln_elements, 0.);
   std::vector<double> neg_unitary_vec (ln_elements, 0.);
+  q1_vector null_q1_vec (ln_nodes);
+  q1_vector unitary_q1_vec (ln_nodes);
 
   // Diffusion
   std::vector<double> epsilon (ln_elements, 0.);
@@ -567,13 +488,11 @@ main (int argc, char **argv) {
   std::vector<double> diffusion_term_p1 (ln_elements, 0.);
   std::vector<double> diffusion_term_p2 (ln_elements, 0.);
   std::vector<double> diffusion_term_p3 (ln_elements, 0.);
-  q1_vector null_q1_vec (ln_nodes);
 
   // Reaction
   std::vector<double> reaction_term_p1 (ln_elements, 0.);
   std::vector<double> reaction_term_p2 (ln_elements, 0.);
   std::vector<double> reaction_term_p3 (ln_elements, 0.);
-  q1_vector unitary_q1_vec (ln_nodes);
 
   // Rhs
   q1_vector g0 (ln_nodes);
@@ -598,7 +517,7 @@ main (int argc, char **argv) {
   q1_vector rho_pi_k_vec(ln_nodes * (N_polcur+1));
   rho_pi_k_vec.get_owned_data().assign(rho_pi_k_vec.get_owned_data().size(),0.);
 
-  // Initialize constant (in time) parameters and initial data
+  // Initializing constant vectors
   for (auto quadrant = tmsh.begin_quadrant_sweep ();
        quadrant != tmsh.end_quadrant_sweep ();
        ++quadrant) {
@@ -646,8 +565,6 @@ main (int argc, char **argv) {
   MPI_File temp_sol;
   if (start_from_solution)
     read_starting_solution(temp_sol, temp_solution_file_name, sold, count, Time, comp_time_of_previous_simuls, &(*test_iter), rank);
-  // Setting name for temporary solutions to be saved
-  temp_solution_file_name = output_folder + *test_iter + "/temp_sol_";
   
   // Assembling starting solution
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[0], false);
@@ -655,6 +572,9 @@ main (int argc, char **argv) {
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[2], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[3], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[4]);
+  
+  // Setting name for temporary solutions to be saved
+  temp_solution_file_name = output_folder + *test_iter + "/temp_sol/";
 
   null_q1_vec.assemble (replace_op);
   unitary_q1_vec.assemble (replace_op);
@@ -664,7 +584,8 @@ main (int argc, char **argv) {
   if (!output_folder.empty())
     std::filesystem::create_directory(output_folder);
   std::filesystem::create_directory(output_folder + *test_iter);
-  std::filesystem::create_directory(output_folder + *test_iter + "/" + "sol");
+  std::filesystem::create_directory(output_folder + *test_iter + "/sol");
+  std::filesystem::create_directory(output_folder + *test_iter + "/temp_sol");
 
   MPI_Barrier(MPI_COMM_WORLD);
   // Save inital conditions
@@ -749,13 +670,15 @@ main (int argc, char **argv) {
   }
   q1_vector sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
 
+  // Set up conductivity current computation
+  conduction_current conduction(tmsh, sigma_c, unitary_vec, null_q1_vec, unitary_q1_vec, ln_nodes);
+
   // Time cycle
   double time_in_step = 0;
   double dt_start_big_step = dt;
   bool truncated_dt;
   double eps = 1.0e-8;
   double est_err;
-  std::string last_saved_solution = "";
   double start_time, time0, time1;
   bool exit_loop;
 
@@ -800,15 +723,10 @@ main (int argc, char **argv) {
 
 
       // Computing conduction currents on contacts along z axis
-      I_cond1_c1 = conduction_current (&(*test_iter), sold1, sold, tmsh, sigma_c,
-                                       unitary_vec, null_q1_vec, unitary_q1_vec, dt, ln_nodes, 5);
-      I_cond2_c1 = conduction_current (&(*test_iter), sold2, sold, tmsh, sigma_c,
-                                       unitary_vec, null_q1_vec, unitary_q1_vec, dt, ln_nodes, 5);
-      I_cond1_c2 = conduction_current (&(*test_iter), sold1, sold, tmsh, sigma_c,
-                                       unitary_vec, null_q1_vec, unitary_q1_vec, dt, ln_nodes, 4);
-      I_cond2_c2 = conduction_current (&(*test_iter), sold2, sold, tmsh, sigma_c,
-                                       unitary_vec, null_q1_vec, unitary_q1_vec, dt, ln_nodes, 4);
-
+      I_cond1_c1 = conduction (sold1, sold, dt, 5);
+      I_cond2_c1 = conduction (sold2, sold, dt, 5);
+      I_cond1_c2 = conduction (sold1, sold, dt, 4);
+      I_cond2_c2 = conduction (sold2, sold, dt, 4);
 
       // Computing estimated relative error with conduction current on contact 1
       est_err = std::fabs((I_cond2_c1-I_cond1_c1) / I_cond2_c1);
@@ -820,16 +738,6 @@ main (int argc, char **argv) {
       if (est_err < tol) {
         time_in_step += dt;
         sold = sold2;
-        if (rank == 0)
-          time1 = comp_time_of_previous_simuls + MPI_Wtime();
-        if (rank == 0 && save_error_and_comp_time) {
-          // Saving error and computation times
-          error_file << std::setw(20) << Time + time_in_step
-                     << std::setw(20) << std::setprecision(7) << est_err
-                     << std::setw(20) << std::setprecision(7) << time1 - time0
-                     << std::setw(20) << std::setprecision(7) << time1 - start_time
-                     << std::endl;
-        }
         if (rank == 0 && save_cond_current) {
           // Saving conduction currents
           currents_file << std::setw(20) << Time + time_in_step
@@ -847,7 +755,7 @@ main (int argc, char **argv) {
           if (save_temp_solution && !(count % save_every_n_steps)) {
             double total_time;
             if (rank == 0) {total_time = time1 - start_time;}
-            write_current_solution(temp_sol, temp_solution_file_name, last_saved_solution, sold, count, Time, total_time, rank);
+            write_current_solution(temp_sol, temp_solution_file_name, sold, count, Time, total_time, rank);
           }
 
           // Save charges on contact 1
@@ -909,6 +817,17 @@ main (int argc, char **argv) {
         if (dt > DT - time_in_step - eps) {
           dt = DT - time_in_step;
           truncated_dt = 1;
+        }
+
+        if (rank == 0)
+          time1 = comp_time_of_previous_simuls + MPI_Wtime();
+        if (rank == 0 && save_error_and_comp_time) {
+          // Saving error and computation times
+          error_file << std::setw(20) << Time + time_in_step
+                     << std::setw(20) << std::setprecision(7) << est_err
+                     << std::setw(20) << std::setprecision(7) << time1 - time0
+                     << std::setw(20) << std::setprecision(7) << time1 - start_time
+                     << std::endl;
         }
       }
       // Halving dt when error estimate is larger than tolerance

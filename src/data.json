@@ -1,0 +1,195 @@
+{
+	"output_location" : "output",
+	"test_to_run" : 
+	[
+		"test1",
+		"test2",
+		"test3",
+		"test4"
+	],
+	"test1" : {
+		"physics" : {
+			"epsilon_0" : 8.8542e-12,
+			"physics_plugin" : "libPhysics.so",
+			"plugin_test_index" : "homogeneous",
+			"plugin_params" : {
+				"tau_p1" : 1.32e1,
+				"tau_p2" : 3.57e2,
+				"tau_p3" : 3.12e3,
+				"epsilon_r1" : 3.5,
+				"chi1" : 0.401,
+				"chi2" : 1.970,
+				"chi3" : 2.460,
+				"sigma" : 3.21e-14
+			}
+		},
+		"algorithm" : {
+			"num_refinements" : 4,
+			"maxlevel" : 4,
+			"T" : 30000,
+			"biggest_time_step" : 10,
+			"initial_dt_for_adaptive_time_step" : 0.00001,
+			"tol_of_adaptive_time_step" : 0.005,
+			"voltage_plugin" : "libVoltages.so",
+			"voltage_name" : "voltage1",
+			"voltage_plugin_params" : {
+				"T_discharge" : 15000,
+				"tau" : 2.0
+			},
+			"start_from_solution" : true,
+			"save_temp_solution" : true,
+			"temp_sol" : {
+				"file_of_starting_sol" : "MI_paper_uniform_temp_sol_1500",
+				"save_every_n_steps" : 10
+			}
+		},
+		"output" : {
+			"save_sol" : true,
+			"compute_charges_on_border" : true,
+			"save_cond_current" : true,
+	  		"save_error_and_comp_time" : true
+		}
+	},
+	"test2" : {
+		"physics" : {
+			"epsilon_0" : 8.8542e-12,
+			"physics_plugin" : "libPhysics.so",
+			"plugin_test_index" : "two_phase_serial",
+			"plugin_params" : {
+				"tau1_p1" : 1,
+				"tau2_p1" : 1,
+				"tau1_p2" : 10,
+				"tau2_p2" : 10,
+				"tau_p3" : 100.0,
+				"epsilon_r1" : 2,
+				"epsilon_r2" : 4,
+				"chi1" : 0.5,
+				"chi2" : 1,
+				"chi3" : 2,
+				"sigma1" : 3.21e-14,
+				"sigma2" : 3.21e-14
+			}
+		},
+		"algorithm" : {
+			"num_refinements" : 4,
+			"maxlevel" : 4,
+			"T" : 2000,
+			"biggest_time_step" : 5,
+			"initial_dt_for_adaptive_time_step" : 1e-5,
+			"tol_of_adaptive_time_step" : 0.005,
+			"voltage_plugin" : "libVoltages.so",
+			"voltage_name" : "voltage1",
+			"voltage_plugin_params" : {
+				"T_discharge" : 1000,
+				"tau" : 2.0
+			},
+			"start_from_solution" : false,
+			"save_temp_solution" : true,
+			"temp_sol" : {
+				"file_of_starting_sol" : "",
+				"save_every_n_steps" : 4
+			}
+		},
+		"output" : {
+			"save_sol" : true,
+			"compute_charges_on_border" : true,
+			"save_cond_current" : true,
+	  		"save_error_and_comp_time" : true
+		}
+	},
+	"test3" : {
+		"physics" : {
+			"epsilon_0" : 8.8542e-12,
+			"physics_plugin" : "libPhysics.so",
+			"plugin_test_index" : "two_phase_serial",
+			"plugin_params" : {
+				"tau1_p1" : 20,
+				"tau2_p1" : 80,
+				"tau1_p2" : 10,
+				"tau2_p2" : 10,
+				"tau_p3" : 100.0,
+				"epsilon_r1" : 2,
+				"epsilon_r2" : 4,
+				"chi1" : 1.2,
+				"chi2" : 0,
+				"chi3" : 0,
+				"sigma1" : 3.21e-14,
+				"sigma2" : 1.2e-14
+			}
+		},
+		"algorithm" : {
+			"num_refinements" : 4,
+			"maxlevel" : 4,
+			"T" : 2000,
+			"biggest_time_step" : 5,
+			"initial_dt_for_adaptive_time_step" : 1e-5,
+			"tol_of_adaptive_time_step" : 0.005,
+			"voltage_plugin" : "libVoltages.so",
+			"voltage_name" : "voltage1",
+			"voltage_plugin_params" : {
+				"T_discharge" : 1000,
+				"tau" : 2.0
+			},
+			"start_from_solution" : true,
+			"save_temp_solution" : true,
+			"temp_sol" : {
+				"file_of_starting_sol" : "torem/test3/temp_sol/200",
+				"save_every_n_steps" : 10
+			}
+		},
+		"output" : {
+			"save_sol" : true,
+			"compute_charges_on_border" : true,
+			"save_cond_current" : true,
+	  		"save_error_and_comp_time" : true
+		}
+	},
+	"test4" : {
+		"physics" : {
+			"epsilon_0" : 8.8542e-12,
+			"physics_plugin" : "libPhysics.so",
+			"plugin_test_index" : "two_phase_parallel",
+			"plugin_params" : {
+				"tau1_p1" : 20.0,
+				"tau2_p1" : 80.0,
+				"tau_p2" : 10.0,
+				"tau_p3" : 100.0,
+				"epsilon_r1" : 2,
+				"epsilon_r2" : 4,
+				"chi1" : 1.2,
+				"chi2" : 0,
+				"chi3" : 0,
+				"sigma1" : 3.21e-14,
+				"sigma2" : 1.2e-14
+			}
+		},
+		"algorithm" : {
+			"num_refinements" : 4,
+			"maxlevel" : 4,
+			"T" : 2000,
+			"biggest_time_step" : 5,
+			"initial_dt_for_adaptive_time_step" : 1e-5,
+			"tol_of_adaptive_time_step" : 0.005,
+			"voltage_plugin" : "libVoltages.so",
+			"voltage_name" : "voltage1",
+			"voltage_plugin_params" : {
+				"T_discharge" : 1000,
+				"tau" : 2.0
+			},
+			"start_from_solution" : false,
+			"save_temp_solution" : true,
+			"temp_sol" : {
+				"file_of_starting_sol" : "test2_2_temp_sol_60",
+				"save_every_n_steps" : 10
+			}
+		},
+		"output" : {
+			"save_sol" : true,
+			"compute_charges_on_border" : true,
+			"save_cond_current" : true,
+	  		"save_error_and_comp_time" : true
+		}
+	}
+	
+	
+}

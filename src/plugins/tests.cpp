@@ -9,9 +9,9 @@ namespace {
     LoadTest() {
       using testfactory = Factory<generic_test, std::function<std::unique_ptr<generic_test>()>>;
       testfactory & T_factory = testfactory::Instance();
-      T_factory.add("test1", []() {return std::make_unique<test1>();});
-      T_factory.add("test2", []() {return std::make_unique<test2>();});
-      T_factory.add("test3", []() {return std::make_unique<test3>();});
+      T_factory.add("homogeneous", []() {return std::make_unique<homogeneous>();});
+      T_factory.add("two_phase_serial", []() {return std::make_unique<two_phase_serial>();});
+      T_factory.add("two_phase_parallel", []() {return std::make_unique<two_phase_parallel>();});
       }
     };
   const LoadTest loadtest;

@@ -11,7 +11,7 @@ LDFLAGS=-L/u/software/octave_file_io/1.0.91/lib -Wl,-rpath, -L.\
 -L/u/software/bimpp/dev/lib -L$(mkLisLib) -L$(mkMumpsLib) -L$(mkScotchLib) \
 -Wl,-rpath,. -ldl
 
-LIBS=-lNanoShaper -lbim -lbimmumps -lbimlis -lbimp4est -lbimlinalg -llis -ldmumps -lmumps_common \
+LIBS= -lbim -lbimmumps -lbimlis -lbimp4est -lbimlinalg -llis -ldmumps -lmumps_common \
 -lscotcherr -lbz2 -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lgenericfactory
 
 DOXYFILE= ../doc/Doxyfile
