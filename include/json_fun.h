@@ -22,15 +22,15 @@ R"({
 		"physics" : {
 			"epsilon_0" : 8.8542e-12,
 			"physics_plugin" : "libPhysics.so",
-			"plugin_test_index" : "test1",
+			"plugin_test_index" : "homogeneous",
 			"plugin_params" : {
 				"tau_p1" : 1.0,
 				"tau_p2" : 10.0,
 				"tau_p3" : 100.0,
-				"epsilon_inf_1" : 2,
-				"csi1" : 0.5,
-				"csi2" : 1.0,
-				"csi3" : 2.0,
+				"epsilon_r1" : 2,
+				"chi1" : 0.5,
+				"chi2" : 1.0,
+				"chi3" : 2.0,
 				"sigma" : 3.21e-14
 			}
 		},

@@ -561,7 +561,7 @@ main (int argc, char **argv) {
   }
   sold.get_owned_data().assign(sold.local_size(),0.0);
   
-  // Read temp. solution: if enabled overwrites the null default starting solution
+  // Reading temp. solution: if enabled overwrites the null default starting solution
   MPI_File temp_sol;
   if (start_from_solution)
     read_starting_solution(temp_sol, temp_solution_file_name, sold, count, Time, comp_time_of_previous_simuls, &(*test_iter), rank);
@@ -670,7 +670,7 @@ main (int argc, char **argv) {
   }
   q1_vector sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
 
-  // Set up conductivity current computation
+  // Setting up conductivity current computation
   conduction_current conduction(tmsh, sigma_c, unitary_vec, null_q1_vec, unitary_q1_vec, ln_nodes);
 
   // Time cycle
@@ -754,7 +754,8 @@ main (int argc, char **argv) {
           // Save temp solution
           if (save_temp_solution && !(count % save_every_n_steps)) {
             double total_time;
-            if (rank == 0) {total_time = time1 - start_time;}
+            if (rank == 0)
+              total_time = time1 - start_time;
             write_current_solution(temp_sol, temp_solution_file_name, sold, count, Time, total_time, rank);
           }
 
