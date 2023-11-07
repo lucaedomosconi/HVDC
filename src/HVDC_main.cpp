@@ -320,9 +320,9 @@ main (int argc, char **argv) {
   if (!output_folder.empty())
     output_folder = output_folder + "/";
 
-  // Selecting test to run and voltage function on contacts
+  // Selecting test to run
   std::vector<std::string> test_name;
-  try{test_name = data["test_to_run"];}
+  try{test_name = data["test_to_rusn"];}
   catch (...) {std::cerr << "Error: Unable to read [test_to_run]" << std::endl; throw;}
   for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
     if (!data.contains(*test_iter)) {
