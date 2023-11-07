@@ -64,7 +64,7 @@ public:
     q1_vector I_term1 = phi_stiffness * phi;
     q1_vector I_term2 = rho_mass * drho_dt;
 
-    // Storing nodes on boundary "side" if not already stored
+    // Storing nodes on boundary side if not already stored
     if (!border_built[side]) {
         border_built[side] = true;
         for (auto quadrant = tmsh.begin_quadrant_sweep ();

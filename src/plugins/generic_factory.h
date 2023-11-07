@@ -31,7 +31,10 @@ public:
 
     return which_test->second();
   }
-  static Factory & Instance();
+  static Factory<object, builder>& Instance() {
+    static Factory<object, builder> TheFactory;
+    return TheFactory;
+  }
   
 };
 

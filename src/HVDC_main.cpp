@@ -412,7 +412,7 @@ main (int argc, char **argv) {
   catch (std::runtime_error const & e) {std::cerr << "Error: Unable to read [" + *test_iter + "][algorithm][voltage_plugin_params]" << e.what() <<std::endl; if(parameters_check) throw; else continue;}
   catch (...) {std::cerr << *test_iter  << ": check typos or missing elements among voltage plugin parameters in "<< std::endl; if(parameters_check) throw; else continue;}
   
-  // If in parameters_check mode, do not run the tests, just check params compiance for all the tests
+  // If in parameters_check mode, do not run the tests, just check params compliance for all the tests
   if (parameters_check) continue;
   /*
   Manegement of solutions ordering:   Equation ordering:
