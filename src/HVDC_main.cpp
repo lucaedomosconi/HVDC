@@ -322,7 +322,7 @@ main (int argc, char **argv) {
 
   // Selecting test to run
   std::vector<std::string> test_name;
-  try{test_name = data["test_to_rusn"];}
+  try{test_name = data["test_to_run"];}
   catch (...) {std::cerr << "Error: Unable to read [test_to_run]" << std::endl; throw;}
   for (auto test_iter = test_name.cbegin(); test_iter != test_name.cend(); ++test_iter) {
     if (!data.contains(*test_iter)) {
