@@ -69,26 +69,27 @@ physics
     plugin_test_index -> name associated to the test in the plugin file
     plugin_params {} -> object containing physical constants used by the test functions
 algorithm
-    possibly some parameters for the mesh generation like (just as an example)
-        NUM_REFINEMENTS -> used to generate a uniform mesh
+    possibly some parameters for the mesh generation like  {
+        num_refinements -> used to generate a uniform mesh
         maxlevel -> max local level of refinement for a mesh
+    }
     T -> Full time: the application will simulate the evolution of the problem from time = 0 to time = T
-    initial_dt_for_adaptive_time_step -> starting dt with wich to start the adaptive time step (small value suggested)
-    tol_of_adaptive_time_step -> tol of relative error of displacement current
+    biggest_time_step -> fixed time step magnitude; how often the application outputs the solution
+    initial_dt_for_adaptive_time_step -> magnitude of first time step in the Adative Time Step Algorithm
+    tol_of_adaptive_time_step -> tol of relative error of conduction current
     voltage_plugin -> name of the plugin containing the voltage function
     voltage_name -> name of the function V(t)
-    voltage_plugins_params -> contains parameters of the voltage function
+    voltage_plugins_params : {} -> contains parameters of the voltage function
     start_from_solution -> if true the application will resume a previous simulation from a temporary solution
     save_temp_solution -> if true the application will save the current solution and allow the user to resume the simulation later
-    temp_sol {} -> contains:
+    temp_sol : {} -> contains: {
         file_of_starting_solution -> (if start_from_solution = true) file name of the solution to resume the simulations
-        save_every_n_steps -> to tell how frequently should the application save the temporary solution
-options
+        save_every_n_steps -> tells how frequently should the application save the temporary solution
+    }
+output
     save_sol -> if true, the application saves the solution to be exported with octave
-    print_solution_every_n_seconds -> time step magnitude; how often the application outputs the solution
     compute_charges_on_border -> if true, the application outputs in a file the different charges on the contact (1)
-    save_displacement_currents -> if true, enables the computation of displacement current
-    compute_2_contacts -> if true compute displacement current on both the contacts
+    save_cond_currents -> if true, enables the computation of conduction currents
     save_error_and_comp_time -> if true, tracks error of the adaptive time step and computational times
 ```
 
@@ -130,7 +131,7 @@ octave
 ```
 In octave run
 ```
-export_phi_rho(<initial time step>, <final time step>, <number of processes>)
+export_phi_rho_p1_3(<initial time step>, <final time step>, <number of processes>)
 ```
 with `<initial time step>` and `<final time step>` being the indexes of the first and last time step and `<number of processes>` 
 equal to the number of processors. 
@@ -140,7 +141,7 @@ equal to the number of processors.
 If the correspondent options are enabled the application ouptuts the files
 ```
 charges_file.txt
-I_displ_file.txt
+currents_file.txt
 error_and_comp_time.txt
 ```
 in the folder `<output_folder>/<test_name>`.
@@ -149,6 +150,6 @@ By default the application will export these files also in `.json` format.
 
 It is possible anyway to explicitly export a (txt) file in `json` format by the command
 ```
-mpirun HVDC_main --export-json <file/name.txt>
+./HVDC_main --export-json <file/name.txt>
 ```
 To import the data in `Octave` we use the script in `script/m/import_json_file.m`.
