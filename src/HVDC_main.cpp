@@ -108,7 +108,8 @@ void time_step (const int rank, const double time, const double DELTAT,
 
     // Reset containers
     A.reset ();
-    sol.get_owned_data().assign(sol.get_owned_data ().size (), 0.0);
+    sol.get_owned_data().assign(sol.local_size (), 0.0);
+    sol.assemble(replace_op);
 
     // Initialize non constant (in time) parameters
     for (auto quadrant = tmsh.begin_quadrant_sweep ();
@@ -181,7 +182,7 @@ void time_step (const int rank, const double time, const double DELTAT,
 
     // Communicate matrix and RHS
     A.assemble ();
-    sol.assemble (replace_op);
+    sol.assemble ();
 
     // Solver analysis
     lin_solver->set_lhs_distributed ();
@@ -540,12 +541,6 @@ main (int argc, char **argv) {
         sol[ord[3](quadrant->gt (ii))] = 0.0;
         sol[ord[4](quadrant->gt (ii))] = 0.0;
 
-        sold[ord[0](quadrant->gt (ii))] = 0.0;
-        sold[ord[1](quadrant->gt (ii))] = 0.0;
-        sold[ord[2](quadrant->gt (ii))] = 0.0;
-        sold[ord[3](quadrant->gt (ii))] = 0.0;
-        sold[ord[4](quadrant->gt (ii))] = 0.0;
-
         rho_pi_k_vec[ord_charges[0](quadrant->gt(ii))] = 0.;
         rho_pi_k_vec[ord_charges[1](quadrant->gt(ii))] = 0.;
         rho_pi_k_vec[ord_charges[2](quadrant->gt(ii))] = 0.;
@@ -557,12 +552,12 @@ main (int argc, char **argv) {
           unitary_q1_vec[quadrant->gparent (jj, ii)] += 0.;
           g1[quadrant->gparent (jj, ii)] += 0.;
 
-          sold[ord[0](quadrant->gparent(jj, ii))] += 0.0;
-          sold[ord[1](quadrant->gparent(jj, ii))] += 0.0;
-          sold[ord[2](quadrant->gparent(jj, ii))] += 0.0;
-          sold[ord[3](quadrant->gparent(jj, ii))] += 0.0;
-          sold[ord[4](quadrant->gparent(jj, ii))] += 0.0;
-          
+          sol[ord[0](quadrant->gparent(jj, ii))] += 0.0;
+          sol[ord[1](quadrant->gparent(jj, ii))] += 0.0;
+          sol[ord[2](quadrant->gparent(jj, ii))] += 0.0;
+          sol[ord[3](quadrant->gparent(jj, ii))] += 0.0;
+          sol[ord[4](quadrant->gparent(jj, ii))] += 0.0;
+
           rho_pi_k_vec[ord_charges[0](quadrant->gparent (jj, ii))] += 0.;
           rho_pi_k_vec[ord_charges[1](quadrant->gparent (jj, ii))] += 0.;
           rho_pi_k_vec[ord_charges[2](quadrant->gparent (jj, ii))] += 0.;
@@ -583,7 +578,13 @@ main (int argc, char **argv) {
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[2], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[3], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[4]);
-  
+/*
+  bim3a_solution_with_ghosts (tmsh, sol, replace_op, ord[0], false);
+  bim3a_solution_with_ghosts (tmsh, sol, replace_op, ord[1], false);
+  bim3a_solution_with_ghosts (tmsh, sol, replace_op, ord[2], false);
+  bim3a_solution_with_ghosts (tmsh, sol, replace_op, ord[3], false);
+  bim3a_solution_with_ghosts (tmsh, sol, replace_op, ord[4]);
+*/
   // Setting name for temporary solutions to be saved
   temp_solution_file_name = output_folder + *test_iter + "/temp_sol/";
 
