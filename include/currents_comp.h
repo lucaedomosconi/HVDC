@@ -86,4 +86,63 @@ public:
   }
 };
 
+template <int... orders>
+class diff_pol_total_charge {
+private:
+  int ln_nodes;
+  static const int N_vars = 2+sizeof...(orders);
+  tmesh_3d & tmsh;
+  std::vector<q1_vector> dsol;
+  const std::vector<double> & unitary_vec;
+
+
+  template<int t, int... ts>
+  void build_rhs (q1_vector & dsol_mass) {
+    bim3a_rhs (tmsh, unitary_vec, dsol[t-2], dsol_mass, dof_ordering<N_vars,t>);
+    if constexpr (sizeof...(ts))
+      build_rhs<ts...>(dsol_mass);
+  }
+
+public:
+  diff_pol_total_charge (tmesh_3d & tmsh_,
+                         const std::vector<double> & unitary_vec_,
+                         int ln_nodes_) :
+                            ln_nodes{ln_nodes_}, unitary_vec(unitary_vec_),
+                            tmsh(tmsh_) {
+    for (auto i = 0; i < sizeof...(orders); ++i) {
+      dsol.emplace_back(ln_nodes);
+      for (auto quadrant = tmsh.begin_quadrant_sweep ();
+              quadrant != tmsh.end_quadrant_sweep (); ++quadrant) {
+        for (auto ii = 0; ii < 8; ++ii)
+          if (!quadrant->is_hanging(ii))
+            dsol.back()[quadrant->gt(ii)] = 0.0;
+          else
+            for (auto jj = 0; jj < quadrant->num_parents (ii); ++jj)
+              dsol.back()[quadrant->gparent(jj, ii)] += 0.0;
+      }
+      dsol.back().assemble(replace_op);
+    }
+  }
+
+  double operator () (const q1_vector & sol0,
+                      const q1_vector & sol1,
+                      double dt
+                      ) {
+    for (auto i = 0; i < sizeof...(orders); ++i) {
+      for (auto j = 0; j < ln_nodes; ++j)
+        dsol[i].get_owned_data()[j] = (sol1.get_owned_data()[i+2+j*N_vars] - sol0.get_owned_data()[i+2+j*N_vars]) / dt;
+      dsol[i].assemble(replace_op);
+    }
+
+    q1_vector dsol_mass(ln_nodes*N_vars);
+    dsol_mass.get_owned_data().assign(ln_nodes*N_vars, 0.0);
+    build_rhs<orders...>(dsol_mass);
+    dsol_mass.assemble();
+    double retval = 0;
+    for (auto i = 0; i < ln_nodes*N_vars; ++i)
+      retval += dsol_mass.get_owned_data()[i];
+    MPI_Allreduce(MPI_IN_PLACE, &retval, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    return retval;
+  }
+};
 #endif

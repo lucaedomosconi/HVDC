@@ -56,18 +56,22 @@
 			"physics_plugin" : "libPhysics.so",
 			"plugin_test_index" : "two_phase_serial",
 			"plugin_params" : {
-				"tau1_p1" : 1,
-				"tau2_p1" : 1,
-				"tau1_p2" : 10,
-				"tau2_p2" : 10,
-				"tau_p3" : 100.0,
+				"tau_m1_p1" : 1,
+				"tau_m2_p1" : 1,
+				"tau_m1_p2" : 10,
+				"tau_m2_p2" : 40,
+				"tau_m1_p3" : 100.0,
+				"tau_m2_p3" : 100.0,
 				"epsilon_r1" : 2,
 				"epsilon_r2" : 4,
-				"chi1" : 0.5,
-				"chi2" : 1,
-				"chi3" : 2,
+				"chi_m1_p1" : 0.0,
+				"chi_m2_p1" : 0.0,
+				"chi_m1_p2" : 1.0,
+				"chi_m2_p2" : 2.0,
+				"chi_m1_p3" : 0.0,
+				"chi_m2_p3" : 0.0,
 				"sigma1" : 3.21e-14,
-				"sigma2" : 3.21e-14
+				"sigma2" : 1.21e-13
 			}
 		},
 		"algorithm" : {

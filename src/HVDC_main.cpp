@@ -674,6 +674,7 @@ main (int argc, char **argv) {
       currents_file << std::setw(20) << "time"
                     << std::setw(20) << "I_cond_c1"
                     << std::setw(20) << "I_cond_c2"
+                    << std::setw(20) << "pol_charge_diff"
                     << std::endl;
     }
     else if (rank == 0)
@@ -682,9 +683,12 @@ main (int argc, char **argv) {
   }
   q1_vector sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
 
+  double pol_charge_diff;
   // Setting up conductivity current computation
   conduction_current conduction(tmsh, sigma_c, unitary_vec, null_q1_vec, unitary_q1_vec, ln_nodes);
-
+  
+  // Setting up total polarizatin charge derivative
+  diff_pol_total_charge<2,3,4> pol_charge(tmsh, unitary_vec, ln_nodes);
   // Time cycle
   double time_in_step = 0;
   double dt_start_big_step = dt;
@@ -740,6 +744,9 @@ main (int argc, char **argv) {
       I_cond1_c2 = conduction (sold1, sold, dt, 4);
       I_cond2_c2 = conduction (sold2, sold, dt, 4);
 
+      // Computing total polarization charge derivative
+      pol_charge_diff = pol_charge(sold, sold2, dt);
+
       // Computing estimated relative error with conduction current on contact 1
       est_err = std::fabs((I_cond2_c1-I_cond1_c1) / I_cond2_c1);
       
@@ -755,6 +762,7 @@ main (int argc, char **argv) {
           currents_file << std::setw(20) << Time + time_in_step
                         << std::setw(20) << I_cond2_c1
                         << std::setw(20) << I_cond2_c2
+                        << std::setw(20) << pol_charge_diff
                         << std::endl;
         }
 
