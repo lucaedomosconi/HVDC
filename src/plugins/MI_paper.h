@@ -33,13 +33,13 @@ namespace tests
         chi1 = data["physics"]["plugin_params"]["chi1"];
         chi2 = data["physics"]["plugin_params"]["chi2"];
         chi3 = data["physics"]["plugin_params"]["chi3"];
-        chi4 = 0.00059672;//data["physics"]["plugin_params"]["chi4"];
-        chi5 = 0.0069;//data["physics"]["plugin_params"]["chi5"];
+        chi4 = data["physics"]["plugin_params"]["chi4"];
+        chi5 = data["physics"]["plugin_params"]["chi5"];
         tau_p1 = data["physics"]["plugin_params"]["tau_p1"];
         tau_p2 = data["physics"]["plugin_params"]["tau_p2"];
         tau_p3 = data["physics"]["plugin_params"]["tau_p3"];
-        tau_p4 = 5;//data["physics"]["plugin_params"]["tau_p4"];
-        tau_p5 = 100;//data["physics"]["plugin_params"]["tau_p5"];
+        tau_p4 = data["physics"]["plugin_params"]["tau_p4"];
+        tau_p5 = data["physics"]["plugin_params"]["tau_p5"];
         sigma_1 = data["physics"]["plugin_params"]["sigma_1"];
         sigma_2 = data["physics"]["plugin_params"]["sigma_2"];
         sigma_gap = data["physics"]["plugin_params"]["sigma_gap"];

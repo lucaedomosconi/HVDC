@@ -12,6 +12,7 @@ namespace {
       T_factory.add("homogeneous", []() {return std::make_unique<homogeneous>();});
       T_factory.add("two_phase_serial", []() {return std::make_unique<two_phase_serial>();});
       T_factory.add("two_phase_parallel", []() {return std::make_unique<two_phase_parallel>();});
+      T_factory.add("hole", []() {return std::make_unique<hole>();});
       }
     };
   const LoadTest loadtest;

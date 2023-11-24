@@ -1,0 +1,279 @@
+{
+	"output_location" : "results",
+	"test_to_run" : 
+	[
+		"hole"
+	],
+	"homog1" : {
+		"physics" : {
+			"epsilon_0" : 8.8542e-12,
+			"physics_plugin" : "libPhysics.so",
+			"plugin_test_index" : "homogeneous",
+			"plugin_params" : {
+				"tau_p1" : 100,
+				"tau_p2" : 3.57e2,
+				"tau_p3" : 100,
+				"epsilon_r1" : 3.5,
+				"chi1" : 0,
+				"chi2" : 1.970,
+				"chi3" : 0,
+				"sigma" : 3.21e-14
+			}
+		},
+		"algorithm" : {
+			"num_refinements" : 4,
+			"maxlevel" : 4,
+			"T" : 5000,
+			"biggest_time_step" : 10,
+			"initial_dt_for_adaptive_time_step" : 0.00001,
+			"tol_of_adaptive_time_step" : 0.005,
+			"voltage_plugin" : "libVoltages.so",
+			"voltage_name" : "voltage1",
+			"voltage_plugin_params" : {
+				"T_discharge" : 2000,
+				"tau" : 2.0
+			},
+			"start_from_solution" : false,
+			"save_temp_solution" : true,
+			"temp_sol" : {
+				"file_of_starting_sol" : "output/test1/temp_sol/1000",
+				"save_every_n_steps" : 10
+			}
+		},
+		"output" : {
+			"save_sol" : true,
+			"compute_charges_on_border" : false,
+			"save_cond_current" : true,
+	  		"save_error_and_comp_time" : true
+		}
+	},
+	"homog2" : {
+		"physics" : {
+			"epsilon_0" : 8.8542e-12,
+			"physics_plugin" : "libPhysics.so",
+			"plugin_test_index" : "two_phase_serial",
+			"plugin_params" : {
+				"tau_m1_p1" : 3.57e3,
+				"tau_m2_p1" : 3.57e3,
+				"tau_m1_p2" : 3.57e3,
+				"tau_m2_p2" : 3.57e2,
+				"tau_m1_p3" : 100,
+				"tau_m2_p3" : 100,
+				"tau_m1_p4" : 100,
+				"tau_m2_p4" : 100,
+				"tau_m1_p5" : 100,
+				"tau_m2_p5" : 100,
+				"epsilon_r1" : 3.5,
+				"epsilon_r2" : 3.5,
+				"chi_m1_p1" : 1.970,
+				"chi_m2_p1" : 0.0,
+				"chi_m1_p2" : 0.0,
+				"chi_m2_p2" : 1.970,
+				"chi_m1_p3" : 0.0,
+				"chi_m2_p3" : 0.0,
+				"chi_m1_p4" : 0.0,
+				"chi_m2_p4" : 0.0,
+				"chi_m1_p5" : 0.0,
+				"chi_m2_p5" : 0.0,
+				"sigma1" : 3.21e-14,
+				"sigma2" : 3.21e-14
+			}
+		},
+		"algorithm" : {
+			"num_refinements" : 4,
+			"maxlevel" : 4,
+			"T" : 5000,
+			"biggest_time_step" : 10,
+			"initial_dt_for_adaptive_time_step" : 1e-5,
+			"tol_of_adaptive_time_step" : 0.005,
+			"voltage_plugin" : "libVoltages.so",
+			"voltage_name" : "voltage1",
+			"voltage_plugin_params" : {
+				"T_discharge" : 2000,
+				"tau" : 2.0
+			},
+			"start_from_solution" : false,
+			"save_temp_solution" : true,
+			"temp_sol" : {
+				"file_of_starting_sol" : "output5/test2/temp_sol/610",
+				"save_every_n_steps" : 10
+			}
+		},
+		"output" : {
+			"save_sol" : true,
+			"compute_charges_on_border" : false,
+			"save_cond_current" : true,
+	  		"save_error_and_comp_time" : true
+		}
+	},
+	"serial" : {
+		"physics" : {
+			"epsilon_0" : 8.8542e-12,
+			"physics_plugin" : "libPhysics.so",
+			"plugin_test_index" : "two_phase_serial",
+			"plugin_params" : {
+				"tau_m1_p1" : 10,
+				"tau_m2_p1" : 10,
+				"tau_m1_p2" : 40,
+				"tau_m2_p2" : 40,
+				"tau_m1_p3" : 100.0,
+				"tau_m2_p3" : 100.0,
+				"tau_m1_p4" : 40,
+				"tau_m2_p4" : 40,
+				"tau_m1_p5" : 100.0,
+				"tau_m2_p5" : 100.0,
+				"epsilon_r1" : 2,
+				"epsilon_r2" : 4,
+				"chi_m1_p1" : 1,
+				"chi_m2_p1" : 0,
+				"chi_m1_p2" : 0,
+				"chi_m2_p2" : 1.5,
+				"chi_m1_p3" : 0,
+				"chi_m2_p3" : 0,
+				"chi_m1_p4" : 0,
+				"chi_m2_p4" : 0,
+				"chi_m1_p5" : 0,
+				"chi_m2_p5" : 0,
+				"sigma1" : 3.21e-14,
+				"sigma2" : 1.21e-13
+			}
+		},
+		"algorithm" : {
+			"num_refinements" : 4,
+			"maxlevel" : 4,
+			"T" : 2000,
+			"biggest_time_step" : 1,
+			"initial_dt_for_adaptive_time_step" : 1e-5,
+			"tol_of_adaptive_time_step" : 0.005,
+			"voltage_plugin" : "libVoltages.so",
+			"voltage_name" : "voltage1",
+			"voltage_plugin_params" : {
+				"T_discharge" : 10000,
+				"tau" : 2.0
+			},
+			"start_from_solution" : false,
+			"save_temp_solution" : true,
+			"temp_sol" : {
+				"file_of_starting_sol" : "output5/test2/temp_sol/610",
+				"save_every_n_steps" : 10
+			}
+		},
+		"output" : {
+			"save_sol" : true,
+			"compute_charges_on_border" : false,
+			"save_cond_current" : true,
+	  		"save_error_and_comp_time" : true
+		}
+    },
+    "hole" : {
+		"physics" : {
+			"epsilon_0" : 8.8542e-12,
+			"physics_plugin" : "libPhysics.so",
+			"plugin_test_index" : "hole",
+			"plugin_params" : {
+				"tau_m1_p1" : 10,
+				"tau_m2_p1" : 10,
+				"tau_m1_p2" : 40,
+				"tau_m2_p2" : 40,
+				"tau_m1_p3" : 100.0,
+				"tau_m2_p3" : 100.0,
+				"tau_m1_p4" : 40,
+				"tau_m2_p4" : 40,
+				"tau_m1_p5" : 100.0,
+				"tau_m2_p5" : 100.0,
+				"epsilon_r1" : 2,
+				"epsilon_r2" : 1,
+				"chi_m1_p1" : 1,
+				"chi_m2_p1" : 0,
+				"chi_m1_p2" : 1.5,
+				"chi_m2_p2" : 0,
+				"chi_m1_p3" : 0,
+				"chi_m2_p3" : 0,
+				"chi_m1_p4" : 0,
+				"chi_m2_p4" : 0,
+				"chi_m1_p5" : 0,
+				"chi_m2_p5" : 0,
+				"sigma1" : 3.21e-14,
+				"sigma2" : 1e-12
+			}
+		},
+		"algorithm" : {
+			"num_refinements" : 4,
+			"maxlevel" : 7,
+			"T" : 500,
+			"biggest_time_step" : 1,
+			"initial_dt_for_adaptive_time_step" : 1e-5,
+			"tol_of_adaptive_time_step" : 0.005,
+			"voltage_plugin" : "libVoltages.so",
+			"voltage_name" : "voltage1",
+			"voltage_plugin_params" : {
+				"T_discharge" : 250,
+				"tau" : 2.0
+			},
+			"start_from_solution" : false,
+			"save_temp_solution" : true,
+			"temp_sol" : {
+				"file_of_starting_sol" : "output5/test2/temp_sol/610",
+				"save_every_n_steps" : 10
+			}
+		},
+		"output" : {
+			"save_sol" : true,
+			"compute_charges_on_border" : false,
+			"save_cond_current" : true,
+	  		"save_error_and_comp_time" : true
+		}
+    },
+    "butt_gap" : {
+		"physics" : {
+			"epsilon_0" : 8.8542e-12,
+			"physics_plugin" : "libMIPaper.so",
+			"plugin_test_index" : "MI_paper",
+			"plugin_params" : {
+				"tau_p1" : 10.0,
+				"tau_p2" : 166.7,
+				"tau_p3" : 3333.3,
+				"tau_p4" : 5.0,
+				"tau_p5" : 100.0,
+				"epsilon_r_1" : 3.14,
+				"epsilon_r_2" : 2.25,
+				"epsilon_r_gap" : 2.25,
+				"chi1" : 0.2174,
+				"chi2" : 0.5221,
+				"chi3" : 3.523,
+				"chi4" : 0.00059672,
+				"chi5" : 0.0069,
+				"sigma_1" : 1.0e-14,
+				"sigma_2" : 8.4e-14,
+				"sigma_gap" : 8.4e-14
+			}
+		},
+		"algorithm" : {
+			"num_refinements" : 4,
+			"maxlevel" : 5,
+			"minlevel" : 3,
+			"T" : 30000,
+			"biggest_time_step" : 50,
+			"initial_dt_for_adaptive_time_step" : 0.0005,
+			"tol_of_adaptive_time_step" : 0.005,
+			"voltage_plugin" : "libVoltages.so",
+			"voltage_name" : "voltage2",
+			"voltage_plugin_params" : {
+				"T_discharge" : 15000,
+				"tau" : 50.0
+			},
+			"start_from_solution" : false,
+			"save_temp_solution" : true,
+			"temp_sol" : {
+				"file_of_starting_sol" : "MI_paper2/butt_gap/temp_sol/300",
+				"save_every_n_steps" : 1
+			}
+		},
+		"output" : {
+			"save_sol" : true,
+			"compute_charges_on_border" : false,
+			"save_cond_current" : true,
+			"save_error_and_comp_time" : true
+		}
+	}
+}

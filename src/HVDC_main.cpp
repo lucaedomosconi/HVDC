@@ -480,7 +480,7 @@ main (int argc, char **argv) {
   tmesh_3d::idx_t ln_elements = tmsh.num_local_quadrants (); 
 
   // Allocate linear solver
-  mumps *lin_solver = new mumps (true);
+  mumps *lin_solver = new mumps ();
 
   // Allocate initial data container
   q1_vector sold (ln_nodes * N_eqs);
@@ -819,7 +819,7 @@ main (int argc, char **argv) {
         std::cout << "error/tol = " << est_err/tol << std::endl;
       
       // If the error on the conduction current is small enough go on, otherwise halve dt and repeat
-      if (est_err < tol) {
+      if (est_err < tol || dt < 0.051) {
         time_in_step += dt;
         sold = sold2;
         if (rank == 0 && save_cond_current) {
@@ -912,7 +912,7 @@ main (int argc, char **argv) {
         }
         
         // Update dt
-        dt *= std::pow(est_err/tol,-0.5)*0.9;
+        dt = std::max(0.05, dt*std::pow(est_err/tol,-0.5)*0.9);
         dt_start_big_step = std::min(DT,std::max(dt_start_big_step*truncated_dt, dt));
         if (dt > DT - time_in_step - eps) {
           dt = DT - time_in_step;

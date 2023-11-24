@@ -316,7 +316,7 @@ namespace tests {
                 xcoord = q->p(0, ii);
                 zcoord = q->p(2, ii);
 
-                if (fabs(xcoord - 0.0005) < 1e-9/* || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9*/)
+                if (fabs(xcoord - 0.0005) < 1e-9 || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9)
                   {
                     retval = maxlevel - currentlevel;
                     break;
@@ -339,7 +339,7 @@ namespace tests {
                 xcoord = q->p(0, ii);
                 zcoord = q->p(2, ii);
 
-                  if (fabs(xcoord - 0.0005) < 1e-9/* || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9*/)
+                  if (fabs(xcoord - 0.0005) < 1e-9 || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9)
                     {
                       retval = 0;
                       break;
@@ -388,6 +388,186 @@ namespace tests {
       double sigma_fun (double x, double y, double z, double DT) const
         {return x < 0.0005 ? sigma_1 * DT : sigma_2 * DT;}
   };
+
+
+
+  class hole : public generic_test {
+    private:
+      double epsilon_r1, epsilon_r2;		// permittivity at infinite frequency
+      double chi_m1_p1, chi_m2_p1, chi_m1_p2, chi_m2_p2, chi_m1_p3, chi_m2_p3, chi_m1_p4, chi_m2_p4, chi_m1_p5, chi_m2_p5; 
+      double tau_m1_p1, tau_m2_p1, tau_m1_p2, tau_m2_p2, tau_m1_p3, tau_m2_p3, tau_m1_p4, tau_m2_p4, tau_m1_p5, tau_m2_p5;
+      static constexpr double hole_rad_2 = 1e-8;
+      double sigma_1, sigma_2;            					    // conductivity coeff
+    public:
+
+      hole() {extra_refinement = true;}
+      
+      void import_params (json & data) {
+        try{epsilon_r1 = data["physics"]["plugin_params"]["epsilon_r1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_r1]");}
+        try{epsilon_r2 = data["physics"]["plugin_params"]["epsilon_r2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][epsilon_r1]");}
+        try{chi_m1_p1 = data["physics"]["plugin_params"]["chi_m1_p1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi_m1_p1]");}
+        try{chi_m2_p1 = data["physics"]["plugin_params"]["chi_m2_p1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi_m2_p1]");}
+        try{chi_m1_p2 = data["physics"]["plugin_params"]["chi_m1_p2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi_m1_p2]");}
+        try{chi_m2_p2 = data["physics"]["plugin_params"]["chi_m2_p2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi_m2_p2]");}
+        try{chi_m1_p3 = data["physics"]["plugin_params"]["chi_m1_p3"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi_m1_p3]");}
+        try{chi_m2_p3 = data["physics"]["plugin_params"]["chi_m2_p3"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi_m2_p3]");}
+        try{chi_m1_p4 = data["physics"]["plugin_params"]["chi_m1_p4"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi_m1_p4]");}
+        try{chi_m2_p4 = data["physics"]["plugin_params"]["chi_m2_p4"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi_m2_p4]");}
+        try{chi_m1_p5 = data["physics"]["plugin_params"]["chi_m1_p5"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi_m1_p5]");}
+        try{chi_m2_p5 = data["physics"]["plugin_params"]["chi_m2_p5"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi_m2_p5]");}
+        try{tau_m1_p1 = data["physics"]["plugin_params"]["tau_m1_p1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_m1_p1]");}
+        try{tau_m2_p1 = data["physics"]["plugin_params"]["tau_m2_p1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_m2_p1]");}
+        try{tau_m1_p2 = data["physics"]["plugin_params"]["tau_m1_p2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_m1_p2]");}
+        try{tau_m2_p2 = data["physics"]["plugin_params"]["tau_m2_p2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_m2_p2]");}
+        try{tau_m1_p3 = data["physics"]["plugin_params"]["tau_m1_p3"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_m1_p3]");}
+        try{tau_m2_p3 = data["physics"]["plugin_params"]["tau_m2_p3"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_m2_p3]");}
+        try{tau_m1_p4 = data["physics"]["plugin_params"]["tau_m1_p4"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_m1_p4]");}
+        try{tau_m2_p4 = data["physics"]["plugin_params"]["tau_m2_p4"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_m2_p4]");}
+        try{tau_m1_p5 = data["physics"]["plugin_params"]["tau_m1_p5"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_m1_p5]");}
+        try{tau_m2_p5 = data["physics"]["plugin_params"]["tau_m2_p5"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_m2_p5]");}
+        try{sigma_1 = data["physics"]["plugin_params"]["sigma1"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][sigma1]");}
+        try{sigma_2 = data["physics"]["plugin_params"]["sigma2"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][sigma2]");}
+        try{num_refinements = data["algorithm"]["num_refinements"];}
+        catch(...){throw std::runtime_error("[algorithm][num_refinements]");}
+        try{maxlevel = data["algorithm"]["maxlevel"];}
+        catch(...){throw std::runtime_error("[algorithm][maxlevel]");}
+        
+        return;
+      }
+
+      int	uniform_refinement (tmesh_3d::quadrant_iterator q) const
+        { return num_refinements; }
+
+      int refinement (tmesh_3d::quadrant_iterator q) const
+        {
+          int currentlevel = static_cast<int> (q->the_quadrant->level);
+            double xcoord, ycoord, zcoord;
+            int retval = 0;
+            for (int ii = 0; ii < 8; ++ii)
+              {
+                xcoord = q->p(0, ii);
+                ycoord = q->p(1, ii);
+                zcoord = q->p(2, ii);
+
+                if ((xcoord-2.5e-3)*(xcoord-2.5e-3)+(ycoord-2.5e-3)*(ycoord-2.5e-3)+(zcoord-0.5e-3)*(zcoord-0.5e-3) < 1.1*hole_rad_2)
+                  {
+                    retval = maxlevel - currentlevel;
+                    break;
+                  }
+              }
+
+            if (currentlevel >= maxlevel)
+              retval = 0;
+
+            return retval;
+        }
+
+      int coarsening (tmesh_3d::quadrant_iterator q) const
+        {
+          int currentlevel = static_cast<int> (q->the_quadrant->level);
+            double xcoord, ycoord, zcoord;
+            int retval = currentlevel - num_refinements;
+            for (int ii = 0; ii < 8; ++ii)
+              {     
+                xcoord = q->p(0, ii);
+                ycoord = q->p(1, ii);
+                zcoord = q->p(2, ii);
+
+
+                  if ((xcoord-2.5e-3)*(xcoord-2.5e-3)+(ycoord-2.5e-3)*(ycoord-2.5e-3)+(zcoord-0.5e-3)*(zcoord-0.5e-3) < 0.8*hole_rad_2)
+                  {
+                      retval = 0;
+                      break;
+                  }
+              }
+
+          if (currentlevel <= num_refinements)
+              retval = 0;
+      
+            return (retval);
+        }
+        
+      double epsilon_fun (double x, double y, double z) const
+        {return (x-2.5e-3)*(x-2.5e-3)+(y-2.5e-3)*(y-2.5e-3)+(z-0.5e-3)*(z-0.5e-3) < hole_rad_2 ? epsilon_0 * epsilon_r1 : epsilon_0 * epsilon_r2;}
+
+      double chi_1_fun (double x, double y, double z) const
+        {
+          return (x-2.5e-3)*(x-2.5e-3)+(y-2.5e-3)*(y-2.5e-3)+(z-0.5e-3)*(z-0.5e-3) < hole_rad_2 ? chi_m1_p1 : chi_m2_p1;
+        }
+
+      double chi_2_fun (double x, double y, double z) const
+        {
+          return (x-2.5e-3)*(x-2.5e-3)+(y-2.5e-3)*(y-2.5e-3)+(z-0.5e-3)*(z-0.5e-3) < hole_rad_2 ? chi_m1_p2 : chi_m2_p2;
+        }
+
+      double chi_3_fun (double x, double y, double z) const
+        {
+          return (x-2.5e-3)*(x-2.5e-3)+(y-2.5e-3)*(y-2.5e-3)+(z-0.5e-3)*(z-0.5e-3) < hole_rad_2 ? chi_m1_p3 : chi_m2_p3;
+        }
+
+      double chi_4_fun (double x, double y, double z) const
+        {
+          return (x-2.5e-3)*(x-2.5e-3)+(y-2.5e-3)*(y-2.5e-3)+(z-0.5e-3)*(z-0.5e-3) < hole_rad_2 ? chi_m1_p4 : chi_m2_p4;
+        }
+      
+      double chi_5_fun (double x, double y, double z) const
+        {
+          return (x-2.5e-3)*(x-2.5e-3)+(y-2.5e-3)*(y-2.5e-3)+(z-0.5e-3)*(z-0.5e-3) < hole_rad_2 ? chi_m1_p5 : chi_m2_p5;
+        }
+
+      double tau_p1_fun (double x, double y, double z) const
+        {
+          return (x-2.5e-3)*(x-2.5e-3)+(y-2.5e-3)*(y-2.5e-3)+(z-0.5e-3)*(z-0.5e-3) < hole_rad_2 ? tau_m1_p1 : tau_m2_p1;
+        }
+
+      double tau_p2_fun (double x, double y, double z) const
+        {
+          return (x-2.5e-3)*(x-2.5e-3)+(y-2.5e-3)*(y-2.5e-3)+(z-0.5e-3)*(z-0.5e-3) < hole_rad_2 ? tau_m1_p2 : tau_m2_p2;
+        }
+
+      double tau_p3_fun (double x, double y, double z) const
+        {
+          return (x-2.5e-3)*(x-2.5e-3)+(y-2.5e-3)*(y-2.5e-3)+(z-0.5e-3)*(z-0.5e-3) < hole_rad_2 ? tau_m1_p3 : tau_m2_p3;
+        }
+
+      double tau_p4_fun (double x, double y, double z) const
+        {
+          return (x-2.5e-3)*(x-2.5e-3)+(y-2.5e-3)*(y-2.5e-3)+(z-0.5e-3)*(z-0.5e-3) < hole_rad_2 ? tau_m1_p4 : tau_m2_p4;
+        }
+
+      double tau_p5_fun (double x, double y, double z) const
+        {
+          return (x-2.5e-3)*(x-2.5e-3)+(y-2.5e-3)*(y-2.5e-3)+(z-0.5e-3)*(z-0.5e-3) < hole_rad_2 ? tau_m1_p5 : tau_m2_p5;
+        }
+
+      double sigma_fun (double x, double y, double z, double DT) const
+        {return (x-2.5e-3)*(x-2.5e-3)+(y-2.5e-3)*(y-2.5e-3)+(z-0.5e-3)*(z-0.5e-3) < hole_rad_2 ? sigma_1 * DT : sigma_2 * DT;}
+  };
+  
 }
 
 #endif
