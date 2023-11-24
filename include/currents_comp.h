@@ -52,12 +52,12 @@ public:
   
   double operator() (const q1_vector & sol1,
                      const q1_vector & sol0,
-                     double dt, int side) {
+                     double dt, int side, bool only_dphi = false) {
         // Preparing vectors
     drho_dt.get_owned_data().assign(ln_nodes, 0.0);
     phi.get_owned_data().assign(ln_nodes, 0.0);
     for (int ii = 0; ii < ln_nodes; ++ii) {
-      drho_dt[drho_dt.get_range_start()+ii] = (sol1.get_owned_data()[ii*N_vars+ord_rho]-sol0.get_owned_data()[ii*N_vars+ord_rho]) / dt;
+      drho_dt[drho_dt.get_range_start()+ii] = only_dphi ? 0 : (sol1.get_owned_data()[ii*N_vars+ord_rho]-sol0.get_owned_data()[ii*N_vars+ord_rho]) / dt;
       phi[phi.get_range_start()+ii] = sol1.get_owned_data()[ii*N_vars+ord_phi];
     }
     // Matrix * vector
@@ -92,15 +92,21 @@ private:
   int ln_nodes;
   static const int N_vars = 2+sizeof...(orders);
   tmesh_3d & tmsh;
-  std::vector<q1_vector> dsol;
+  std::vector<q1_vector> p_charge, p_charge_abs;
   const std::vector<double> & unitary_vec;
-
+  double old_p = 0;
 
   template<int t, int... ts>
-  void build_rhs (q1_vector & dsol_mass) {
-    bim3a_rhs (tmsh, unitary_vec, dsol[t-2], dsol_mass, dof_ordering<N_vars,t>);
+  void build_rhs (q1_vector & vec_mass) {
+    bim3a_rhs (tmsh, unitary_vec, p_charge[t-2], vec_mass, dof_ordering<N_vars,t>);
     if constexpr (sizeof...(ts))
-      build_rhs<ts...>(dsol_mass);
+      build_rhs<ts...>(vec_mass);
+  }
+  template<int t, int... ts>
+  void build_rhs_a (q1_vector & vec_mass) {
+    bim3a_rhs (tmsh, unitary_vec, p_charge_abs[t-2], vec_mass, dof_ordering<N_vars,t>);
+    if constexpr (sizeof...(ts))
+      build_rhs_a<ts...>(vec_mass);
   }
 
 public:
@@ -110,39 +116,54 @@ public:
                             ln_nodes{ln_nodes_}, unitary_vec(unitary_vec_),
                             tmsh(tmsh_) {
     for (auto i = 0; i < sizeof...(orders); ++i) {
-      dsol.emplace_back(ln_nodes);
+      p_charge.emplace_back(ln_nodes);
+      p_charge_abs.emplace_back(ln_nodes);
       for (auto quadrant = tmsh.begin_quadrant_sweep ();
               quadrant != tmsh.end_quadrant_sweep (); ++quadrant) {
         for (auto ii = 0; ii < 8; ++ii)
-          if (!quadrant->is_hanging(ii))
-            dsol.back()[quadrant->gt(ii)] = 0.0;
+          if (!quadrant->is_hanging(ii)) {
+            p_charge.back()[quadrant->gt(ii)] = 0.0;
+            p_charge_abs.back()[quadrant->gt(ii)] = 0.0;
+          }
           else
-            for (auto jj = 0; jj < quadrant->num_parents (ii); ++jj)
-              dsol.back()[quadrant->gparent(jj, ii)] += 0.0;
+            for (auto jj = 0; jj < quadrant->num_parents (ii); ++jj) {
+              p_charge.back()[quadrant->gparent(jj, ii)] += 0.0;
+              p_charge_abs.back()[quadrant->gparent(jj, ii)] += 0.0;
+            }
       }
-      dsol.back().assemble(replace_op);
+      p_charge.back().assemble(replace_op);
+      p_charge_abs.back().assemble(replace_op);
     }
   }
 
-  double operator () (const q1_vector & sol0,
-                      const q1_vector & sol1,
-                      double dt
-                      ) {
+  void operator () (const q1_vector & sol,
+                    double dt, double & polcharge, 
+                    double & abs_polcharge, double & charge_variation) {
     for (auto i = 0; i < sizeof...(orders); ++i) {
-      for (auto j = 0; j < ln_nodes; ++j)
-        dsol[i].get_owned_data()[j] = (sol1.get_owned_data()[i+2+j*N_vars] - sol0.get_owned_data()[i+2+j*N_vars]) / dt;
-      dsol[i].assemble(replace_op);
+      for (auto j = 0; j < ln_nodes; ++j) {
+        p_charge[i].get_owned_data()[j] = sol.get_owned_data()[i+2+j*N_vars];
+        p_charge_abs[i].get_owned_data()[j] = std::fabs(sol.get_owned_data()[i+2+j*N_vars]);
+      }
+      p_charge[i].assemble(replace_op);
+      p_charge_abs[i].assemble(replace_op);
     }
 
-    q1_vector dsol_mass(ln_nodes*N_vars);
-    dsol_mass.get_owned_data().assign(ln_nodes*N_vars, 0.0);
-    build_rhs<orders...>(dsol_mass);
-    dsol_mass.assemble();
-    double retval = 0;
-    for (auto i = 0; i < ln_nodes*N_vars; ++i)
-      retval += dsol_mass.get_owned_data()[i];
-    MPI_Allreduce(MPI_IN_PLACE, &retval, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    return retval;
+    q1_vector p_charge_mass(ln_nodes*N_vars), p_charge_abs_mass(ln_nodes*N_vars);
+    p_charge_mass.get_owned_data().assign(ln_nodes*N_vars, 0.0);
+    p_charge_abs_mass.get_owned_data().assign(ln_nodes*N_vars, 0.0);
+    build_rhs<orders...>(p_charge_mass);
+    build_rhs_a<orders...>(p_charge_abs_mass);
+    p_charge_mass.assemble();
+    p_charge_abs_mass.assemble();
+    polcharge = 0; abs_polcharge = 0;
+    for (auto i = 0; i < ln_nodes*N_vars; ++i) {
+      polcharge += p_charge_mass.get_owned_data()[i];
+      abs_polcharge += p_charge_abs_mass.get_owned_data()[i];
+    }
+    MPI_Allreduce(MPI_IN_PLACE, &polcharge, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &abs_polcharge, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    charge_variation = polcharge - old_p;
+    old_p = polcharge;
   }
 };
 #endif

@@ -66,6 +66,12 @@ namespace tests {
       double chi_3_fun (double x, double y, double z) const
         {return chi3;}
 
+      double chi_4_fun (double x, double y, double z) const
+        {return 0;}
+
+      double chi_5_fun (double x, double y, double z) const
+        {return 0;}
+
       double tau_p1_fun (double x, double y, double z) const
         {return tau_p1;}
 
@@ -75,6 +81,12 @@ namespace tests {
       double tau_p3_fun (double x, double y, double z) const
         {return tau_p3;}
 
+      double tau_p4_fun (double x, double y, double z) const
+        {return 0;}
+
+      double tau_p5_fun (double x, double y, double z) const
+        {return 0;}
+
       double sigma_fun (double x, double y, double z, double DT) const
         {return sigma_ * DT;}
   };
@@ -82,8 +94,8 @@ namespace tests {
   class two_phase_serial : public generic_test {
     private:
       double epsilon_r1, epsilon_r2;		// permittivity at infinite frequency
-      double chi_m1_p1, chi_m2_p1, chi_m1_p2, chi_m2_p2, chi_m1_p3, chi_m2_p3; 
-      double tau_m1_p1, tau_m2_p1, tau_m1_p2, tau_m2_p2, tau_m1_p3, tau_m2_p3;
+      double chi_m1_p1, chi_m2_p1, chi_m1_p2, chi_m2_p2, chi_m1_p3, chi_m2_p3, chi_m1_p4, chi_m2_p4, chi_m1_p5, chi_m2_p5; 
+      double tau_m1_p1, tau_m2_p1, tau_m1_p2, tau_m2_p2, tau_m1_p3, tau_m2_p3, tau_m1_p4, tau_m2_p4, tau_m1_p5, tau_m2_p5;
       double sigma_1, sigma_2;            					    // conductivity coeff
     public:
 
@@ -106,6 +118,14 @@ namespace tests {
         catch(...){throw std::runtime_error("[physics][plugin_params][chi_m1_p3]");}
         try{chi_m2_p3 = data["physics"]["plugin_params"]["chi_m2_p3"];}
         catch(...){throw std::runtime_error("[physics][plugin_params][chi_m2_p3]");}
+        try{chi_m1_p4 = data["physics"]["plugin_params"]["chi_m1_p4"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi_m1_p4]");}
+        try{chi_m2_p4 = data["physics"]["plugin_params"]["chi_m2_p4"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi_m2_p4]");}
+        try{chi_m1_p5 = data["physics"]["plugin_params"]["chi_m1_p5"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi_m1_p5]");}
+        try{chi_m2_p5 = data["physics"]["plugin_params"]["chi_m2_p5"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][chi_m2_p5]");}
         try{tau_m1_p1 = data["physics"]["plugin_params"]["tau_m1_p1"];}
         catch(...){throw std::runtime_error("[physics][plugin_params][tau_m1_p1]");}
         try{tau_m2_p1 = data["physics"]["plugin_params"]["tau_m2_p1"];}
@@ -118,6 +138,14 @@ namespace tests {
         catch(...){throw std::runtime_error("[physics][plugin_params][tau_m1_p3]");}
         try{tau_m2_p3 = data["physics"]["plugin_params"]["tau_m2_p3"];}
         catch(...){throw std::runtime_error("[physics][plugin_params][tau_m2_p3]");}
+        try{tau_m1_p4 = data["physics"]["plugin_params"]["tau_m1_p4"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_m1_p4]");}
+        try{tau_m2_p4 = data["physics"]["plugin_params"]["tau_m2_p4"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_m2_p4]");}
+        try{tau_m1_p5 = data["physics"]["plugin_params"]["tau_m1_p5"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_m1_p5]");}
+        try{tau_m2_p5 = data["physics"]["plugin_params"]["tau_m2_p5"];}
+        catch(...){throw std::runtime_error("[physics][plugin_params][tau_m2_p5]");}
         try{sigma_1 = data["physics"]["plugin_params"]["sigma1"];}
         catch(...){throw std::runtime_error("[physics][plugin_params][sigma1]");}
         try{sigma_2 = data["physics"]["plugin_params"]["sigma2"];}
@@ -195,6 +223,16 @@ namespace tests {
           return z < 0.0005 ? chi_m1_p3 : chi_m2_p3;
         }
 
+      double chi_4_fun (double x, double y, double z) const
+        {
+          return z < 0.0005 ? chi_m1_p4 : chi_m2_p4;
+        }
+      
+      double chi_5_fun (double x, double y, double z) const
+        {
+          return z < 0.0005 ? chi_m1_p5 : chi_m2_p5;
+        }
+
       double tau_p1_fun (double x, double y, double z) const
         {
           return z < 0.0005 ? tau_m1_p1 : tau_m2_p1;
@@ -208,6 +246,16 @@ namespace tests {
       double tau_p3_fun (double x, double y, double z) const
         {
           return z < 0.0005 ? tau_m1_p3 : tau_m2_p3;
+        }
+
+      double tau_p4_fun (double x, double y, double z) const
+        {
+          return z < 0.0005 ? tau_m1_p4 : tau_m2_p4;
+        }
+
+      double tau_p5_fun (double x, double y, double z) const
+        {
+          return z < 0.0005 ? tau_m1_p5 : tau_m2_p5;
         }
 
       double sigma_fun (double x, double y, double z, double DT) const
@@ -268,7 +316,7 @@ namespace tests {
                 xcoord = q->p(0, ii);
                 zcoord = q->p(2, ii);
 
-                if (fabs(xcoord - 0.0005) < 1e-9 || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9)
+                if (fabs(xcoord - 0.0005) < 1e-9/* || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9*/)
                   {
                     retval = maxlevel - currentlevel;
                     break;
@@ -291,7 +339,7 @@ namespace tests {
                 xcoord = q->p(0, ii);
                 zcoord = q->p(2, ii);
 
-                  if (fabs(xcoord - 0.0005) < 1e-9 || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9)
+                  if (fabs(xcoord - 0.0005) < 1e-9/* || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9*/)
                     {
                       retval = 0;
                       break;
@@ -316,6 +364,12 @@ namespace tests {
       double chi_3_fun (double x, double y, double z) const
         {return chi3;}
 
+      double chi_4_fun (double x, double y, double z) const
+        {return 0;}
+
+      double chi_5_fun (double x, double y, double z) const
+        {return 0;}
+
       double tau_p1_fun (double x, double y, double z) const
         {return x < 0.0005 ? tau1_p1 : tau2_p1;}
 
@@ -324,6 +378,12 @@ namespace tests {
 
       double tau_p3_fun (double x, double y, double z) const
         {return tau_p3;}
+
+      double tau_p4_fun (double x, double y, double z) const
+        {return 0;}
+
+      double tau_p5_fun (double x, double y, double z) const
+        {return 0;}
 
       double sigma_fun (double x, double y, double z, double DT) const
         {return x < 0.0005 ? sigma_1 * DT : sigma_2 * DT;}

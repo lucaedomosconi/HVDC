@@ -1,11 +1,8 @@
 {
-	"output_location" : "output",
+	"output_location" : "torem",
 	"test_to_run" : 
 	[
-		"test1",
-		"test2",
-		"test3",
-		"test4"
+		"test2"
 	],
 	"test1" : {
 		"physics" : {
@@ -39,8 +36,8 @@
 			"start_from_solution" : true,
 			"save_temp_solution" : true,
 			"temp_sol" : {
-				"file_of_starting_sol" : "MI_paper_uniform_temp_sol_1500",
-				"save_every_n_steps" : 10
+				"file_of_starting_sol" : "output/test1/temp_sol/1000",
+				"save_every_n_steps" : 1
 			}
 		},
 		"output" : {
@@ -56,20 +53,28 @@
 			"physics_plugin" : "libPhysics.so",
 			"plugin_test_index" : "two_phase_serial",
 			"plugin_params" : {
-				"tau_m1_p1" : 1,
-				"tau_m2_p1" : 1,
-				"tau_m1_p2" : 10,
+				"tau_m1_p1" : 10,
+				"tau_m2_p1" : 10,
+				"tau_m1_p2" : 40,
 				"tau_m2_p2" : 40,
 				"tau_m1_p3" : 100.0,
 				"tau_m2_p3" : 100.0,
+				"tau_m1_p4" : 40,
+				"tau_m2_p4" : 40,
+				"tau_m1_p5" : 100.0,
+				"tau_m2_p5" : 100.0,
 				"epsilon_r1" : 2,
 				"epsilon_r2" : 4,
-				"chi_m1_p1" : 0.0,
+				"chi_m1_p1" : 1.0,
 				"chi_m2_p1" : 0.0,
-				"chi_m1_p2" : 1.0,
-				"chi_m2_p2" : 2.0,
-				"chi_m1_p3" : 0.0,
+				"chi_m1_p2" : 2.0,
+				"chi_m2_p2" : 0.0,
+				"chi_m1_p3" : 0.5,
 				"chi_m2_p3" : 0.0,
+				"chi_m1_p4" : 0.0,
+				"chi_m2_p4" : 0.4,
+				"chi_m1_p5" : 0.0,
+				"chi_m2_p5" : 1.4,
 				"sigma1" : 3.21e-14,
 				"sigma2" : 1.21e-13
 			}
@@ -78,25 +83,25 @@
 			"num_refinements" : 4,
 			"maxlevel" : 4,
 			"T" : 2000,
-			"biggest_time_step" : 5,
+			"biggest_time_step" : 1,
 			"initial_dt_for_adaptive_time_step" : 1e-5,
 			"tol_of_adaptive_time_step" : 0.005,
 			"voltage_plugin" : "libVoltages.so",
 			"voltage_name" : "voltage1",
 			"voltage_plugin_params" : {
-				"T_discharge" : 1000,
+				"T_discharge" : 10000,
 				"tau" : 2.0
 			},
 			"start_from_solution" : false,
 			"save_temp_solution" : true,
 			"temp_sol" : {
-				"file_of_starting_sol" : "",
-				"save_every_n_steps" : 4
+				"file_of_starting_sol" : "output5/test2/temp_sol/610",
+				"save_every_n_steps" : 5
 			}
 		},
 		"output" : {
 			"save_sol" : true,
-			"compute_charges_on_border" : true,
+			"compute_charges_on_border" : false,
 			"save_cond_current" : true,
 	  		"save_error_and_comp_time" : true
 		}
@@ -122,8 +127,8 @@
 			}
 		},
 		"algorithm" : {
-			"num_refinements" : 4,
-			"maxlevel" : 4,
+			"num_refinements" : 3,
+			"maxlevel" : 5,
 			"T" : 2000,
 			"biggest_time_step" : 5,
 			"initial_dt_for_adaptive_time_step" : 1e-5,
@@ -134,7 +139,7 @@
 				"T_discharge" : 1000,
 				"tau" : 2.0
 			},
-			"start_from_solution" : true,
+			"start_from_solution" : false,
 			"save_temp_solution" : true,
 			"temp_sol" : {
 				"file_of_starting_sol" : "torem/test3/temp_sol/200",
@@ -168,8 +173,8 @@
 			}
 		},
 		"algorithm" : {
-			"num_refinements" : 4,
-			"maxlevel" : 4,
+			"num_refinements" : 3,
+			"maxlevel" : 5,
 			"T" : 2000,
 			"biggest_time_step" : 5,
 			"initial_dt_for_adaptive_time_step" : 1e-5,

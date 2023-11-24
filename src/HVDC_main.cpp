@@ -88,13 +88,17 @@ void time_step (const int rank, const double time, const double DELTAT,
                 std::vector<double> &reaction_term_p1,
                 std::vector<double> &reaction_term_p2,
                 std::vector<double> &reaction_term_p3,
+                std::vector<double> &reaction_term_p4,
+                std::vector<double> &reaction_term_p5,
                 std::vector<double> &diffusion_term_p1,
                 std::vector<double> &diffusion_term_p2,
                 std::vector<double> &diffusion_term_p3,
+                std::vector<double> &diffusion_term_p4,
+                std::vector<double> &diffusion_term_p5,
                 q1_vector &null_q1_vec,
                 q1_vector &unitary_q1_vec,
                 q1_vector &g1, q1_vector &g0, q1_vector &gp1,
-                q1_vector &gp2, q1_vector &gp3,
+                q1_vector &gp2, q1_vector &gp3, q1_vector &gp4, q1_vector &gp5,
                 q1_vector &sold, q1_vector &sol) {
 
     // Define boundary conditions
@@ -124,12 +128,20 @@ void time_step (const int rank, const double time, const double DELTAT,
         1 + DELTAT / test->tau_p2_fun(xx,yy,zz);
       reaction_term_p3[quadrant->get_forest_quad_idx ()] =
         1 + DELTAT / test->tau_p3_fun(xx,yy,zz);
+      reaction_term_p4[quadrant->get_forest_quad_idx ()] =
+        1 + DELTAT / test->tau_p4_fun(xx,yy,zz);
+      reaction_term_p5[quadrant->get_forest_quad_idx ()] =
+        1 + DELTAT / test->tau_p5_fun(xx,yy,zz);
       diffusion_term_p1[quadrant->get_forest_quad_idx ()] =
         - DELTAT / test->tau_p1_fun(xx,yy,zz) * epsilon_0 * test->chi_1_fun(xx,yy,zz);
       diffusion_term_p2[quadrant->get_forest_quad_idx ()] =
         - DELTAT / test->tau_p2_fun(xx,yy,zz) * epsilon_0 * test->chi_2_fun(xx,yy,zz);
       diffusion_term_p3[quadrant->get_forest_quad_idx ()] =
         - DELTAT / test->tau_p3_fun(xx,yy,zz) * epsilon_0 * test->chi_3_fun(xx,yy,zz);
+      diffusion_term_p4[quadrant->get_forest_quad_idx ()] =
+        - DELTAT / test->tau_p4_fun(xx,yy,zz) * epsilon_0 * test->chi_4_fun(xx,yy,zz);
+      diffusion_term_p5[quadrant->get_forest_quad_idx ()] =
+        - DELTAT / test->tau_p5_fun(xx,yy,zz) * epsilon_0 * test->chi_5_fun(xx,yy,zz);
       sigma[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,DELTAT);
       for (int ii = 0; ii < 8; ++ii) {
         if (! quadrant->is_hanging (ii)){
@@ -137,6 +149,8 @@ void time_step (const int rank, const double time, const double DELTAT,
           gp1[quadrant->gt (ii)] = sold[ord[2](quadrant->gt (ii))];
           gp2[quadrant->gt (ii)] = sold[ord[3](quadrant->gt (ii))];
           gp3[quadrant->gt (ii)] = sold[ord[4](quadrant->gt (ii))];
+          gp4[quadrant->gt (ii)] = sold[ord[5](quadrant->gt (ii))];
+          gp5[quadrant->gt (ii)] = sold[ord[6](quadrant->gt (ii))];
         }
         else
           for (int jj = 0; jj < quadrant->num_parents (ii); ++jj){
@@ -144,6 +158,8 @@ void time_step (const int rank, const double time, const double DELTAT,
             gp1[quadrant->gparent (jj, ii)] += 0.;
             gp2[quadrant->gparent (jj, ii)] += 0.;
             gp3[quadrant->gparent (jj, ii)] += 0.;
+            gp4[quadrant->gparent (jj, ii)] += 0.;
+            gp5[quadrant->gparent (jj, ii)] += 0.;
           }
       }
     }
@@ -152,6 +168,8 @@ void time_step (const int rank, const double time, const double DELTAT,
     gp1.assemble(replace_op);
     gp2.assemble(replace_op);
     gp3.assemble(replace_op);
+    gp4.assemble(replace_op);
+    gp5.assemble(replace_op);
     
     // Advection_diffusion
     bim3a_advection_diffusion (tmsh, sigma, null_q1_vec, A, true, ord[0], ord[1]);
@@ -159,6 +177,8 @@ void time_step (const int rank, const double time, const double DELTAT,
     bim3a_advection_diffusion (tmsh, diffusion_term_p1, null_q1_vec, A, true, ord[2], ord[1]);
     bim3a_advection_diffusion (tmsh, diffusion_term_p2, null_q1_vec, A, true, ord[3], ord[1]);
     bim3a_advection_diffusion (tmsh, diffusion_term_p3, null_q1_vec, A, true, ord[4], ord[1]);
+    bim3a_advection_diffusion (tmsh, diffusion_term_p4, null_q1_vec, A, true, ord[5], ord[1]);
+    bim3a_advection_diffusion (tmsh, diffusion_term_p5, null_q1_vec, A, true, ord[6], ord[1]);
     
     // Reaction
     bim3a_reaction (tmsh, unitary_vec, unitary_q1_vec, A, ord[0], ord[0]);
@@ -166,9 +186,13 @@ void time_step (const int rank, const double time, const double DELTAT,
     bim3a_reaction (tmsh, unitary_vec, unitary_q1_vec, A, ord[1], ord[2]);
     bim3a_reaction (tmsh, unitary_vec, unitary_q1_vec, A, ord[1], ord[3]);
     bim3a_reaction (tmsh, unitary_vec, unitary_q1_vec, A, ord[1], ord[4]);
+    bim3a_reaction (tmsh, unitary_vec, unitary_q1_vec, A, ord[1], ord[5]);
+    bim3a_reaction (tmsh, unitary_vec, unitary_q1_vec, A, ord[1], ord[6]);
     bim3a_reaction (tmsh, reaction_term_p1, unitary_q1_vec, A, ord[2], ord[2]);
     bim3a_reaction (tmsh, reaction_term_p2, unitary_q1_vec, A, ord[3], ord[3]);
     bim3a_reaction (tmsh, reaction_term_p3, unitary_q1_vec, A, ord[4], ord[4]);
+    bim3a_reaction (tmsh, reaction_term_p4, unitary_q1_vec, A, ord[5], ord[5]);
+    bim3a_reaction (tmsh, reaction_term_p5, unitary_q1_vec, A, ord[6], ord[6]);
 
     // Rhs
     bim3a_rhs (tmsh, unitary_vec, g0, sol, ord[0]);
@@ -176,6 +200,8 @@ void time_step (const int rank, const double time, const double DELTAT,
     bim3a_rhs (tmsh, unitary_vec, gp1, sol, ord[2]);
     bim3a_rhs (tmsh, unitary_vec, gp2, sol, ord[3]);
     bim3a_rhs (tmsh, unitary_vec, gp3, sol, ord[4]);
+    bim3a_rhs (tmsh, unitary_vec, gp4, sol, ord[5]);
+    bim3a_rhs (tmsh, unitary_vec, gp5, sol, ord[6]);
 
     // Boundary conditions
     bim3a_dirichlet_bc (tmsh, bcs0, A, sol, ord[0], ord[1], false);
@@ -424,8 +450,8 @@ main (int argc, char **argv) {
   */
   
   // Setup number of equations, number of polarization currents and ordering arrays
-  constexpr size_t N_eqs= 5;
-  constexpr size_t N_polcur = 3;
+  constexpr size_t N_eqs= 7;
+  constexpr size_t N_polcur = 5;
   const auto ord(makeorder<N_eqs>());
   const auto ord_charges(makeorder<N_polcur+1>());
 
@@ -454,7 +480,7 @@ main (int argc, char **argv) {
   tmesh_3d::idx_t ln_elements = tmsh.num_local_quadrants (); 
 
   // Allocate linear solver
-  mumps *lin_solver = new mumps ();
+  mumps *lin_solver = new mumps (true);
 
   // Allocate initial data container
   q1_vector sold (ln_nodes * N_eqs);
@@ -488,11 +514,15 @@ main (int argc, char **argv) {
   std::vector<double> diffusion_term_p1 (ln_elements, 0.);
   std::vector<double> diffusion_term_p2 (ln_elements, 0.);
   std::vector<double> diffusion_term_p3 (ln_elements, 0.);
+  std::vector<double> diffusion_term_p4 (ln_elements, 0.);
+  std::vector<double> diffusion_term_p5 (ln_elements, 0.);
 
   // Reaction
   std::vector<double> reaction_term_p1 (ln_elements, 0.);
   std::vector<double> reaction_term_p2 (ln_elements, 0.);
   std::vector<double> reaction_term_p3 (ln_elements, 0.);
+  std::vector<double> reaction_term_p4 (ln_elements, 0.);
+  std::vector<double> reaction_term_p5 (ln_elements, 0.);
 
   // Rhs
   q1_vector g0 (ln_nodes);
@@ -500,6 +530,8 @@ main (int argc, char **argv) {
   q1_vector gp1 (ln_nodes);
   q1_vector gp2 (ln_nodes);
   q1_vector gp3 (ln_nodes);
+  q1_vector gp4 (ln_nodes);
+  q1_vector gp5 (ln_nodes);
 
   // Variables for currents computation
   std::vector<double> sigma_c (ln_elements, 0.);
@@ -513,6 +545,8 @@ main (int argc, char **argv) {
   // Data to print
   std::array<double,4> rho_pi_k;
   double I_cond1_c1 = 0, I_cond1_c2 = 0, I_cond2_c1 = 0, I_cond2_c2;
+  double I_cond_phi_c1 = 0, I_cond_phi_c2 = 0;
+  double total_p_charge, abs_total_p_charge, pol_charge_diff;
 
   q1_vector rho_pi_k_vec(ln_nodes * (N_polcur+1));
   rho_pi_k_vec.get_owned_data().assign(rho_pi_k_vec.get_owned_data().size(),0.);
@@ -540,11 +574,15 @@ main (int argc, char **argv) {
         sol[ord[2](quadrant->gt (ii))] = 0.0;
         sol[ord[3](quadrant->gt (ii))] = 0.0;
         sol[ord[4](quadrant->gt (ii))] = 0.0;
+        sol[ord[5](quadrant->gt (ii))] = 0.0;
+        sol[ord[6](quadrant->gt (ii))] = 0.0;
 
         rho_pi_k_vec[ord_charges[0](quadrant->gt(ii))] = 0.;
         rho_pi_k_vec[ord_charges[1](quadrant->gt(ii))] = 0.;
         rho_pi_k_vec[ord_charges[2](quadrant->gt(ii))] = 0.;
         rho_pi_k_vec[ord_charges[3](quadrant->gt(ii))] = 0.;
+        rho_pi_k_vec[ord_charges[4](quadrant->gt(ii))] = 0.;
+        rho_pi_k_vec[ord_charges[5](quadrant->gt(ii))] = 0.;
       }
       else
         for (int jj = 0; jj < quadrant->num_parents (ii); ++jj) {
@@ -557,11 +595,15 @@ main (int argc, char **argv) {
           sol[ord[2](quadrant->gparent(jj, ii))] += 0.0;
           sol[ord[3](quadrant->gparent(jj, ii))] += 0.0;
           sol[ord[4](quadrant->gparent(jj, ii))] += 0.0;
+          sol[ord[5](quadrant->gparent(jj, ii))] += 0.0;
+          sol[ord[6](quadrant->gparent(jj, ii))] += 0.0;
 
           rho_pi_k_vec[ord_charges[0](quadrant->gparent (jj, ii))] += 0.;
           rho_pi_k_vec[ord_charges[1](quadrant->gparent (jj, ii))] += 0.;
           rho_pi_k_vec[ord_charges[2](quadrant->gparent (jj, ii))] += 0.;
           rho_pi_k_vec[ord_charges[3](quadrant->gparent (jj, ii))] += 0.;
+          rho_pi_k_vec[ord_charges[4](quadrant->gparent (jj, ii))] += 0.;
+          rho_pi_k_vec[ord_charges[5](quadrant->gparent (jj, ii))] += 0.;
         }
     }
   }
@@ -577,13 +619,17 @@ main (int argc, char **argv) {
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[1], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[2], false);
   bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[3], false);
-  bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[4]);
+  bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[4], false);
+  bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[5], false);
+  bim3a_solution_with_ghosts (tmsh, sold, replace_op, ord[6]);
 /*
   bim3a_solution_with_ghosts (tmsh, sol, replace_op, ord[0], false);
   bim3a_solution_with_ghosts (tmsh, sol, replace_op, ord[1], false);
   bim3a_solution_with_ghosts (tmsh, sol, replace_op, ord[2], false);
   bim3a_solution_with_ghosts (tmsh, sol, replace_op, ord[3], false);
-  bim3a_solution_with_ghosts (tmsh, sol, replace_op, ord[4]);
+  bim3a_solution_with_ghosts (tmsh, sol, replace_op, ord[4], false);
+  bim3a_solution_with_ghosts (tmsh, sol, replace_op, ord[5], false);
+  bim3a_solution_with_ghosts (tmsh, sol, replace_op, ord[6]);
 */
   // Setting name for temporary solutions to be saved
   temp_solution_file_name = output_folder + *test_iter + "/temp_sol/";
@@ -612,6 +658,10 @@ main (int argc, char **argv) {
     tmsh.octbin_export (filename, sold, ord[3]);
     sprintf(filename, "%s%s/%s/model_1_p3_0000",  output_folder.c_str(), test_iter->c_str(), "sol");
     tmsh.octbin_export (filename, sold, ord[4]);
+    sprintf(filename, "%s%s/%s/model_1_p4_0000",  output_folder.c_str(), test_iter->c_str(), "sol");
+    tmsh.octbin_export (filename, sold, ord[5]);
+    sprintf(filename, "%s%s/%s/model_1_p5_0000",  output_folder.c_str(), test_iter->c_str(), "sol");
+    tmsh.octbin_export (filename, sold, ord[6]);
   }
 
 
@@ -628,6 +678,12 @@ main (int argc, char **argv) {
   };
   func3_quad p3_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
     return (q->p(2,idx)-q->p(2,idx-4))*sold[ord[4](q->gt(idx))]/2;
+  };
+  func3_quad p4_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
+    return (q->p(2,idx)-q->p(2,idx-4))*sold[ord[5](q->gt(idx))]/2;
+  };
+  func3_quad p5_mass = [&] (tmesh_3d::quadrant_iterator q, tmesh_3d::idx_t idx){
+    return (q->p(2,idx)-q->p(2,idx-4))*sold[ord[6](q->gt(idx))]/2;
   };
 
   // Export test params
@@ -661,7 +717,9 @@ main (int argc, char **argv) {
                    << std::setw(20) << "free_charge"
                    << std::setw(20) << "P_1_charge" 
                    << std::setw(20) << "P_2_charge" 
-                   << std::setw(20) << "P_3_charge" << std::endl;
+                   << std::setw(20) << "P_3_charge" 
+                   << std::setw(20) << "P_4_charge" 
+                   << std::setw(20) << "P_5_charge" << std::endl;
     }
     else if (rank == 0)
       charges_file.open(charges_file_name, std::fstream::app);
@@ -674,6 +732,10 @@ main (int argc, char **argv) {
       currents_file << std::setw(20) << "time"
                     << std::setw(20) << "I_cond_c1"
                     << std::setw(20) << "I_cond_c2"
+                    << std::setw(20) << "I_cond_c1_phi"
+                    << std::setw(20) << "I_cond_c2_phi"
+                    << std::setw(20) << "total_pol_c"
+                    << std::setw(20) << "abs_total_pol_c"
                     << std::setw(20) << "pol_charge_diff"
                     << std::endl;
     }
@@ -683,12 +745,12 @@ main (int argc, char **argv) {
   }
   q1_vector sold1 = sold, sold2 = sold, sol1 = sol, sol2 = sol;
 
-  double pol_charge_diff;
+  
   // Setting up conductivity current computation
-  conduction_current conduction(tmsh, sigma_c, unitary_vec, null_q1_vec, unitary_q1_vec, ln_nodes);
+  conduction_current conduction(tmsh, sigma_c, unitary_vec, null_q1_vec, unitary_q1_vec, ln_nodes, 0, 1, N_eqs);
   
   // Setting up total polarizatin charge derivative
-  diff_pol_total_charge<2,3,4> pol_charge(tmsh, unitary_vec, ln_nodes);
+  diff_pol_total_charge<2,3,4,5,6> pol_charge(tmsh, unitary_vec, ln_nodes);
   // Time cycle
   double time_in_step = 0;
   double dt_start_big_step = dt;
@@ -718,23 +780,23 @@ main (int argc, char **argv) {
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   null_vec, unitary_vec, neg_unitary_vec,
-                  reaction_term_p1, reaction_term_p2, reaction_term_p3,
-                  diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
-                  null_q1_vec, unitary_q1_vec, g1, g0, gp1, gp2, gp3, sold1, sol1);
+                  reaction_term_p1, reaction_term_p2, reaction_term_p3, reaction_term_p4, reaction_term_p5,
+                  diffusion_term_p1, diffusion_term_p2, diffusion_term_p3, diffusion_term_p4, diffusion_term_p5,
+                  null_q1_vec, unitary_q1_vec, g1, g0, gp1, gp2, gp3, gp4, gp5, sold1, sol1);
       time_step<N_eqs>(rank, Time + time_in_step, dt/2, test, voltage,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   null_vec, unitary_vec, neg_unitary_vec,
-                  reaction_term_p1, reaction_term_p2, reaction_term_p3,
-                  diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
-                  null_q1_vec, unitary_q1_vec, g1, g0, gp1, gp2, gp3, sold2, sol2);
+                  reaction_term_p1, reaction_term_p2, reaction_term_p3, reaction_term_p4, reaction_term_p5,
+                  diffusion_term_p1, diffusion_term_p2, diffusion_term_p3, diffusion_term_p4, diffusion_term_p5,
+                  null_q1_vec, unitary_q1_vec, g1, g0, gp1, gp2, gp3, gp4, gp5, sold2, sol2);
       time_step<N_eqs>(rank, Time + time_in_step + dt/2, dt/2, test, voltage,
                   ord, tmsh, lin_solver, A,
                   xa, ir, jc, epsilon, sigma,
                   null_vec, unitary_vec, neg_unitary_vec,
-                  reaction_term_p1, reaction_term_p2, reaction_term_p3,
-                  diffusion_term_p1, diffusion_term_p2, diffusion_term_p3,
-                  null_q1_vec, unitary_q1_vec, g1, g0, gp1, gp2, gp3, sold2, sol2);
+                  reaction_term_p1, reaction_term_p2, reaction_term_p3, reaction_term_p4, reaction_term_p5,
+                  diffusion_term_p1, diffusion_term_p2, diffusion_term_p3, diffusion_term_p4, diffusion_term_p5,
+                  null_q1_vec, unitary_q1_vec, g1, g0, gp1, gp2, gp3, gp4, gp5, sold2, sol2);
       est_err = 0.;
 
 
@@ -744,8 +806,11 @@ main (int argc, char **argv) {
       I_cond1_c2 = conduction (sold1, sold, dt, 4);
       I_cond2_c2 = conduction (sold2, sold, dt, 4);
 
+      I_cond_phi_c1 = conduction (sold2, sold, dt, 5, true);
+      I_cond_phi_c2 = conduction (sold2, sold, dt, 4, true);
+
       // Computing total polarization charge derivative
-      pol_charge_diff = pol_charge(sold, sold2, dt);
+      pol_charge(sold2, dt, total_p_charge, abs_total_p_charge, pol_charge_diff);
 
       // Computing estimated relative error with conduction current on contact 1
       est_err = std::fabs((I_cond2_c1-I_cond1_c1) / I_cond2_c1);
@@ -762,6 +827,10 @@ main (int argc, char **argv) {
           currents_file << std::setw(20) << Time + time_in_step
                         << std::setw(20) << I_cond2_c1
                         << std::setw(20) << I_cond2_c2
+                        << std::setw(20) << I_cond_phi_c1
+                        << std::setw(20) << I_cond_phi_c2
+                        << std::setw(20) << total_p_charge
+                        << std::setw(20) << abs_total_p_charge
                         << std::setw(20) << pol_charge_diff
                         << std::endl;
         }
@@ -790,6 +859,8 @@ main (int argc, char **argv) {
             bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p1_mass, ord_charges[1]);
             bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p2_mass, ord_charges[2]);
             bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p3_mass, ord_charges[3]);
+            bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p4_mass, ord_charges[4]);
+            bim3a_boundary_mass(tmsh, 0, 5, rho_pi_k_vec, p5_mass, ord_charges[5]);
             rho_pi_k_vec.assemble([] (const double & x, const double & y){return x+y;});
 
             // Integrate on the border part owned by current rank
@@ -799,10 +870,12 @@ main (int argc, char **argv) {
               rho_pi_k[1] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)+1];
               rho_pi_k[2] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)+2];
               rho_pi_k[3] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)+3];
+              rho_pi_k[4] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)+4];
+              rho_pi_k[5] += rho_pi_k_vec.get_owned_data()[i*(N_polcur+1)+5];
             }
 
             // Sum with results from other ranks
-            MPI_Allreduce(MPI_IN_PLACE, rho_pi_k.data(), 4, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(MPI_IN_PLACE, rho_pi_k.data(), N_polcur+1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
             // Print on file
             if (rank == 0)
@@ -811,6 +884,8 @@ main (int argc, char **argv) {
                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[1]
                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[2]
                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[3]
+                           << std::setw(20) << std::setprecision(5) << - rho_pi_k[4]
+                           << std::setw(20) << std::setprecision(5) << - rho_pi_k[5]
                            << std::endl;
           }
 
@@ -826,6 +901,10 @@ main (int argc, char **argv) {
             tmsh.octbin_export (filename,sold, ord[3]);
             sprintf(filename, "%s%s/%s/model_1_p3_%4.4d",  output_folder.c_str(), test_iter->c_str(), "sol", count);
             tmsh.octbin_export (filename,sold, ord[4]);
+            sprintf(filename, "%s%s/%s/model_1_p4_%4.4d",  output_folder.c_str(), test_iter->c_str(), "sol", count);
+            tmsh.octbin_export (filename,sold, ord[5]);
+            sprintf(filename, "%s%s/%s/model_1_p5_%4.4d",  output_folder.c_str(), test_iter->c_str(), "sol", count);
+            tmsh.octbin_export (filename,sold, ord[6]);
           }
 
           // Enter new big time step after updating 'dt_start_big_step'

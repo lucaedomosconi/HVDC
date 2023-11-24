@@ -33,11 +33,19 @@ namespace tests{
 
       virtual double chi_3_fun(double x, double y, double z) const = 0;
 
+      virtual double chi_4_fun(double x, double y, double z) const = 0;
+
+      virtual double chi_5_fun(double x, double y, double z) const = 0;
+
       virtual double tau_p1_fun(double x, double y, double z) const = 0;
 
       virtual double tau_p2_fun(double x, double y, double z) const = 0;
 
       virtual double tau_p3_fun(double x, double y, double z) const = 0;
+
+      virtual double tau_p4_fun(double x, double y, double z) const = 0;
+
+      virtual double tau_p5_fun(double x, double y, double z) const = 0;
 
       virtual double sigma_fun(double x, double y, double z, double DT) const = 0;
 
