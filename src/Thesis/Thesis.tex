@@ -29,10 +29,12 @@
 \usepackage{subfig} % Numbered and caption subfigures using \subfloat
 \usepackage{caption} % Coloured captions
 \usepackage{transparent}
+\usepackage{tikz}
 
 % STANDARD MATH PACKAGES
 \usepackage{amsmath}
 \usepackage{amsthm}
+\usepackage{amsfonts}
 \usepackage{bm}
 \usepackage[overload]{empheq}  % For braced-style systems of equations
 
@@ -282,7 +284,7 @@ where \(q\) is the positive elementary charge, \(n\) are the negative mobile cha
 \begin{equation}
 	\dfrac{\partial p}{\partial t} = 0
 \end{equation}
-Trapping and de-trapping of \(b\) needs instead to be modeled. Depth of traps can be ideally associated to the amount of energy required to extract a retained particle. Experiments suggest that the distribution of the density of states (DOS)  for deep traps is a superposition of Gaussian distributions. However to limit the complexity, we assume here single Gaussian distribution:
+Trapping and de-trapping of \(b\) needs instead to be modeled. Depth of traps can be associated to the amount of energy required to extract a retained particle \cite{circuitalmodel}. Experiments suggest that the distribution of the density of states (DOS)  for deep traps is a superposition of Gaussian distributions. However to limit the complexity, a single Gaussian distribution is assumed here:
 \begin{equation}
 	g(x) = \dfrac{N}{\alpha \sqrt{2 \pi}} \exp \left( -\dfrac{\left(x+\Delta \mathcal{E}\right)^{2}}
 	{2 \alpha^{2}} \right)
@@ -361,15 +363,213 @@ we retrieve \eqref{eq:finalmodel}
 We briefly discuss typical boundary conditions for \eqref{eq:finalmodel}.\\
 The only variable appearing under space differential operator is the electric potential \(\varphi\). Therefore it as also the only variable to which b.c. are meaningful. Typically the dielectric is interposed between different contacts at different voltages. It comes natural to impose Dirichlet b.c. on the contacts. On the other sides of the domain natural b.c. are adopted:
 \begin{equation}\label{eq:LEVEL1Bc}
-	\begin{cases}
-		\left.\varphi\right|_{\Gamma_D} = \varphi_D \\[3mm]
-		-\left.\left(\sigma \nabla  \varphi \cdot n\right)\right|_{\Gamma_N} = 0
-	\end{cases}
+	\left\{\begin{aligned}
+		\left.\varphi\right. = \varphi_D\ &\ \mathrm{on}\ \Gamma_D\\[3mm]
+		-\left.\left(\sigma \nabla  \varphi \cdot n\right) = 0\right. &\ \mathrm{on}\ \Gamma_N
+	\end{aligned}\right.
 \end{equation}
+Normally \(\Gamma_D\) is the union of contact surfaces \(\Gamma_k\).
 
 \section{Numerical Discretization}
 We subdivide this section in time semi-discretization and space discretization.
+
 \subsection{Time semi-discretization}
+Consider the system of equations \eqref{eq:finalmodel}: it consists in a set of \(m+2\) PDEs in the \(m+2\) variables \(\varphi\), \(\rho\), \(\pi_i\) for \(i=1,...,m\). The Implicit Euler method can be applied to discretize the problem in time. Given time step magnitude \(\Delta t\) and the the solution at time step \(n\) \((\varphi^n,\rho^n,\pi_i^n)\) we solve the following system:
+\begin{subequations}
+	\begin{alignat}{2}[left=\empheqlbrace]
+		&\rho^{n+1}-\nabla\cdot\left(\Delta t \nabla \varphi^{n+1} \right) &&= \rho^n\\[3mm]
+		%%
+		&-\nabla\cdot \left(\epsilon_0\epsilon_\infty\nabla\varphi^{n+1}\right) -\rho^{n+1}+\sum_i\pi_i^{n+1} &&=0\\[0mm]
+		%%
+		&\left(1+\frac{\Delta t}{\tau_i}\right)\pi_i^{n+1} + \nabla\cdot\left(\Delta t\epsilon_0\chi_i\nabla\varphi^{n+1}\right) &&= \pi_i^n\\[3mm]
+		%%
+		&\varphi^0 = 0,\, \rho^0=0,\, \pi_i^0=0 &&\\
+		%%
+		&\varphi^{n+1}=V_k(t^{n+1})\ \mathrm{on}\ \Gamma_{c_k} \forall\ k\\
+		%%
+		&\nabla\varphi^{n+1}\cdot \mathbf{n}=0\ \mathrm{on}\ \partial \Omega \setminus \Gamma_c
+	\end{alignat}
+\end{subequations}
+where $V_k$ and $\Gamma_{c_k}$ are respectively the voltage imposed on the contact $k$ and its surface, and $\Gamma_c=\cup_k \Gamma_{c_k}$.\\
+We also adopt an adaptive time step method: \(\Delta t\) is not fixed once for all, but may be adjusted according to an error estimate: given the last solved time step magnitude \(\Delta t^k\), the estimated error \(err\) and tolerance \(tol\), we set \(\Delta t^{k+1}=\Delta t^k\,\left(\frac{err}{tol}\right)^{-1/2}0.9\) if \(err < tol\), otherwise we halve \(\Delta t^k\) and we repeat the last iteration until \(err < tol\).\\
+To ease post-processing however, we want to save the solution in regular steps. This necessity leads to an external loop iterating through fixed time steps \(\Delta t\) with a nested loop marching from \(t\) to \(t+\Delta t\) using the adaptive time step method. For the complete algorithm see paragraph [\ref{par:time_step_impl}].
+\paragraph{Error estimate} Consider a generic first order advancing scheme for the variable \(x\) defined by \(f(x^{n+1},x^n, \Delta t)=0\) and define the time-advance operator \(g\) such that \(x^{n+1}=g(x^n,\Delta t)\). An error estimate can be done comparing the two solutions \(x_1=g(x^n,\Delta t)\) and \(x_2=g(g(x^n,\Delta t/2),\Delta t/2)\). In our case, given the solutions 1 and 2, we compute the correspondent total conduction currents through one contact \(I_{cond\, 1}\) and \(I_{cond\,2}\) and compare the relative error \((I_{cond\,1}+I_{cond\,2})/I_{cond\,2}\) with a predefined tolerance.
+
+\subsection{Spatial discretization}
+Being the applications of interest 3-dimensional, in the code we considered a cubic domain. Discretization is managed by bim++ library, which is able to handle non conforming cartesian meshes, with regular hexahedral cells, through an octree data structure. Here is no place to introduce this library so we go straight to the discreization starting from a uniform grid and then refining it locally in non conforming way. For further information please refer to \cite{thesis-pasquale-africa}. 
+\paragraph{Uniform grid case}
+We consider the partition \(\tau_h\) of the domain \(\Omega\) in \(N\) elements:
+\begin{equation}
+	\tau_k=\left\{\mathcal{K}^k\right\}_{k=1}^N,\ \ \Omega_h=\bigcup_{k=1}^N \mathcal{K}^k \subseteq \Omega
+\end{equation}
+Then we define the space of trilinear polynomials:
+\begin{equation}
+	\mathbb{Q}_{m,n,l}(\Omega)=\left\{q:\Omega\rightarrow\mathbb{R}, q(x,y,z)=\sum_{i\leq m,j\leq n,k\leq l}a_{ijk}x^iy^jz^k\ \forall (x,y,z)\in\Omega \right\}
+\end{equation}
+Now the space for the discretization of our problem can be written:
+\begin{equation}
+	Q_h^1(\tau_h) = \left\{u\in C^0\left(\overline{\Omega}_h\right),\ u|_{\mathcal{K}^k}\in\mathbb{Q}_{1,1,1}\left(\mathcal{K}^k\right)\ \forall \mathcal{K}^k\in \tau_h \right\}
+\end{equation}
+At this point a lagrangian basis for the space can be obtained in the same way as for continuous Galerkin finite element method.
+\paragraph{Non uniform mesh}
+\begin{figure}\captionsetup[subfloat]{labelformat=empty}
+	\subfloat[]{
+		\includegraphics[width=0.49\textwidth]{pictures/octant_not_refined.png}
+	}
+	\subfloat[]{
+		\includegraphics[width=0.49\textwidth]{pictures/octant_refined.png}
+	}
+	\caption{Refinement procedure of a cell. On the left the uniform grid, on the right the grid refined in the cell 0.}
+	\label{fig:octant_refinement}
+\end{figure}\captionsetup[subfloat]{labelformat=parens}
+To refine the grid in a specific (regular cube-shaped) cell, we cut it with the three plains normal to the three axis and passing through the centre of the cell. The result is eight regular sub-cells with halved edge length.\\
+In figure \ref{fig:octant_refinement} the refinement procedure of cell 0 is displayed. At the end of the process new vertices appear, but not all of them correspond to new degrees of freedom: indeed vertices that are internal to the domain and are not the vertices of all adjacent cells are called hanging nodes and do not introduce degrees of freedom. For simplicity consider the refinement of a singular cell \(\mathcal{K}\) internal to the mesh (no edge on borders). We describe now the procedure to obtain the new function space by building the new set of basis functions. Let \(\tau_h\) be the original uniform domain discretization and \(\overline{\tau}_h\) the discretization obtained by uniformly refining \(\tau_h\). By refining the cell \(\mathcal{K}\) we obtain only one new degree of freedom in its centre. We associate it to the same base function it would have in the uniform refinement of the whole mesh \(\overline{\tau}_h\), say \(\overline{\varphi}_8\in Q_h^1(\overline{\tau_h})\). At the same time we replace the basis functions \(\varphi_i \in Q_h^1(\tau_h,\ i=0,...,7\), associated to the vertices of \(\mathcal{K}\), with \(\tilde{\varphi}_i=\varphi_i-\frac{1}{8}\overline{\varphi}_8\). The new set of basis functions \(\tilde{\varphi}_i\) where \(\tilde{\varphi}_i\) is defined as above for \(i=1,...,7\), \(\tilde{\varphi}_8=\overline{\varphi}_8\) and \(\tilde{\varphi}_i = \varphi_i\ \forall i \notin 1,...,8\) (outside \(\mathcal{K}\) they are left unchanged) identifies a new linear space \(\tilde{Q}_h^1(\tilde{\tau}_h)\). Moreover \(\sum_{i=1}^N\tilde{\varphi}_i=1\) and \(\Tilde{\varphi}_i(x_j)=\delta_{ij}\ \forall x_j\in \tilde{X}\), \(\tilde{X}\) being the set of nodes of \(\tilde{\tau_h}\).
+
+\section{Code}
+The code developed in this work is available at \url{https://github.com/lucaedomosconi/HVDC}. It implements model \eqref{eq:finalmodel} and is based, among the others, on the following third party libraries:
+\begin{itemize}
+	\item \textbf{bim++}: available at \url{https://github.com/carlodefalco/bimpp}, provides the utilities to generate and handle octree structured non-conforming cartesian meshes. All of its data structures and functions are optimized for parallel computing with MPI.
+	\item \textbf{mumps}: see \url{https://mumps-solver.org/index.php}, provides a direct linear solver for sparse matrices, optimized for parallel running with MPI.
+	\item \textbf{octave}: needed to export solutions to be post-processed with \textbf{Paraview}.
+\end{itemize}
+The application outputs the spatial distribution of variables every fixed time step in gz files that need to be post-processed in octave and visualized in Paraview. Moreover it provides some useful features handled through the parameter file:
+\begin{itemize}
+	\item Plugin architecture to define
+	\begin{itemize}
+		\item Templates of tests with different geometries and grids.
+		\item The transient to apply.
+	\end{itemize}
+	\item Output of info about currents and charges in the material;
+	\item Output of info about time-stepping algorithm, like error and computational time.
+	\item Saving of temporary solutions to allow stopping a resuming a simulation later.
+\end{itemize}
+
+\subsection{Code structure}
+The main code is located in \texttt{HVDC\_main.cpp}. Plugin source files are found in a dedicated folder. Here follows a prospect of the code organization:\\
+\vspace{0.5cm}
+\begin{minipage}{10cm}
+	\vspace{0.5cm}
+	\small
+	\begin{verbatim}
+		HVDC/
+		|-include/
+		|  |-GetPot
+		|  |-simple_connectivity_3d.h
+		|  |-json_fun.h
+		|  |-currents_comp.h
+		|-json/include/nlohmann/json.hpp
+		|-script/m/
+		|  |-export_phi_rho_p1_3.m
+		|-src/
+		|  |-plugins/
+		|  |  |-generic_factory.cpp
+		|  |  |-generic_factory.h
+		|  |  |-generic_test.h
+		|  |  |-generic_voltage.h
+		|  |  |-tests.h
+		|  |  |-tests.cpp
+		|  |  |-MI_paper.h
+		|  |  |-MI_paper.cpp
+		|  |  |-voltages.h
+		|  |  |-voltages.cpp
+		|  |-HVDC_main.cpp
+		|  |-MakeFile
+	\end{verbatim}
+\end{minipage}\\
+The file dependency tree follows:\\
+\begin{tikzpicture}
+	\node (s1) at (0,2) {include/*.h};
+	\node[draw,rectangle] (s2) at (0,0) {HVDC\_main.cpp};
+	\node (s3) at (4,2) {generic\_factory.h};
+	\node[draw,rectangle] (s4) at (4,0) {generic\_factory.cpp};
+	\node (s5) at (8.5,2) {generic\_test.h};
+	\node (s6) at (7,1) {tests.h};
+	\node[draw,rectangle] (s7) at (7,0) {tests.cpp};
+	\node (s8) at (13,2) {generic\_voltage.h};
+	\node (s9) at (13,1) {voltages.h};
+	\node[draw,rectangle] (s10) at (13,0) {voltages.cpp};
+	\node (s11) at (9.8,1) {MI\_paper.h};
+	\node[draw,rectangle] (s12) at (9.8,0) {MI\_paper.cpp};
+	\path
+	(s1) edge[->] (s2)
+	(s3) edge[->] (s4)
+	(s5) edge[->] (s6)
+	(s6) edge[->] (s7)
+	(s8) edge[->] (s9)
+	(s9) edge[->] (s10)
+	(s5) edge[->] (s11)
+	(s11) edge[->] (s12)
+	(3.5,1.7) edge[-] (3.5,1)
+	(3.5,1) edge[-] (0.5,1)
+	(0.5,1) edge[->] (0.5,0.3)
+	(s5) edge[->] (s3)
+	(s8) edge[-] (13,2.5)
+	(13,2.5) edge[-] (4,2.5)
+	(4,2.5) edge[->] (s3)
+	;
+\end{tikzpicture}\\
+
+\subsection{Parameter file}
+Parameters of a simulation are set in the parameter file. A parameter file may contain different tests to execute in sequence. Each test is a json object subdivided into three sections: physics, algorithm and output.\\
+\begin{minipage}{\textwidth}
+	\vspace{3mm}
+	\small
+	\begin{verbatim}
+		physics
+		    epsilon_0 -> dielectric constant in vacuum
+		    physics_plugin -> name of the plugin containing the test
+		    plugin_test_index -> identifies the test to use in the plugin
+		    plugin_params : {} -> object containing physical constants used by the test functions
+	\end{verbatim}
+	\vspace*{0mm}
+\end{minipage}\\
+Note that we have to specify a plugin and a test template inside it to 
+\begin{minipage}{\textwidth}
+	\vspace{3mm}
+	\small
+	\begin{verbatim}
+		algorithm
+		possibly some parameters for the mesh generation like  {
+			num_refinements -> used to generate a uniform mesh
+			maxlevel -> max local level of refinement for a mesh
+		}
+		T -> Full time: the application will simulate the evolution of the problem
+		from time = 0 to time = T
+		biggest_time_step -> fixed time step magnitude; how often the application outputs the
+		solution
+		initial_dt_for_adaptive_time_step -> magnitude of first time step in the Adative Time
+		Step Algorithm
+		tol_of_adaptive_time_step -> tol of relative error of conduction current
+		voltage_plugin -> name of the plugin containing the voltage function
+		voltage_name -> name of the function V(t)
+		voltage_plugins_params : {} -> contains parameters of the voltage function
+		start_from_solution -> if true the application will resume a previous simulation from a
+		temporary solution
+		save_temp_solution -> if true the application will save the current solution and allow
+		the user to resume the simulation later
+		temp_sol : {} -> contains: {
+			file_of_starting_solution -> (if start_from_solution = true) file name
+			of the solution to resume the simulations
+			save_every_n_steps -> tells how frequently should the application save the
+			temporary solution
+		}
+	\end{verbatim}
+\end{minipage}\\
+\begin{minipage}{\textwidth}
+	\vspace{3mm}
+	\small
+	\begin{verbatim}
+		output
+		save_sol -> if true, the application saves the solution to be exported with octave
+		compute_charges_on_border -> if true, the application outputs in a file the different
+		charges on the contact (1)
+		save_cond_currents -> if true, enables the computation of conduction currents
+		save_error_and_comp_time -> if true, tracks error of the adaptive time step and
+		computational times
+	\end{verbatim}
+\end{minipage}\\
+
+\subsection{Main function}
 %-----------------------------------------------------------------------------
 % EQUATIONS
 %-----------------------------------------------------------------------------
