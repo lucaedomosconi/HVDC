@@ -30,6 +30,7 @@
 \usepackage{caption} % Coloured captions
 \usepackage{transparent}
 \usepackage{tikz}
+\usetikzlibrary{angles}
 
 % STANDARD MATH PACKAGES
 \usepackage{amsmath}
@@ -65,6 +66,8 @@
 \usepackage{fancyhdr} % Fancy headers and footers
 \usepackage{lipsum} % Insert dummy text
 \usepackage{tcolorbox} % Create coloured boxes (e.g. the one for the key-words)
+\usepackage{listings}
+
 
 %-------------------------------------------------------------------------
 %	NEW COMMANDS DEFINED
@@ -157,18 +160,46 @@ Given the tendency towards very high voltages is the insulator represents a main
 \subsection{Mass-Impregnated Cables}
 The most consolidated and common insulation system for HVDC cables is referred to as mass-impregnated paper. It is obtained wrapping helically around the core hundreds of layers of pre-dried electrotechnical paper. The tape is usually about 2 cm wide, and on each layer, the helicoidal pitch of the tape is approximately 1 mm larger than the tape width, so that small gaps, called \textit{butt gaps}, appear. This is meant to avoid paper jamming when the cable bends. Moreover, adjacent tape layers are staggered so that butt gaps cannot be stacked.\\
 The wrapped paper is then impregnated with a high-viscosity compound based on mineral oil and known as \textit{mass}. Here this compound will be called simply \textit{oil}. The internal structure of dried paper presents irregular fibers leaving room for a network of void channels that are filled with oil through an appropriate procedure. Butt gaps are also filled with oil. Finally, thanks to the roughness of the tape surface, little gaps are generated between adjacent paper layers. In the impregnation procedure also these gaps are filled with oil.\\
-This insulation system has proven to be quite durable and effective. Also, whenever the line route involves different depth levels the high viscosity of the mass avoids drainage of fluid towards the lower levels \cite{ancient_and_modern_cables}. Nonetheless there are some drawbacks: for example, cavitation phenomena may arise for the oil at low temperature, reducing the breakdown strength of the insulator. Cavitation is mainly due to the high temperature of paper and oil during the impregnation procedure and their different thermal expansion coefficients. Insulation with low viscosity oil represents an alternative that avoids cavitation, but suffer drainage and fluid leakage, and also require apposite pumping units onshore to pressurize the fluid.
+This insulation system has proven to be quite durable and effective. Also, whenever the line route involves different depth levels the high viscosity of the mass avoids drainage of fluid towards the lower levels \cite{ancient_and_modern_cables}. Nonetheless there are some drawbacks: for example, cavitation phenomena may arise for the oil at low temperature, reducing the breakdown strength of the insulator. Cavitation is mainly due to the high temperature of paper and oil during the impregnation procedure and their different thermal expansion coefficients. Insulation with low viscosity oil represents an alternative that avoids cavitation, but suffer drainage and fluid leakage, and also require apposite pumping units onshore to pressurize the fluid \cite{hakonseththesis}.\\
+\begin{figure}
+\begin{tikzpicture}
+	\node[anchor=south west,inner sep=0] (image) at (0,0,0) {\includegraphics[width=0.7\textwidth]{pictures/MI_paper.png}};
+	\begin{scope}[x={(image.south east)},y={(image.north west)}]
+		\draw[thick,<->] (0.125,0) -- (0.18,-0);
+		\draw[thick,<->] (0.5,0) -- (0.5,0.1666);
+		\draw[thick,<->] (0.52,-0.05) -- (0.8,-0.05);
+		\node (gapwidth) at (0.15,-0.1) {$10^{-3}$m};
+		\node (gapheight) at (0.47,-0.06) {$10^{-4}$m};
+		\node (tapelength) at (0.65,-0.12) {$10^{-2}$m};
+		\node (tape) at (1.1,0.93) {Tape};
+		\node (buttgap) at (1.1,0.75) {Butt gap};
+		\node (channel) at (1.1,0.435) {Channel};
+		\node (intersheetgap) at (1.15,0.16667) {Inter-sheet gaps};
+		\draw[thick,->] (tape) -- (0.8,0.93);
+		\draw[thick,->] (buttgap) -- (0.7,0.75);
+		\draw[thick,->] (channel) -- (0.797,0.435);
+		\draw[thick,->] (intersheetgap) -- (0.92,0.16667);
+		\draw[thick,->] (0.4,-0.5) -- (0.9,-0.5);
+		\draw[thick,->] (0.4,-0.5) -- (0.4,-0.2);
+		\node (longdir) at (1.1,-0.5) {Cable longitudinal direction};
+		\node (longdir) at (0.565,-0.25) {Cable radial direction};
+	\end{scope}
+\end{tikzpicture}
+\caption{MI paper insulation structure, with approximate dimensions}
+\end{figure}
 \subsection{Polypropylene and Polyethilene Solid Insulation}
-More recently, different technologies for the insulation system based on polyethilene and polypropylene have been proposed. These cables are easier to handle and lighter with respect to MI cables, representing a valid alternative. However from a modeling perspective they show a more complex behavior, as different non-linearities arise when the insulating dielectric is stressed with very high voltage.
+More recently, different technologies for the insulation system based on polyethilene and polypropylene have been proposed. These cables are easier to handle and lighter with respect to MI cables, representing a valid alternative, and are gaining popularity on the market. However from a modeling perspective they show a more complex behavior, as different non-linearities arise when the insulating dielectric is stressed with very high voltage, which make them more unpredictable. The reason of these non linearities is related to the charge trapping phenomena.
+\subsection{Challenges for the future}
+HVDC cables routinely undergo voltage changes in different ways when cables are switched on and off, or when power flow in the cable is inverted. This occurs in response to the varying energy requirements at different nodes within the network. Looking ahead, with the widespread use of renewable energy sources, which can be very intermittent according to weather conditions, we also expect current reversals in HVDC cables to become increasingly frequent. All of these transients critically test the resilience of the insulating material, and need to be studied \cite{hakonseththesis}.
+\subsection{Mathematical models and numerical methods}
+Mathematical models and numerical simulations can be an useful tool to estimate reliability of HVDC cables, in particular during the transient phase.\\
+There are different dynamics to consider when modeling these materials, apart from those described by the usual Maxwell equations for a dielectric. First of all the slow polarization of the material, meaning that response of the dipoles to a variation of the electric field is not instantaneous. Then we have charge trapping phenomena, typical in polymer based materials. Finally, conductivity is in general not a constant, but a function of the electric field and the temperature \cite{time-dep-layered}.\\
+Mathematical models can be classified by their complexity and ability to describe the dynamics previously mentioned. In section \ref{sec:mat-model} we report a fairly comprehensive model. Our main focus, however, will then be a simpler one, suitable for MI paper case, without charge trapping phenomena. In particular, it will be based on Maxwell equations and a Debye relaxation model for slow polarization. The Debye model consists in a superposition of polarization processes at different rates, ruled by ordinary differential equations. Its parameters need to be fitted according to experimental data.\\
+It is interesting to note that, in research, this and other classes of electromagnetic problems have catalyzed the development of the so called \textit{Finite Difference Time Domain} with \textit{Auxiliary Differential Equation} method (ADE-FDTD) \cite{ADE-FDTD-thesis},\cite{ADE-FDTD-art}. The idea, starting from Maxwell equations, is to introduce auxiliary variables and associated differential equations reproducing the slow polarization effect. The solution proposed here is analogous to ADE-FDTD method, but also presents some differences. Here, for the spatial discretization, a finite element approach is adopted which will be presented later. Moreover, while in ADE-FDTD algorithms, the auxiliary variables are polarization vectors associated to a certain frequency (\(\mathbf{P}_k\)), here we use the simple polarization charges (\(\pi_k=\nabla \cdot\mathbf{P}_k\)).\\
+On the other hand alternative approaches have been developed and successfully applied to dielectric materials, like the Occhini circuital model \cite{simulation-transient-HVDC}. This is strictly bound to the Debye model, and is very effective at simulating polarization 1-D problems. However applications are generally 3-D and non-homogeneous, motivating the finite element approach here presented.
 
-Numerical simulations implementing those physical models can help to predict the reliability of an insulating system like these. A very general model considering also the non linearity in the PPL cables has been proposed for the modelling of HVDC insulating materials. From that model many simplifications can be done to obtain a more affordable system to solve. At the same time many materials such as MI paper (where no charge trapping phenomena arise) can be derived as a sub-case of the general model.
 
-In a previous project a simple model consisting in a couple of PDEs, was considered. The two variables of the system were voltage and free charge, while only the instantaneous polarization process was embedded in the system. On the other hand it is common even for simple materials to exihibit a time-dependent response, which can be accounted for by the so called Debye relaxation model. In research, this and other classes of electromagnetic problems have catalyzed the development of the so called \textit{Finite Difference Time Discretization} with \textit{Auxiliary Differential Equation} method (ADE-FDTD) \cite{ADE-FDTD}. The idea is to introduce auxiliary variables and relative differential equations simulating a relaxation mechanism. The solution proposed here is analogous to ADE-FDTD method, but also presents some differences. Here, for the spatial discretization, a finite element approach is adopted which will be described later. Moreover, while in ADE-FDTD algorithms, the employed as auxiliary variables are polarization vectors associated to a certain frequency (\(\mathbf{P}_k\)), here we use the simple polarization charges (\(\pi_k=-\nabla \cdot\mathbf{P}_k\)). \cite{hakonseththesis}
-
-
-
-
-\section{Mathematical Model}
+\section{Mathematical Model}\label{sec:mat-model}
 In this section we start introducing a simple model for dielectric materials coming directly from Maxwell equations with the assumption of electro-quasi-static regime. As anticipated, to obtain a more precise simulation, particularly in transient regimes, slow polarization must be taken into account. To this end Debye relaxation model is adopted. This will add to the original system a new pack of equations and variables describing the dynamics of polarization charges. In the next sections we will only focus on this model with slow polarization processes. Nonetheless  here we go further introducing a model for the conductivity, which is typically dependent on electric field intensity and on temperature. Finally we present a very general model considering also deep charge trapping phenomena, arising in polymer based insulating materials. We conclude presenting boundary conditions for the model with slow polarization processes.
 \subsection{A first simple model}
 We start from Gauss and Ampère-Maxwell laws
@@ -373,7 +404,7 @@ Normally \(\Gamma_D\) is the union of contact surfaces \(\Gamma_k\).
 \section{Numerical Discretization}
 We subdivide this section in time semi-discretization and space discretization.
 
-\subsection{Time semi-discretization}
+\subsection{Time semi-discretization}\label{sec:time-discr}
 Consider the system of equations \eqref{eq:finalmodel}: it consists in a set of \(m+2\) PDEs in the \(m+2\) variables \(\varphi\), \(\rho\), \(\pi_i\) for \(i=1,...,m\). The Implicit Euler method can be applied to discretize the problem in time. Given time step magnitude \(\Delta t\) and the the solution at time step \(n\) \((\varphi^n,\rho^n,\pi_i^n)\) we solve the following system:
 \begin{subequations}
 	\begin{alignat}{2}[left=\empheqlbrace]
@@ -383,16 +414,14 @@ Consider the system of equations \eqref{eq:finalmodel}: it consists in a set of 
 		%%
 		&\left(1+\frac{\Delta t}{\tau_i}\right)\pi_i^{n+1} + \nabla\cdot\left(\Delta t\epsilon_0\chi_i\nabla\varphi^{n+1}\right) &&= \pi_i^n\\[3mm]
 		%%
-		&\varphi^0 = 0,\, \rho^0=0,\, \pi_i^0=0 &&\\
-		%%
 		&\varphi^{n+1}=V_k(t^{n+1})\ \mathrm{on}\ \Gamma_{c_k} \forall\ k\\
 		%%
 		&\nabla\varphi^{n+1}\cdot \mathbf{n}=0\ \mathrm{on}\ \partial \Omega \setminus \Gamma_c
 	\end{alignat}
 \end{subequations}
-where $V_k$ and $\Gamma_{c_k}$ are respectively the voltage imposed on the contact $k$ and its surface, and $\Gamma_c=\cup_k \Gamma_{c_k}$.\\
+where $V_k$ and $\Gamma_{c_k}$ are respectively the voltage imposed on contact $k$ and its surface, and $\Gamma_c=\cup_k \Gamma_{c_k}$.\\
 We also adopt an adaptive time step method: \(\Delta t\) is not fixed once for all, but may be adjusted according to an error estimate: given the last solved time step magnitude \(\Delta t^k\), the estimated error \(err\) and tolerance \(tol\), we set \(\Delta t^{k+1}=\Delta t^k\,\left(\frac{err}{tol}\right)^{-1/2}0.9\) if \(err < tol\), otherwise we halve \(\Delta t^k\) and we repeat the last iteration until \(err < tol\).\\
-To ease post-processing however, we want to save the solution in regular steps. This necessity leads to an external loop iterating through fixed time steps \(\Delta t\) with a nested loop marching from \(t\) to \(t+\Delta t\) using the adaptive time step method. For the complete algorithm see paragraph [\ref{par:time_step_impl}].
+To ease post-processing however, we want to save the solution in regular steps. This necessity leads to an external loop iterating through fixed time steps \(\Delta t\) with a nested loop marching from \(t\) to \(t+\Delta t\) using the adaptive time step method. For the complete algorithm see section \ref{sec:timecycle}.
 \paragraph{Error estimate} Consider a generic first order advancing scheme for the variable \(x\) defined by \(f(x^{n+1},x^n, \Delta t)=0\) and define the time-advance operator \(g\) such that \(x^{n+1}=g(x^n,\Delta t)\). An error estimate can be done comparing the two solutions \(x_1=g(x^n,\Delta t)\) and \(x_2=g(g(x^n,\Delta t/2),\Delta t/2)\). In our case, given the solutions 1 and 2, we compute the correspondent total conduction currents through one contact \(I_{cond\, 1}\) and \(I_{cond\,2}\) and compare the relative error \((I_{cond\,1}+I_{cond\,2})/I_{cond\,2}\) with a predefined tolerance.
 
 \subsection{Spatial discretization}
@@ -422,9 +451,22 @@ At this point a lagrangian basis for the space can be obtained in the same way a
 	\caption{Refinement procedure of a cell. On the left the uniform grid, on the right the grid refined in the cell 0.}
 	\label{fig:octant_refinement}
 \end{figure}\captionsetup[subfloat]{labelformat=parens}
-To refine the grid in a specific (regular cube-shaped) cell, we cut it with the three plains normal to the three axis and passing through the centre of the cell. The result is eight regular sub-cells with halved edge length.\\
-In figure \ref{fig:octant_refinement} the refinement procedure of cell 0 is displayed. At the end of the process new vertices appear, but not all of them correspond to new degrees of freedom: indeed vertices that are internal to the domain and are not the vertices of all adjacent cells are called hanging nodes and do not introduce degrees of freedom. For simplicity consider the refinement of a singular cell \(\mathcal{K}\) internal to the mesh (no edge on borders). We describe now the procedure to obtain the new function space by building the new set of basis functions. Let \(\tau_h\) be the original uniform domain discretization and \(\overline{\tau}_h\) the discretization obtained by uniformly refining \(\tau_h\). By refining the cell \(\mathcal{K}\) we obtain only one new degree of freedom in its centre. We associate it to the same base function it would have in the uniform refinement of the whole mesh \(\overline{\tau}_h\), say \(\overline{\varphi}_8\in Q_h^1(\overline{\tau_h})\). At the same time we replace the basis functions \(\varphi_i \in Q_h^1(\tau_h,\ i=0,...,7\), associated to the vertices of \(\mathcal{K}\), with \(\tilde{\varphi}_i=\varphi_i-\frac{1}{8}\overline{\varphi}_8\). The new set of basis functions \(\tilde{\varphi}_i\) where \(\tilde{\varphi}_i\) is defined as above for \(i=1,...,7\), \(\tilde{\varphi}_8=\overline{\varphi}_8\) and \(\tilde{\varphi}_i = \varphi_i\ \forall i \notin 1,...,8\) (outside \(\mathcal{K}\) they are left unchanged) identifies a new linear space \(\tilde{Q}_h^1(\tilde{\tau}_h)\). Moreover \(\sum_{i=1}^N\tilde{\varphi}_i=1\) and \(\Tilde{\varphi}_i(x_j)=\delta_{ij}\ \forall x_j\in \tilde{X}\), \(\tilde{X}\) being the set of nodes of \(\tilde{\tau_h}\).
-
+To refine the grid in a specific (regular cube-shaped) cell, we cut it into eight similar cube-shaped cells as shown in figure \ref{fig:octant_refinement} where the refinement procedure of cell 0 is displayed. At the end of the process new vertices appear, but not all of them correspond to new degrees of freedom: vertices that are internal to the domain and are not the vertices of all adjacent cells are called hanging nodes and do not introduce degrees of freedom. For simplicity consider the refinement of a singular cell \(\mathcal{K}\) internal to the mesh (no edge on borders). We describe now the procedure to obtain the new function space by building the new set of basis functions. Let \(\tau_h\) be the original uniform domain discretization and \(\overline{\tau}_h\) the discretization obtained by uniformly refining \(\tau_h\). By refining the cell \(\mathcal{K}\) we obtain only one new degree of freedom in its centre. We associate it to the same base function it would have in the uniform refinement of the whole mesh \(\overline{\tau}_h\), say \(\overline{\varphi}_8\in Q_h^1(\overline{\tau_h})\). At the same time we replace the basis functions \(\varphi_i \in Q_h^1(\tau_h,\ i=0,...,7\), associated to the vertices of \(\mathcal{K}\), with \(\tilde{\varphi}_i=\varphi_i-\frac{1}{8}\overline{\varphi}_8\). The new set of basis functions \(\tilde{\varphi}_i\) where \(\tilde{\varphi}_i\) is defined as above for \(i=1,...,7\), \(\tilde{\varphi}_8=\overline{\varphi}_8\) and \(\tilde{\varphi}_i = \varphi_i\ \forall i \notin 1,...,8\) (outside \(\mathcal{K}\) they are left unchanged) identifies a new linear space \(\tilde{Q}_h^1(\tilde{\tau}_h)\). Moreover \(\sum_{i=1}^N\tilde{\varphi}_i=1\) and \(\Tilde{\varphi}_i(x_j)=\delta_{ij}\ \forall x_j\in \tilde{X}\), \(\tilde{X}\) being the set of nodes of \(\tilde{\tau_h}\).
+\subsection{Galerkin formulation}
+Now that we gave defined an appropriate functional space we can introduce a weak formulation for problem \eqref{eq:finalmodel}. Defining \(Q_h\) the functional space just presented applied to our domain \(\Omega_h\), setting \(p\) the number of polarization processes, we state:\\
+Given \((\rho^n,\ \varphi^n,\ \pi^n_1,\ ...,\ \pi^n_p)\in Q^{2+p}_h\) the solution at time \(t^n\), find \((\rho^{n+1},\ \varphi^{n+1},\ \pi^{n+1}_1,\ ...,\ \pi^{n+1}_p)\in Q^{2+p}_h\) such that:
+\begin{subequations}
+	\begin{alignat}{2}[left=\empheqlbrace]
+		&\int_{\Omega_h}\rho^{n+1}v_1\ \mathrm{d}\Omega_h + \int_{\Omega_h}\left(\Delta t \nabla \varphi^{n+1} \right)\cdot\nabla v_1\ \mathrm{d}\Omega_h &&= \int_{\Omega_h}\rho^n v_1\ \mathrm{d}\Omega_h\\[3mm]
+		%%
+		&\int_{\Omega_h}\left(\epsilon_0\epsilon_\infty\nabla\varphi^{n+1}\right) \cdot \nabla v_2\ \mathrm{d}\Omega_h - \int_{\Omega_h}\rho^{n+1}v_2+\sum_i\int_{\Omega_h}\pi_i^{n+1}v_2\ \mathrm{d}\Omega_h &&=0\\[0mm]
+		%%
+		&\int_{\Omega_h}\left(1+\frac{\Delta t}{\tau_i}\right)\pi_i^{n+1}v_i\ \mathrm{d}\Omega_h - \int_{\Omega_h}\left(\Delta t\epsilon_0\chi_i\nabla\varphi^{n+1}\right) \cdot \nabla v_i\ \mathrm{d}\Omega_h &&= \int_{\Omega_h}\pi_i^n v_i\ \mathrm{d}\Omega_h\\[3mm]
+		%%
+		&\varphi^{n+1}=V_k(t^{n+1})\ \mathrm{on}\ \Gamma_{c_k} \forall\ k
+	\end{alignat}
+\end{subequations}
+for all test functions \((v_1,...,v_{p+2}) \in Q_h^{2+p}\). Note that no boundary term appears apart from Dirichlet conditions for \(\varphi^{n+1}\). Charges accumulating on the domain border will be approximated by charge volumetric densities next to it, while Dirichlet b.c. for \(\varphi\) are enforced directly in the matrix and in the r.h.s..
 \section{Code}
 The code developed in this work is available at \url{https://github.com/lucaedomosconi/HVDC}. It implements model \eqref{eq:finalmodel} and is based, among the others, on the following third party libraries:
 \begin{itemize}
@@ -445,10 +487,12 @@ The application outputs the spatial distribution of variables every fixed time s
 \end{itemize}
 
 \subsection{Code structure}
-The main code is located in \texttt{HVDC\_main.cpp}. Plugin source files are found in a dedicated folder. Here follows a prospect of the code organization:\\
-\vspace{0.5cm}
-\begin{minipage}{10cm}
-	\vspace{0.5cm}
+The main code is located in \texttt{HVDC\_main.cpp}. Plugin source files are found in a dedicated folder. Here we report the code structure and the file dependency tree.
+\begin{figure}[h]
+\begin{minipage}{5cm}
+	\caption*{Code Structure}
+\end{minipage}\\
+\begin{minipage}[t]{7cm}
 	\small
 	\begin{verbatim}
 		HVDC/
@@ -475,8 +519,13 @@ The main code is located in \texttt{HVDC\_main.cpp}. Plugin source files are fou
 		|  |-HVDC_main.cpp
 		|  |-MakeFile
 	\end{verbatim}
+\end{minipage}
+\end{figure}
+\begin{figure}[h]
+\begin{minipage}{\textwidth}
+	\caption*{File dependency tree}
 \end{minipage}\\
-The file dependency tree follows:\\
+\begin{minipage}{\textwidth}
 \begin{tikzpicture}
 	\node (s1) at (0,2) {include/*.h};
 	\node[draw,rectangle] (s2) at (0,0) {HVDC\_main.cpp};
@@ -507,7 +556,9 @@ The file dependency tree follows:\\
 	(13,2.5) edge[-] (4,2.5)
 	(4,2.5) edge[->] (s3)
 	;
-\end{tikzpicture}\\
+\end{tikzpicture}
+\end{minipage}
+\end{figure}
 
 \subsection{Parameter file}
 Parameters of a simulation are set in the parameter file. A parameter file may contain different tests to execute in sequence. Each test is a json object subdivided into three sections: physics, algorithm and output.\\
@@ -523,36 +574,36 @@ Parameters of a simulation are set in the parameter file. A parameter file may c
 	\end{verbatim}
 	\vspace*{0mm}
 \end{minipage}\\
-Note that we have to specify a plugin and a test template inside it to 
+Note that we have to specify a plugin, a test template inside it and a compatible list of parameters.\\
 \begin{minipage}{\textwidth}
 	\vspace{3mm}
 	\small
 	\begin{verbatim}
 		algorithm
-		possibly some parameters for the mesh generation like  {
-			num_refinements -> used to generate a uniform mesh
-			maxlevel -> max local level of refinement for a mesh
-		}
-		T -> Full time: the application will simulate the evolution of the problem
-		from time = 0 to time = T
-		biggest_time_step -> fixed time step magnitude; how often the application outputs the
-		solution
-		initial_dt_for_adaptive_time_step -> magnitude of first time step in the Adative Time
-		Step Algorithm
-		tol_of_adaptive_time_step -> tol of relative error of conduction current
-		voltage_plugin -> name of the plugin containing the voltage function
-		voltage_name -> name of the function V(t)
-		voltage_plugins_params : {} -> contains parameters of the voltage function
-		start_from_solution -> if true the application will resume a previous simulation from a
-		temporary solution
-		save_temp_solution -> if true the application will save the current solution and allow
-		the user to resume the simulation later
-		temp_sol : {} -> contains: {
-			file_of_starting_solution -> (if start_from_solution = true) file name
-			of the solution to resume the simulations
-			save_every_n_steps -> tells how frequently should the application save the
-			temporary solution
-		}
+		    possibly some parameters for the mesh generation like  {
+		        num_refinements -> used to generate a uniform mesh
+			    maxlevel -> max local level of refinement for a mesh
+		    }
+		    T -> Full time: the application will simulate the evolution of the problem from time = 0
+		         to time = T
+		    biggest_time_step -> fixed time step magnitude; how often the application outputs the
+		                         solution
+		    initial_dt_for_adaptive_time_step -> magnitude of first time step in the Adative Time
+		                                         Step Algorithm
+		    tol_of_adaptive_time_step -> tol of relative error of conduction current
+		    voltage_plugin -> name of the plugin containing the voltage function
+		    voltage_name -> name of the function V(t)
+		    voltage_plugins_params : {} -> contains parameters of the voltage function
+		    start_from_solution -> if true the application will resume a previous simulation from a
+		                           temporary solution
+		    save_temp_solution -> if true the application will save the current solution and allow
+		    the user to resume the simulation later
+		    temp_sol : {} -> contains: {
+		        file_of_starting_solution -> (if start_from_solution = true) file name of the
+		                                     solution to resume the simulations
+		        save_every_n_steps -> tells how frequently should the application save the
+		                              temporary solution
+		    }
 	\end{verbatim}
 \end{minipage}\\
 \begin{minipage}{\textwidth}
@@ -560,16 +611,78 @@ Note that we have to specify a plugin and a test template inside it to
 	\small
 	\begin{verbatim}
 		output
-		save_sol -> if true, the application saves the solution to be exported with octave
-		compute_charges_on_border -> if true, the application outputs in a file the different
-		charges on the contact (1)
-		save_cond_currents -> if true, enables the computation of conduction currents
-		save_error_and_comp_time -> if true, tracks error of the adaptive time step and
-		computational times
+		    save_sol -> if true, the application saves the solution to be exported with octave
+		    compute_charges_on_border -> if true, the application outputs in a file the different
+		    charges on the contact (1)
+		    save_cond_currents -> if true, enables the computation of conduction currents
+		    save_error_and_comp_time -> if true, tracks error of the adaptive time step and
+		                                computational times
 	\end{verbatim}
 \end{minipage}\\
 
-\subsection{Main function}
+\subsection{Time stepping}\label{sec:timecycle}
+As exposed in section \ref{sec:time-discr} we aim at saving a solution every fixed time step \(\Delta t\). At the same time we use ad adaptive time-stepping approach inside the regular time step, that is, to advance from \(t^n\) to \(t^n+\Delta t\). This introduced some technicalities to care of, namely how to choose the time step magnitude to start a new "macro" time step. Choosing a very small value is obviously an expensive option. In this implementation, experience from the last resolved macro time step is used to prompt a starting \(dt\) for the next one. In Algorithm \ref{alg:adaptive-time-step} the complete time cycle run in the execution of the program is reported.
+
+\begin{algorithm}
+	\caption{Time cycle}
+	\label{alg:adaptive-time-step}
+	\begin{algorithmic}[1]
+		\STATE T $\leftarrow$ full time;
+		 $\Delta t\ \leftarrow$ fixed time step;
+		 $dt\ \leftarrow$ small initial time step;
+		 tol $\leftarrow$ tolerance;
+		\STATE $t_{is}\ \leftarrow\ 0$;
+		 $dt_{start}\ \leftarrow\ dt$;
+		 truncate $\leftarrow$ false;
+		 exit\_loop $\leftarrow$ false;
+		 sol $\leftarrow$ last compute solution;
+		\STATE \COMMENT{global regular time stepping}
+		\WHILE{Time $<$ T}
+			\STATE{exit\_loop  $\leftarrow$ false;}
+			\STATE{truncate $\leftarrow$ false;}
+			\STATE{$dt\ \leftarrow\ dt_{start}$;}
+			\STATE{$t_{is}\ \leftarrow\ 0$;}
+			\STATE \COMMENT{adaptive time-stepping}
+			\WHILE{exit\_loop = false}
+				\STATE{sol1 $\leftarrow$ time\_advance(sol, $dt$)};
+				\STATE{sol2 $\leftarrow$ time\_advance(time\_advance(sol, $dt/2$), $dt/2$);}
+				\STATE{error $\leftarrow$ compute\_error(sol1,sol2);}
+				\IF{error < tol \OR $dt<dt_{min}$}
+					\STATE{$t_{is}\ \leftarrow\ t_{is}+dt$;}
+					\STATE{sol $\leftarrow$ sol2;}
+					\IF{$t_{is}>\Delta t$}
+						\STATE{Time = Time $+dt$;}
+						\PRINT sol;
+						\STATE{exit\_loop $\leftarrow$ true;}
+					\ENDIF
+					\STATE{$dt\ \leftarrow$ max($dt_{min}$, $0.9\,(\mathrm{error/tol})^{-1/2}$)}
+					\IF{truncate = false}
+						\STATE{$dt_{start}\ \leftarrow\ 0$}
+					\ENDIF
+					\STATE{$dt_{start}\ \leftarrow$ min($\Delta t$, max($dt_{start}$, $dt$))}
+					\IF{$dt > \Delta t - t_{is}$}
+						\STATE{$dt=\Delta t - t_{is}$}
+						\STATE{truncate = true}
+					\ENDIF
+				\ELSE
+					\STATE{$dt\ \leftarrow\ dt/2$}
+					\STATE{$dt_{start}\ \leftarrow\ 0$}
+				\ENDIF
+			\ENDWHILE
+		\ENDWHILE
+	\end{algorithmic}
+\end{algorithm} 
+
+\subsection{Plugins}
+As already mentioned plugins were used to contain the test specific functions and the evolution in time of voltage applied at one of the contacts. The source files are located in the \texttt{plugins} directory. 
+\begin{itemize}
+	\item \texttt{generic\_test.h} and \texttt{generic\_voltage.h} define the classes \texttt{generic\_test} and \texttt{generic\_voltage} respectively, with a set of virtual functions. The two files are included both in \texttt{HVDC\_main.cpp} and in plugins headers \texttt{tests.h} and \texttt{voltages.h}. They basically work as interface for the main program to call actual test functions defined elsewhere.
+	\item \texttt{tests.h} and \texttt{voltages.h} contain a set of test and voltage classes inheriting from \texttt{generic\_test} and \texttt{generic\_voltage}. Object of these classes can be built by a factory and used in the main.
+	\item \texttt{generic\_factory.h} and \texttt{generic\_factory.cpp} implement an abstract factory with the single-tone technique.
+	\item Finally, to let the plugin mechanism work, when the dynamic libraries are loaded, \texttt{tests.cpp} and \texttt{voltages.cpp} guarantee auto-loading of the chosen test and voltage constructors in the factory. 
+\end{itemize}
+\section{Currents computation}
+
 %-----------------------------------------------------------------------------
 % EQUATIONS
 %-----------------------------------------------------------------------------
