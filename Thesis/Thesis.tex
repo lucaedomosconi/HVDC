@@ -96,7 +96,7 @@
 
 % Insert here the info that will be displayed into your Title page 
 % -> title of your work
-\renewcommand{\title}{Title}
+\renewcommand{\title}{Modelling of non homogeneous insulating materials in transient regime}
 % -> author name and surname
 \renewcommand{\author}{Luca Edoardo Mosconi}
 % -> MSc course
@@ -111,27 +111,10 @@
 % -> academic year
 \newcommand{\YEAR}{2022-2023}
 % -> abstract (only in English)
-\renewcommand{\abstract}{Here goes the Abstract in English of your thesis (in article format)
-followed by a list of keywords.
-The Abstract is a concise summary of the content of the thesis (single page of text)
-and a guide to the most important contributions included in your thesis.
-The Abstract is the very last thing you write.
-It should be a self-contained text and should be clear
-to someone who hasn't (yet) read the whole manuscript.
-The Abstract should contain the answers to the main research questions
-that have been addressed in your thesis.
-It needs to summarize the motivations and the adopted approach as well as
-the findings of your work and their relevance and impact.
-The Abstract is the part appearing in the record of your thesis inside POLITesi,
-the Digital Archive of PhD and Master Theses (Laurea Magistrale) of Politecnico di Milano.
-The Abstract will be followed by a list of four to six keywords.
-Keywords are a tool to help indexers and search engines to find relevant documents.
-To be relevant and effective, keywords must be chosen carefully.
-They should represent the content of your work and be specific to your field or sub-field.
-Keywords may be a single word or two to four words. }
+\renewcommand{\abstract}{This work aims to contribute to the study and optimization of insulating materials for high voltage direct current (HVDC) cables. We first report a quite general model, suitable for the main solutions now available. Then we focus on the insulation based on mass-impregnated paper. High voltage adopted on HVDC lines puts much stress on these materials, especially during transient phases, when the power flow in the line is swiched on and off, or inverted, rising up reliability and durability concerns. We present a tool to simulate such critical phases, able to provide a spatial representation of charges distribution and electric field, for any given geometry. The embedded model considers also slow polarization dynamics, which plays a crucial role in transients. a This is achieved with a finite element approach, implemented on non-conforming, octree structured, cartesian grids, combined with an adaptive time stepping algorithm. This is an innovative approach in the research panorama as most discretizations are based on finite difference methods, or simply neglect geometrical peculiarities of the insulation systems such as the butt gaps. This tool also allows to compute conduction and displacement currents inside the material. We finally present some tests and possible applications of this tool, coparing the results with other models from litterature.}
 
 % -> key-words (only in English)
-\newcommand{\keywords}{here, the keywords, of your thesis}
+\newcommand{\keywords}{HVDC cables, mass impregnated paper, transient, polarization, finite elements, octree mesh}
 
 %-------------------------------------------------------------------------
 %	BEGIN OF YOUR DOCUMENT
@@ -154,13 +137,32 @@ Keywords may be a single word or two to four words. }
 %-----------------------------------------------------------------------------
 \section{Introduction}
 \label{sec:introduction}
-High Voltage Direct Current (HVDC) cables represent a leading technology for power transmission on very long distances. Currently, these cables connect different countries and islands through a network of submarine lines over hundreds kilometers long. At these lengths, alternate current cables suffer significant energy losses due to capacitive currents. Despite the high costs to convert form direct to alternate current and vice-versa at the terminals of HVDC cables, the latter are economically convenient already at 50 Km, in the case of submarine lines. There are also examples of HVDC overhead lines though they are less common.\\
+High Voltage Direct Current (HVDC) cables represent a leading technology for power transmission on very long distances. Currently, these cables connect different countries and islands through a network of submarine lines over hundreds kilometers long. At these lengths, alternate current cables suffer significant energy losses due to capacitive currents. Despite the high costs to convert form direct to alternate current and vice-versa at the terminals of HVDC cables, the latter are economically convenient already at 50 Km, in the case of submarine lines (see figure \ref{fig:hvdc-hvac}). There are also examples of HVDC overhead lines though they are less common.\\
 The typical HVDC cable structure involves a core of conductive material like copper, with a typical cross-section of about 15 cm\textsuperscript{2}. The latter is encompassed by a thick layer of insulating material. The next layer consists of lead sheath, acting as a water barrier and a grounding for the electrical potential. The outer layers have mostly mechanical and anti-corrosion purposes. A typical overall diameter is about 12 cm.\\
-Given the tendency towards very high voltages is the insulator represents a main concern when designing a HVDC cable. Different materials were considered in the past and today there is ongoing research in this field.
+Given vary high voltages imposed in these cables, the insulator represents a main concern when designing a HVDC cable. Different materials were considered in the past and today there is ongoing research in this field.
 \subsection{Mass-Impregnated Cables}
 The most consolidated and common insulation system for HVDC cables is referred to as mass-impregnated paper. It is obtained wrapping helically around the core hundreds of layers of pre-dried electrotechnical paper. The tape is usually about 2 cm wide, and on each layer, the helicoidal pitch of the tape is approximately 1 mm larger than the tape width, so that small gaps, called \textit{butt gaps}, appear. This is meant to avoid paper jamming when the cable bends. Moreover, adjacent tape layers are staggered so that butt gaps cannot be stacked.\\
 The wrapped paper is then impregnated with a high-viscosity compound based on mineral oil and known as \textit{mass}. Here this compound will be called simply \textit{oil}. The internal structure of dried paper presents irregular fibers leaving room for a network of void channels that are filled with oil through an appropriate procedure. Butt gaps are also filled with oil. Finally, thanks to the roughness of the tape surface, little gaps are generated between adjacent paper layers. In the impregnation procedure also these gaps are filled with oil.\\
-This insulation system has proven to be quite durable and effective. Also, whenever the line route involves different depth levels the high viscosity of the mass avoids drainage of fluid towards the lower levels \cite{ancient_and_modern_cables}. Nonetheless there are some drawbacks: for example, cavitation phenomena may arise for the oil at low temperature, reducing the breakdown strength of the insulator. Cavitation is mainly due to the high temperature of paper and oil during the impregnation procedure and their different thermal expansion coefficients. Insulation with low viscosity oil represents an alternative that avoids cavitation, but suffer drainage and fluid leakage, and also require apposite pumping units onshore to pressurize the fluid \cite{hakonseththesis}.\\
+This insulation system has proven to be quite durable and effective. Also, whenever the line route involves different depth levels the high viscosity of the mass avoids drainage of fluid towards the lower levels \cite{ancient_and_modern_cables}. Nonetheless there are some drawbacks: for example, cavitation phenomena may arise for the oil at low temperature, reducing the breakdown strength of the insulator. Cavitation is mainly due to the high temperature of paper and oil during the impregnation procedure and their different thermal expansion coefficients. Insulation with low viscosity oil represents an alternative that avoids cavitation, but suffer drainage and fluid leakage, and also requires apposite pumping units onshore to pressurize the fluid \cite{hakonseththesis}, limiting maximum distance that can be covered by these lines to 50 Km.\\
+\begin{comment}\begin{figure}
+		\centering
+		\includegraphics[width=0.7\textwidth]{pictures/hvdcVShvac.png}
+		\label{fig:hvdc-hvac}
+		\caption{Comparison of power losses in alternate and direct current cables. Courtesy of L. Våbenø \& O. T. Gudmestad, Int. J. of Energy Prod. \& Mgmt. \cite{design-install-hvdc}}
+	\end{figure}
+\end{comment}
+\begin{figure}
+	\centering
+	\begin{tikzpicture}
+		\node[anchor=south west,inner sep=0] (image) at (0,0,0) {\includegraphics[width=0.7\textwidth]{pictures/hvdcVShvacp.png}};
+		\begin{scope}[x={(image.south east)},y={(image.north west)}]
+			\node (longdir) at (0.9,-0.02) {\footnotesize Cable length (Km)};
+			\node (longdir) at (0.1,1.03) {\footnotesize Power losses (\%)};
+		\end{scope}
+	\end{tikzpicture}
+	\caption{Comparison of (percentage) power losses in alternate and direct current cables. Data from \cite{design-install-hvdc}}
+	\label{fig:hvdc-hvac}
+\end{figure}
 \begin{figure}
 \begin{tikzpicture}
 	\node[anchor=south west,inner sep=0] (image) at (0,0,0) {\includegraphics[width=0.7\textwidth]{pictures/MI_paper.png}};
@@ -179,10 +181,10 @@ This insulation system has proven to be quite durable and effective. Also, whene
 		\draw[thick,->] (buttgap) -- (0.7,0.75);
 		\draw[thick,->] (channel) -- (0.797,0.435);
 		\draw[thick,->] (intersheetgap) -- (0.92,0.16667);
-		\draw[thick,->] (0.4,-0.5) -- (0.9,-0.5);
-		\draw[thick,->] (0.4,-0.5) -- (0.4,-0.2);
-		\node (longdir) at (1.1,-0.5) {Cable longitudinal direction};
-		\node (longdir) at (0.565,-0.25) {Cable radial direction};
+		\draw[thick,->] (0.4,-0.8) -- (0.9,-0.8);
+		\draw[thick,->] (0.4,-0.8) -- (0.4,-0.5);
+		\node (longdir) at (1.12,-0.8) {Cable longitudinal direction};
+		\node (longdir) at (0.45,-0.4) {Cable radial direction};
 	\end{scope}
 \end{tikzpicture}
 \caption{MI paper insulation structure, with approximate dimensions}
@@ -279,7 +281,7 @@ with similar substitutions as in the previous case we obtain the following model
 		\right) + \pi_{k} &&= 0
 	\end{alignat}
 \end{subequations}
-Note that we renamed \(\varepsilon_r\) to \(\varepsilon_\infty\), since permittivity now depends on the frequency.
+Note that we renamed \(\varepsilon_r\) to \(\varepsilon_\infty\), since relative permittivity now depends on the frequency. 
 \subsection{Conductivity}
 In general, conductivity depends on electric field intensity and temperature. An appropriate model follows:
 \begin{equation}\label{eq:conductivitymodel}
@@ -452,12 +454,12 @@ At this point a lagrangian basis for the space can be obtained in the same way a
 	\label{fig:octant_refinement}
 \end{figure}\captionsetup[subfloat]{labelformat=parens}
 To refine the grid in a specific (regular cube-shaped) cell, we cut it into eight similar cube-shaped cells as shown in figure \ref{fig:octant_refinement} where the refinement procedure of cell 0 is displayed. At the end of the process new vertices appear, but not all of them correspond to new degrees of freedom: vertices that are internal to the domain and are not the vertices of all adjacent cells are called hanging nodes and do not introduce degrees of freedom. For simplicity consider the refinement of a singular cell \(\mathcal{K}\) internal to the mesh (no edge on borders). We describe now the procedure to obtain the new function space by building the new set of basis functions. Let \(\tau_h\) be the original uniform domain discretization and \(\overline{\tau}_h\) the discretization obtained by uniformly refining \(\tau_h\). By refining the cell \(\mathcal{K}\) we obtain only one new degree of freedom in its centre. We associate it to the same base function it would have in the uniform refinement of the whole mesh \(\overline{\tau}_h\), say \(\overline{\varphi}_8\in Q_h^1(\overline{\tau_h})\). At the same time we replace the basis functions \(\varphi_i \in Q_h^1(\tau_h,\ i=0,...,7\), associated to the vertices of \(\mathcal{K}\), with \(\tilde{\varphi}_i=\varphi_i-\frac{1}{8}\overline{\varphi}_8\). The new set of basis functions \(\tilde{\varphi}_i\) where \(\tilde{\varphi}_i\) is defined as above for \(i=1,...,7\), \(\tilde{\varphi}_8=\overline{\varphi}_8\) and \(\tilde{\varphi}_i = \varphi_i\ \forall i \notin 1,...,8\) (outside \(\mathcal{K}\) they are left unchanged) identifies a new linear space \(\tilde{Q}_h^1(\tilde{\tau}_h)\). Moreover \(\sum_{i=1}^N\tilde{\varphi}_i=1\) and \(\Tilde{\varphi}_i(x_j)=\delta_{ij}\ \forall x_j\in \tilde{X}\), \(\tilde{X}\) being the set of nodes of \(\tilde{\tau_h}\).
-\subsection{Galerkin formulation}
+\subsection{Discrete weak formulation}
 Now that we gave defined an appropriate functional space we can introduce a weak formulation for problem \eqref{eq:finalmodel}. Defining \(Q_h\) the functional space just presented applied to our domain \(\Omega_h\), setting \(p\) the number of polarization processes, we state:\\
 Given \((\rho^n,\ \varphi^n,\ \pi^n_1,\ ...,\ \pi^n_p)\in Q^{2+p}_h\) the solution at time \(t^n\), find \((\rho^{n+1},\ \varphi^{n+1},\ \pi^{n+1}_1,\ ...,\ \pi^{n+1}_p)\in Q^{2+p}_h\) such that:
-\begin{subequations}
+\begin{subequations}\label{eq:Gal-form}
 	\begin{alignat}{2}[left=\empheqlbrace]
-		&\int_{\Omega_h}\rho^{n+1}v_1\ \mathrm{d}\Omega_h + \int_{\Omega_h}\left(\Delta t \nabla \varphi^{n+1} \right)\cdot\nabla v_1\ \mathrm{d}\Omega_h &&= \int_{\Omega_h}\rho^n v_1\ \mathrm{d}\Omega_h\\[3mm]
+		&\int_{\Omega_h}\rho^{n+1}v_1\ \mathrm{d}\Omega_h + \int_{\Omega_h}\left(\Delta t \sigma \nabla \varphi^{n+1} \right)\cdot\nabla v_1\ \mathrm{d}\Omega_h &&= \int_{\Omega_h}\rho^n v_1\ \mathrm{d}\Omega_h\\[3mm]
 		%%
 		&\int_{\Omega_h}\left(\epsilon_0\epsilon_\infty\nabla\varphi^{n+1}\right) \cdot \nabla v_2\ \mathrm{d}\Omega_h - \int_{\Omega_h}\rho^{n+1}v_2+\sum_i\int_{\Omega_h}\pi_i^{n+1}v_2\ \mathrm{d}\Omega_h &&=0\\[0mm]
 		%%
@@ -682,14 +684,43 @@ As already mentioned plugins were used to contain the test specific functions an
 	\item Finally, to let the plugin mechanism work, when the dynamic libraries are loaded, \texttt{tests.cpp} and \texttt{voltages.cpp} guarantee auto-loading of the chosen test and voltage constructors in the factory. 
 \end{itemize}
 \section{Currents computation}
-In the proposed model we can differentiate currents into:
+Just as with any dielectric material, we can distinguish between conduction current and displacement current:
 \begin{itemize}
-	\item \textit{Conduction current}: or drift current, generated by free charges moved by the electric field. It can be determined through the gradient of the electric potential \(\varphi\) and the conductivity \(\sigma\).
-	\item \textit{Displacement current}: generated my the polarization of the dielectric resulting in the gathering of polarization charges at the interface with conductors. Since we consider also non-instantaneous response of the material, we have to distinguish between polarization charges resulting form the instantaneous polarization, and those resulting from slow polarization processes
-	\begin{itemize}
-		\item \textit{Instantaneous polarization}: 
-	\end{itemize}
+	\item \textit{Conduction current} or drift current, is generated by free charges moved by the electric field. It can be determined through the gradient of the electric potential \(\varphi\) and the conductivity \(\sigma\).
+	\item \textit{Displacement current}: generated by the free charges accumulating at interface with the conductors.
 \end{itemize}
+
+\begin{figure}
+	\centering
+	\begin{tikzpicture}
+		\node[anchor=south west,inner sep=0] (image) at (0,0,0) {\includegraphics[width=0.4\textwidth]{pictures/circuit_dielectric.png}};
+		\begin{scope}[x={(image.south east)},y={(image.north west)}]
+			\node (total current) at (1.04,0.5) {{\large \(i_{tot}\)}};
+		\end{scope}
+	\end{tikzpicture}
+	\caption{Simple circuit with dielectric material used as a medium in a capacitor.}
+	\label{fig:circuit}
+\end{figure}
+
+Consider a the ideal circuit in figure \ref{fig:circuit}, where the a dielectric material is used as a medium in the capacitor. Ampère-Maxwell law guarantees that the current in the circuit \(i_{tot}\) is equivalent to the sum of conduction and displacement currents through the dielectric.
+\subsection{Conduction current}
+To compute conduction current entering in the dielectric from an electrode, we estimate the voltage gradient at its interface, say \(\Gamma_{c}\). In particular:
+\begin{equation}\label{eq:cond-current1}
+	I_c = \int_{\Gamma_{c}} \sigma \nabla \varphi \cdot \mathbf{n} \mathrm{d}\gamma
+\end{equation}
+We could, at this point, numerically integrate the expression in \eqref{eq:cond-current1}, estimating \(\nabla\varphi\) near the interface. However, it is also possible to turn \eqref{eq:cond-current1} into a volume integral and use the already available system matrix to compute it with a simple matrix-vector product. This is related with the core idea of Nanz method \cite{Nanz}.\\
+Basically, given a test function \(u\), we have:
+\begin{equation}\label{eq:cond-current2}
+	\int_{\Gamma_{c}} \sigma \nabla \varphi \cdot \mathbf{n}\, u\, \mathrm{d}\gamma =
+	\int_{\Omega} \sigma \nabla \varphi \cdot \nabla u\,\mathrm{d}\Omega +
+	\int_{\Omega} \nabla \cdot \left( \sigma \nabla \varphi \right)\,u\,\mathrm{d}\Omega
+\end{equation}
+In a discrete contest we choose \(u = \sum_i \phi_i\) where \(\phi_i\) are the basis functions associated to the nodes on the electrode interface \(\Gamma_c\), so that the l.h.s. of \eqref{eq:cond-current2} is equivalent to \eqref{eq:cond-current1}. Noreover, with this choice of \(u\) volumetric integrals in \eqref{eq:cond-current2} are actually restricted to a thin strip near the electrode. If \(\varphi\) is regular enough and \(\sigma\) is constant in that strip, the second term in the r.h.s. of \eqref{eq:cond-current2} can be neglected. The first one, on the other hand, is associated to a stiffness matrix we can easily assemble. Once we know the solution for \(\varphi\), \(I_c\) can be computed with a simple matrix-vector product.
+\subsection{Displacement current}
+Displacement current can be deduced quantifying the variation of free charge on the interfaces of the conductors. This is also achieved through a matrix-vector product (this time with a mass matrix).
+
+\section{Results}
+For most of our tests we considered a cubic shaped domain with 1 mm edge. On the upper and lower sides a voltage (Dirichlet boundary conditions for \(\varphi\)) is imposed. On the upper the voltage is time dependent, while on the lower side it is fixed to 0.
 %-----------------------------------------------------------------------------
 % EQUATIONS
 %-----------------------------------------------------------------------------
