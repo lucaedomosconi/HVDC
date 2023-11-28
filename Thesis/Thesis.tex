@@ -131,7 +131,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%     THESIS MAIN TEXT     %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+\tableofcontents
 %-----------------------------------------------------------------------------
 % INTRODUCTION
 %-----------------------------------------------------------------------------
@@ -473,7 +473,7 @@ for all test functions \((v_1,...,v_{p+2}) \in Q_h^{2+p}\). Note that no boundar
 The code developed in this work is available at \url{https://github.com/lucaedomosconi/HVDC}. It implements model \eqref{eq:finalmodel} and is based, among the others, on the following third party libraries:
 \begin{itemize}
 	\item \textbf{bim++}: available at \url{https://github.com/carlodefalco/bimpp}, provides the utilities to generate and handle octree structured non-conforming cartesian meshes. All of its data structures and functions are optimized for parallel computing with MPI.
-	\item \textbf{mumps}: see \url{https://mumps-solver.org/index.php}, provides a direct linear solver for sparse matrices, optimized for parallel running with MPI.
+	\item \textbf{mumps}: provides a direct linear solver for sparse matrices, optimized for parallel running with MPI (see \url{https://mumps-solver.org/index.php}).
 	\item \textbf{octave}: needed to export solutions to be post-processed with \textbf{Paraview}.
 \end{itemize}
 The application outputs the spatial distribution of variables every fixed time step in gz files that need to be post-processed in octave and visualized in Paraview. Moreover it provides some useful features handled through the parameter file:
@@ -720,11 +720,56 @@ In a discrete contest we choose \(u = \sum_i \phi_i\) where \(\phi_i\) are the b
 Displacement current can be deduced quantifying the variation of free charge on the interfaces of the conductors. This is also achieved through a matrix-vector product (this time with a mass matrix).
 
 \section{Results}
-For most of our tests we considered a cubic shaped domain with 1 mm edge. On the upper and lower sides a voltage (Dirichlet boundary conditions for \(\varphi\)) is imposed. On the upper the voltage is time dependent, while on the lower side it is fixed to 0.
+For most of our tests we considered a cubic shaped domain with 1 mm edge. On the upper and lower sides a voltage (Dirichlet boundary conditions for \(\varphi\)) is imposed. On the upper the voltage is time dependent, while on the lower side it is fixed to 0. A charging transient is first simulated. Then, once the variables stabilize, we simulate a discharging transient.
+\subsection{Test 1: Homogeneous material 1}
+\begin{figure}
+	\centering
+	\begin{minipage}{0.5\textwidth}
+		\includegraphics[width=\textwidth]{pictures/uniform-grid.png}
+	\end{minipage}
+	\begin{minipage}[t]{0.4\textwidth}
+		\caption{Uniform grid}
+		\label{fig:unif-grid}
+	\end{minipage}
+	\label{fig:geom-homog}
+\end{figure}
+\begin{figure}
+	\subfloat[]{
+		\includegraphics[width=0.54\textwidth]{pictures/test1_charges_on_c1.png}
+	}
+	\subfloat[]{
+		\includegraphics[width=0.44\textwidth]{pictures/test1_max_rho_profile.png}
+	}\\
+	\subfloat[]{
+	\includegraphics[width=0.54\textwidth]{pictures/codeVSocchini.png}
+	}
+	\subfloat[]{
+	\includegraphics[width=0.44\textwidth]{pictures/test1_max_phi_profile.png}
+	}
+	\caption{Refinement procedure of a cell. On the left the uniform grid, on the right the grid refined in the cell 0.}
+	\label{fig:octant_refinement}
+	
+\end{figure}
+\subsection{Test 2: Homogeneous material 2}
+\begin{figure}
+	\subfloat[]{
+		\includegraphics[width=0.5\textwidth]{pictures/homog1-pol-charges-on-z.png}
+	}
+	\subfloat[]{
+		\includegraphics[width=0.5\textwidth]{pictures/homog2-pol-charges-on-z.png}
+	}
+	\caption{Refinement procedure of a cell. On the left the uniform grid, on the right the grid refined in the cell 0.}
+	\label{fig:octant_refinement}
+	
+\end{figure}
+\subsection{Test 3: Bi-phase material}
+\subsection{Test 4: Homogeneous material with hole}
+\subsection{Test 5: Butt gap}
+
 %-----------------------------------------------------------------------------
 % EQUATIONS
 %-----------------------------------------------------------------------------
-\section{Equations}
+\begin{comment}\section{Equations}
 \label{sec:eqs}
 This section gives some examples of writing mathematical equations in your thesis.
 
@@ -938,12 +983,12 @@ This is indeed a database containing all the information about the references. T
 \textit{Here is how you cite bibliography entries: \cite{knuth74}, or multiple ones at once: \cite{knuth92,lamport94}}.
 \\
 The bibliography and list of references are generated automatically by running BibTeX \cite{bibtex}.
-
+\end{comment}
 %-----------------------------------------------------------------------------
 % BIBLIOGRAPHY
 %-----------------------------------------------------------------------------
 \bibliography{bibliography.bib}
-
+\begin{comment}
 \appendix
 \section{Appendix A}
 If you need to include an appendix to support the research in your thesis, you can place it at the end of the manuscript.
@@ -952,7 +997,7 @@ which supplement the main results contained in the previous sections.
 
 \section{Appendix B}
 It may be necessary to include another appendix to better organize the presentation of supplementary material.
-
+\end{comment}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%     ABSTRACT IN ITALIAN LANGUAGE AND ACKNOWLEDGMENTS     %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
