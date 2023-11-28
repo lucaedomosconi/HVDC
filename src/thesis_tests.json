@@ -249,10 +249,11 @@
 			}
 		},
 		"algorithm" : {
-			"num_refinements" : 4,
-			"maxlevel" : 5,
-			"minlevel" : 3,
+			"num_refinements" : 5,
+			"maxlevel" : 6,
+			"minlevel" : 4,
 			"T" : 30000,
+			"mindt" : 0.005,
 			"biggest_time_step" : 50,
 			"initial_dt_for_adaptive_time_step" : 0.0005,
 			"tol_of_adaptive_time_step" : 0.005,
@@ -262,7 +263,7 @@
 				"T_discharge" : 15000,
 				"tau" : 50.0
 			},
-			"start_from_solution" : true,
+			"start_from_solution" : false,
 			"save_temp_solution" : true,
 			"temp_sol" : {
 				"file_of_starting_sol" : "MI_paper2/butt_gap/temp_sol/300",
