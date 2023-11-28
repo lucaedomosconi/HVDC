@@ -36,7 +36,7 @@
 			"start_from_solution" : false,
 			"save_temp_solution" : true,
 			"temp_sol" : {
-				"file_of_starting_sol" : "output/test1/temp_sol/1000",
+				"file_of_starting_sol" : "results/homog1/temp_sol/110",
 				"save_every_n_steps" : 10
 			}
 		},
@@ -53,9 +53,9 @@
 			"physics_plugin" : "libPhysics.so",
 			"plugin_test_index" : "two_phase_serial",
 			"plugin_params" : {
-				"tau_m1_p1" : 3.57e3,
-				"tau_m2_p1" : 3.57e3,
-				"tau_m1_p2" : 3.57e3,
+				"tau_m1_p1" : 3.57e2,
+				"tau_m2_p1" : 3.57e2,
+				"tau_m1_p2" : 3.57e2,
 				"tau_m2_p2" : 3.57e2,
 				"tau_m1_p3" : 100,
 				"tau_m2_p3" : 100,
@@ -249,9 +249,9 @@
 			}
 		},
 		"algorithm" : {
-			"num_refinements" : 5,
-			"maxlevel" : 6,
-			"minlevel" : 4,
+			"num_refinements" : 4,
+			"maxlevel" : 5,
+			"minlevel" : 3,
 			"T" : 30000,
 			"mindt" : 0.005,
 			"biggest_time_step" : 50,
