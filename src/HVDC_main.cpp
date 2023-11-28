@@ -390,6 +390,8 @@ main (int argc, char **argv) {
   double Time;
   // max DT for adaptive time step, every DT the solution is printed
   double DT;
+  // min value for adaptive time stepping
+  double mindt;
   // starting dt of adaptive time step
   double dt;
   // used to compute total computational time of a interrupted and resumed simulation
@@ -416,7 +418,7 @@ main (int argc, char **argv) {
 
   // If check-params mode is on, when a failure happens in reading parameters the program stops
   // and reports the errpr, otherwise it may skip to the subsequent test
-  try{set_params(data, *test_iter, T, epsilon_0, DT, dt, tol, save_every_n_steps,start_from_solution,
+  try{set_params(data, *test_iter, T, epsilon_0, DT, mindt, dt, tol, save_every_n_steps,start_from_solution,
                  save_temp_solution, save_sol, save_error_and_comp_time, save_charges,
                  save_cond_current, temp_solution_file_name);}
   catch (...) {if(parameters_check) throw; else continue;}

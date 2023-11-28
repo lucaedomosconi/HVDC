@@ -163,6 +163,7 @@ void set_params (json & data,
                  double & T,
                  double & epsilon_0,
                  double & DT,
+                 double & mindt,
                  double & dt,
                  double & tol,
                  int & save_every_n_steps,
@@ -201,6 +202,8 @@ void set_params (json & data,
   catch(...) {std::cerr << "Error: Unable to read ["+test_name+"][algorithm][temp_sol][save_every_n_steps]" << std::endl; throw;}
   try {dt = data[test_name]["algorithm"]["initial_dt_for_adaptive_time_step"];}
   catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][algorithm][initial_dt_for_adaptive_time_step]" << std::endl; throw;}
+  try {mindt = data[test_name]["algorithm"]["mindt"];}
+  catch (...) {mindt = 0;}
   try {tol = data[test_name]["algorithm"]["tol_of_adaptive_time_step"];}
   catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][algorithm][tol_of_adaptive_time_step]" << std::endl; throw;}
   // Set output preferences

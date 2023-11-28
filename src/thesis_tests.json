@@ -2,7 +2,7 @@
 	"output_location" : "results",
 	"test_to_run" : 
 	[
-		"hole"
+		"homog1"
 	],
 	"homog1" : {
 		"physics" : {
@@ -262,7 +262,7 @@
 				"T_discharge" : 15000,
 				"tau" : 50.0
 			},
-			"start_from_solution" : false,
+			"start_from_solution" : true,
 			"save_temp_solution" : true,
 			"temp_sol" : {
 				"file_of_starting_sol" : "MI_paper2/butt_gap/temp_sol/300",

@@ -21,6 +21,7 @@ private:
   distributed_sparse_matrix rho_mass;
 // Boundary nodes
   std::array<std::set<size_t>,6> border_nodes;
+  //std::array<std::set<size_t>,6> border_nodes_adjacent;
   std::array<bool,6> border_built;
 // Problem data
   int ln_nodes, N_vars, ord_phi, ord_rho;
@@ -66,18 +67,24 @@ public:
 
     // Storing nodes on boundary side if not already stored
     if (!border_built[side]) {
-        border_built[side] = true;
-        for (auto quadrant = tmsh.begin_quadrant_sweep ();
-                        quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
-          for (int ii = 0; ii < 8; ii++)
+      border_built[side] = true;
+      for (auto quadrant = tmsh.begin_quadrant_sweep ();
+                      quadrant != tmsh.end_quadrant_sweep (); ++quadrant)
+        for (int ii = 0; ii < 8; ii++)
+//          if (!quadrant->is_hanging(ii)) {
             if (quadrant->e(ii) == side)
               border_nodes[side].insert(quadrant->gt (ii));
+//            if (side == 5 && quadrant->p(2,ii) > 1e-3 *12/15)
+//              border_nodes_adjacent[side].insert(quadrant->gt(ii));
+//          }          
     }
 
     // Summing terms of I_term1 and I_term2 on nodes of boundary "side"
     double ret_value = 0.0;
     for (auto it = border_nodes[side].cbegin(); it != border_nodes[side].cend(); ++it)
       ret_value += I_term1[*it] + I_term2[*it];
+//    for (auto it = border_nodes_adjacent[side].cbegin(); it != border_nodes_adjacent[side].cend(); ++it)
+//      ret_value += I_term2[*it];
     
     // Summing with border parts owned by other ranks
     MPI_Allreduce(MPI_IN_PLACE, &ret_value, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);

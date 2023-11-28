@@ -82,10 +82,10 @@ namespace tests {
         {return tau_p3;}
 
       double tau_p4_fun (double x, double y, double z) const
-        {return 0;}
+        {return 1;}
 
       double tau_p5_fun (double x, double y, double z) const
-        {return 0;}
+        {return 1;}
 
       double sigma_fun (double x, double y, double z, double DT) const
         {return sigma_ * DT;}
@@ -316,7 +316,7 @@ namespace tests {
                 xcoord = q->p(0, ii);
                 zcoord = q->p(2, ii);
 
-                if (fabs(xcoord - 0.0005) < 1e-9 || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9)
+                if (fabs(xcoord - 0.0005) < 1e-9 /*|| fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9*/)
                   {
                     retval = maxlevel - currentlevel;
                     break;
@@ -339,7 +339,7 @@ namespace tests {
                 xcoord = q->p(0, ii);
                 zcoord = q->p(2, ii);
 
-                  if (fabs(xcoord - 0.0005) < 1e-9 || fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9)
+                  if (fabs(xcoord - 0.0005) < 1e-9 /*|| fabs(zcoord) < 1e-9 || fabs(zcoord - 1e-3) < 1e-9*/)
                     {
                       retval = 0;
                       break;
@@ -380,10 +380,10 @@ namespace tests {
         {return tau_p3;}
 
       double tau_p4_fun (double x, double y, double z) const
-        {return 0;}
+        {return 1;}
 
       double tau_p5_fun (double x, double y, double z) const
-        {return 0;}
+        {return 1;}
 
       double sigma_fun (double x, double y, double z, double DT) const
         {return x < 0.0005 ? sigma_1 * DT : sigma_2 * DT;}
