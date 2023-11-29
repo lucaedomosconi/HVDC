@@ -28,6 +28,7 @@
 \usepackage{eso-pic} % For the background picture on the title page
 \usepackage{subfig} % Numbered and caption subfigures using \subfloat
 \usepackage{caption} % Coloured captions
+\usepackage{subcaption}
 \usepackage{transparent}
 \usepackage{tikz}
 \usetikzlibrary{angles}
@@ -197,7 +198,7 @@ HVDC cables routinely undergo voltage changes in different ways when cables are 
 Mathematical models and numerical simulations can be an useful tool to estimate reliability of HVDC cables, in particular during the transient phase.\\
 There are different dynamics to consider when modeling these materials, apart from those described by the usual Maxwell equations for a dielectric. First of all the slow polarization of the material, meaning that response of the dipoles to a variation of the electric field is not instantaneous. Then we have charge trapping phenomena, typical in polymer based materials. Finally, conductivity is in general not a constant, but a function of the electric field and the temperature \cite{time-dep-layered}.\\
 Mathematical models can be classified by their complexity and ability to describe the dynamics previously mentioned. In section \ref{sec:mat-model} we report a fairly comprehensive model. Our main focus, however, will then be a simpler one, suitable for MI paper case, without charge trapping phenomena. In particular, it will be based on Maxwell equations and a Debye relaxation model for slow polarization. The Debye model consists in a superposition of polarization processes at different rates, ruled by ordinary differential equations. Its parameters need to be fitted according to experimental data.\\
-It is interesting to note that, in research, this and other classes of electromagnetic problems have catalyzed the development of the so called \textit{Finite Difference Time Domain} with \textit{Auxiliary Differential Equation} method (ADE-FDTD) \cite{ADE-FDTD-thesis},\cite{ADE-FDTD-art}. The idea, starting from Maxwell equations, is to introduce auxiliary variables and associated differential equations reproducing the slow polarization effect. The solution proposed here is analogous to ADE-FDTD method, but also presents some differences. Here, for the spatial discretization, a finite element approach is adopted which will be presented later. Moreover, while in ADE-FDTD algorithms, the auxiliary variables are polarization vectors associated to a certain frequency (\(\mathbf{P}_k\)), here we use the simple polarization charges (\(\pi_k=\nabla \cdot\mathbf{P}_k\)).\\
+It is interesting to note that, in research, this and other classes of electromagnetic problems have catalyzed the development of the so called \textit{Finite Difference Time Domain} with \textit{Auxiliary Differential Equation} method (ADE-FDTD) \cite{taflove},\cite{ADE-FDTD-thesis},\cite{ADE-FDTD-art}. The idea, starting from Maxwell equations, is to introduce auxiliary variables and associated differential equations reproducing the slow polarization effect. The solution proposed here is analogous to ADE-FDTD method, but also presents some differences. Here, for the spatial discretization, a finite element approach is adopted which will be presented later. Moreover, while in ADE-FDTD algorithms, the auxiliary variables are polarization vectors associated to a certain frequency (\(\mathbf{P}_k\)), here we use the polarization charges (\(\pi_k=\nabla \cdot\mathbf{P}_k\)).\\
 On the other hand alternative approaches have been developed and successfully applied to dielectric materials, like the Occhini circuital model \cite{simulation-transient-HVDC}. This is strictly bound to the Debye model, and is very effective at simulating polarization 1-D problems. However applications are generally 3-D and non-homogeneous, motivating the finite element approach here presented.
 
 
@@ -241,7 +242,7 @@ where \(\chi\) is the electric susceptibility. Now
 	\mathbf{D} = \left( \varepsilon_0+\chi\right)\mathbf{E} = \varepsilon_0\varepsilon_r\mathbf{E}
 	\label{eq:DandE}
 \end{equation}
-where \(\epsilon_r\) is the relative permittivity.\\
+where \(\varepsilon_r\) is the relative permittivity.\\
 By substituting \eqref{eq:DandE} in \eqref{eq:Maxwell1}, using also \eqref{eq:Epotential}
 \begin{equation}\label{eq:LEVEL0a}
 	- \mathrm{div}\ \left( \varepsilon_{0} \varepsilon_{r}\ \nabla \varphi
@@ -269,7 +270,7 @@ Now we need same care to introduce these new equations to model \eqref{eq:LEVEL0
 \begin{equation}
 	\mathbf{D} = \varepsilon_0 \mathbf{E} + \mathbf{P} = \varepsilon_0\varepsilon_\infty \mathbf{E} + \sum_k \mathbf{P}_k
 \end{equation}
-with similar substitutions as in the previous case we obtain the following model which has been implemented in this work.\\
+with similar substitutions as in the previous case we obtain the following model:\\
 \begin{subequations}\label{eq:finalmodel}
 	\begin{alignat}{2}[left=\empheqlbrace]
 		\dfrac{\partial \rho}{\partial t} & - \mathrm{div} \left( \sigma \nabla \varphi\right) &&= 0\\[3mm]
@@ -278,10 +279,11 @@ with similar substitutions as in the previous case we obtain the following model
 		\right) - \rho +  \sum_{k} \pi_{k} &&= 0\\[3mm]
 		%%
 		\tau_k	\dfrac{\partial \pi_{k} }{\partial t} &+ \mathrm{div}\ \left(\varepsilon_{0} \chi_{k}\ \nabla \varphi
-		\right) + \pi_{k} &&= 0
+		\right) + \pi_{k} &&= 0\label{eq:finalmodel3}
 	\end{alignat}
 \end{subequations}
-Note that we renamed \(\varepsilon_r\) to \(\varepsilon_\infty\), since relative permittivity now depends on the frequency. 
+Note that we renamed \(\varepsilon_r\) to \(\varepsilon_\infty\), since relative permittivity now depends on the frequency.\\
+This is the model we consider in the rest of this work. Concerning the number of slow polarization processes \eqref{eq:finalmodel3}, studies in literature, based on experimental results, suggested that 3 polarization processes, appropriately calibrated, are enough to give good approximations of real measurements \cite{simulation-transient-HVDC}.
 \subsection{Conductivity}
 In general, conductivity depends on electric field intensity and temperature. An appropriate model follows:
 \begin{equation}\label{eq:conductivitymodel}
@@ -404,7 +406,8 @@ The only variable appearing under space differential operator is the electric po
 Normally \(\Gamma_D\) is the union of contact surfaces \(\Gamma_k\).
 
 \section{Numerical Discretization}
-We subdivide this section in time semi-discretization and space discretization.
+Traditionally this class of problems including a Debye relaxation mechanism, is addressed with the so called ADE-FDTD method, where finite differences (FD) are applied both at time and domain (TD) dicretization. The auxiliary differential equations (ADE) in the method name are the numerical discrete counterparts of Debye model, and are deduced from \eqref{eq:Polprocess}, so, at a vectorial lavel \cite{taflove}. In our starting model \eqref{eq:finalmodel}, however we consider \(\pi_k = \nabla \cdot \mathbf{P}_k\) as variables, instead of vectors \(\mathbf{P}_k\).
+In order to present the numerical methods adopted here, we divide this section in time semi-discretization, based on finite difference, and space discretization, based on finite element method. 
 
 \subsection{Time semi-discretization}\label{sec:time-discr}
 Consider the system of equations \eqref{eq:finalmodel}: it consists in a set of \(m+2\) PDEs in the \(m+2\) variables \(\varphi\), \(\rho\), \(\pi_i\) for \(i=1,...,m\). The Implicit Euler method can be applied to discretize the problem in time. Given time step magnitude \(\Delta t\) and the the solution at time step \(n\) \((\varphi^n,\rho^n,\pi_i^n)\) we solve the following system:
@@ -412,9 +415,9 @@ Consider the system of equations \eqref{eq:finalmodel}: it consists in a set of 
 	\begin{alignat}{2}[left=\empheqlbrace]
 		&\rho^{n+1}-\nabla\cdot\left(\Delta t \nabla \varphi^{n+1} \right) &&= \rho^n\\[3mm]
 		%%
-		&-\nabla\cdot \left(\epsilon_0\epsilon_\infty\nabla\varphi^{n+1}\right) -\rho^{n+1}+\sum_i\pi_i^{n+1} &&=0\\[0mm]
+		&-\nabla\cdot \left(\varepsilon_0\varepsilon_\infty\nabla\varphi^{n+1}\right) -\rho^{n+1}+\sum_i\pi_i^{n+1} &&=0\\[0mm]
 		%%
-		&\left(1+\frac{\Delta t}{\tau_i}\right)\pi_i^{n+1} + \nabla\cdot\left(\Delta t\epsilon_0\chi_i\nabla\varphi^{n+1}\right) &&= \pi_i^n\\[3mm]
+		&\left(1+\frac{\Delta t}{\tau_i}\right)\pi_i^{n+1} + \nabla\cdot\left(\Delta t\varepsilon_0\chi_i\nabla\varphi^{n+1}\right) &&= \pi_i^n\\[3mm]
 		%%
 		&\varphi^{n+1}=V_k(t^{n+1})\ \mathrm{on}\ \Gamma_{c_k} \forall\ k\\
 		%%
@@ -426,8 +429,9 @@ We also adopt an adaptive time step method: \(\Delta t\) is not fixed once for a
 To ease post-processing however, we want to save the solution in regular steps. This necessity leads to an external loop iterating through fixed time steps \(\Delta t\) with a nested loop marching from \(t\) to \(t+\Delta t\) using the adaptive time step method. For the complete algorithm see section \ref{sec:timecycle}.
 \paragraph{Error estimate} Consider a generic first order advancing scheme for the variable \(x\) defined by \(f(x^{n+1},x^n, \Delta t)=0\) and define the time-advance operator \(g\) such that \(x^{n+1}=g(x^n,\Delta t)\). An error estimate can be done comparing the two solutions \(x_1=g(x^n,\Delta t)\) and \(x_2=g(g(x^n,\Delta t/2),\Delta t/2)\). In our case, given the solutions 1 and 2, we compute the correspondent total conduction currents through one contact \(I_{cond\, 1}\) and \(I_{cond\,2}\) and compare the relative error \((I_{cond\,1}+I_{cond\,2})/I_{cond\,2}\) with a predefined tolerance.
 
-\subsection{Spatial discretization}
-Being the applications of interest 3-dimensional, in the code we considered a cubic domain. Discretization is managed by bim++ library, which is able to handle non conforming cartesian meshes, with regular hexahedral cells, through an octree data structure. Here is no place to introduce this library so we go straight to the discreization starting from a uniform grid and then refining it locally in non conforming way. For further information please refer to \cite{thesis-pasquale-africa}. 
+\subsection{Space discretization}
+Space discretization is based on finite elements, defined on cartesian, non-conforming grids with hanging nodes for local refinement. This choice allows a very efficient management of the mesh through an octree structure, showing excellent performances on parallel computing.
+Discretization is managed by bim++ library, which is able to handle such grids. Here, however, is no place to introduce this library so we go straight to the discreization. For simplicity we start with a uniform grid, then we explain the local-refinement procedure generating non-conforming meshes. For further information refer to \cite{africa2022scalable},\cite{thesis-pasquale-africa}. 
 \paragraph{Uniform grid case}
 We consider the partition \(\tau_h\) of the domain \(\Omega\) in \(N\) elements:
 \begin{equation}
@@ -461,9 +465,9 @@ Given \((\rho^n,\ \varphi^n,\ \pi^n_1,\ ...,\ \pi^n_p)\in Q^{2+p}_h\) the soluti
 	\begin{alignat}{2}[left=\empheqlbrace]
 		&\int_{\Omega_h}\rho^{n+1}v_1\ \mathrm{d}\Omega_h + \int_{\Omega_h}\left(\Delta t \sigma \nabla \varphi^{n+1} \right)\cdot\nabla v_1\ \mathrm{d}\Omega_h &&= \int_{\Omega_h}\rho^n v_1\ \mathrm{d}\Omega_h\\[3mm]
 		%%
-		&\int_{\Omega_h}\left(\epsilon_0\epsilon_\infty\nabla\varphi^{n+1}\right) \cdot \nabla v_2\ \mathrm{d}\Omega_h - \int_{\Omega_h}\rho^{n+1}v_2+\sum_i\int_{\Omega_h}\pi_i^{n+1}v_2\ \mathrm{d}\Omega_h &&=0\\[0mm]
+		&\int_{\Omega_h}\left(\varepsilon_0\varepsilon_\infty\nabla\varphi^{n+1}\right) \cdot \nabla v_2\ \mathrm{d}\Omega_h - \int_{\Omega_h}\rho^{n+1}v_2+\sum_i\int_{\Omega_h}\pi_i^{n+1}v_2\ \mathrm{d}\Omega_h &&=0\\[0mm]
 		%%
-		&\int_{\Omega_h}\left(1+\frac{\Delta t}{\tau_i}\right)\pi_i^{n+1}v_i\ \mathrm{d}\Omega_h - \int_{\Omega_h}\left(\Delta t\epsilon_0\chi_i\nabla\varphi^{n+1}\right) \cdot \nabla v_i\ \mathrm{d}\Omega_h &&= \int_{\Omega_h}\pi_i^n v_i\ \mathrm{d}\Omega_h\\[3mm]
+		&\int_{\Omega_h}\left(1+\frac{\Delta t}{\tau_i}\right)\pi_i^{n+1}v_i\ \mathrm{d}\Omega_h - \int_{\Omega_h}\left(\Delta t\varepsilon_0\chi_i\nabla\varphi^{n+1}\right) \cdot \nabla v_i\ \mathrm{d}\Omega_h &&= \int_{\Omega_h}\pi_i^n v_i\ \mathrm{d}\Omega_h\\[3mm]
 		%%
 		&\varphi^{n+1}=V_k(t^{n+1})\ \mathrm{on}\ \Gamma_{c_k} \forall\ k
 	\end{alignat}
@@ -722,6 +726,10 @@ Displacement current can be deduced quantifying the variation of free charge on 
 \section{Results}
 For most of our tests we considered a cubic shaped domain with 1 mm edge. On the upper and lower sides a voltage (Dirichlet boundary conditions for \(\varphi\)) is imposed. On the upper the voltage is time dependent, while on the lower side it is fixed to 0. A charging transient is first simulated. Then, once the variables stabilize, we simulate a discharging transient.
 \subsection{Test 1: Homogeneous material 1}
+We consider a uniform dielectric material with parameters taken from \cite{simulation-transient-HVDC}, obtained through measurements on a paper insulated cable. A uniform grid displayed in figure \ref{fig:unif-grid} is adopted. The three slow polarization processes have their parameters fitted with experimental data. We start with a null initial solution, and turn on the voltage at the upper interface with the electrode. In particular we impose \(V(t)=V_0(1-e^{-t/\tau})\chi_{(0,T_{discharge}]}(t)\), where \(V_0 = 1.5\cdot 10^4\), \(\tau=2 s\) is a time constant and \(\chi\) is an indicator function. We let the system evolve for \(T_{discharge}=15000\,s\), then we short-circuit the 2 contacts and study the discharge process. No charge is expected to accumulate in the interior of the domain, but only at the interfaces with the contacts.\\
+In this very simple problem it is also possible to compute analytically the total current through the Occhini circuital model \cite{4073280},\cite{simulation-transient-HVDC}. In figure \ref{fig:test1} we report some results of this test.
+
+In this particular case, it was found that conduction currents are equal on the two contacts, apart from sign. Also, in figure \ref{fig:I_code_vs_occhini} we can see that the computed conduction current approximates well the total current obtained with the Occhini circuital model. In figure \ref{fig:test1_rho_profile} the profile of free charge density along \(z\) axis is reported: we observe that it accumulates only at the interfaces with the contacts. Finally the balance of free charges is null in the material.
 \begin{figure}
 	\centering
 	\begin{minipage}{0.5\textwidth}
@@ -734,38 +742,46 @@ For most of our tests we considered a cubic shaped domain with 1 mm edge. On the
 	\label{fig:geom-homog}
 \end{figure}
 \begin{figure}
-	\subfloat[]{
+		\hspace{-0.01\textwidth}
+	\subfloat[Charge accumulated on contact 1. Notice the different time constants of the polarizatin processes.\label{fig:charge-accumulation-c1}]{
 		\includegraphics[width=0.54\textwidth]{pictures/test1_charges_on_c1.png}
 	}
-	\subfloat[]{
+	\hspace{0.01\textwidth}
+	\subfloat[Profile of free charge density \(\rho\) (C) on the \(z\) axis (m). Notice that in the discrete space surface density is approximated by a volumetric one. Therefore, maximum value depend on grid refinement.\label{fig:test1_rho_profile}]{
 		\includegraphics[width=0.44\textwidth]{pictures/test1_max_rho_profile.png}
 	}\\
-	\subfloat[]{
+	\hspace{-0.01\textwidth}
+	\subfloat[Discharge process: comparison between current computed with our code and current obtained with Occhini model.\label{fig:I_code_vs_occhini}]{
 	\includegraphics[width=0.54\textwidth]{pictures/codeVSocchini.png}
 	}
-	\subfloat[]{
+	\hspace*{0.01\textwidth}
+	\subfloat[Profile of electric potential \(\varphi\) (V) over \(z\) axis (m).]{
 	\includegraphics[width=0.44\textwidth]{pictures/test1_max_phi_profile.png}
 	}
-	\caption{Refinement procedure of a cell. On the left the uniform grid, on the right the grid refined in the cell 0.}
-	\label{fig:octant_refinement}
+	\caption{Test 1: Homogeneous material with MI paper physical parameters. \(\varepsilon_\infty = 3.5,\ \sigma = 3.2 1\cdot 10^{-14}S,\ \chi_1 = 0.401,\ \chi_2 = 1.970,\ \chi_3 = 2.6,\ \tau_1 = 13.2s,\ \tau_2 = 357s,\ \tau_3 = 3120s\)}
+	\label{fig:test1}
 	
 \end{figure}
 \subsection{Test 2: Homogeneous material 2}
+In this test we consider a simple homogeneous material, with only one polarization process. We split the cubic domain into an upper half and a lower half (plane \(z=0.5\,\)mm). On each part a separate polarization process is applied with the same \(\chi\) and \(\tau\). We want to verify that results coincide with the case of a homogeneous material with one polarization process applied on the whole domain. Plots in figure \ref{fig:test2} show how \(\pi_1\) and \(p2_2\) cancel each other out at the interface in the middle, and the global profile along \(z\) axis of \(pi_1+\pi_2\) coincides with the one of the homogeneous domain with one global polarization process. In this and similar tests we verified that for any polarization process \(p\), characterized by a fixed \(\tau_p\) and a possibly space dependent \(\chi_p(\mathbf{x})\), its related charges \(\pi_p\) are balanced, i.e. \(\int_{\Omega}\pi_p\,\mathrm{d}\Omega=0\). It is then possible, as we have done here, to enable a polarization process only in a region of the domain \(A\) by setting \(\chi_p\) to the desired value in \(A\), and \(\chi_p = 0\) on \(\Omega\setminus A\).
 \begin{figure}
-	\subfloat[]{
+	\hspace*{-0.01\textwidth}
+	\subfloat[Plot on the \(z\) axis of free charge density \(\rho\), and of \(\pi_{slow} = \nabla\cdot\mathbf{P_{slow}}\), where \(\mathbf{P_{slow}}\) is the slow polarization component of \(\mathbf{P}\)]{
 		\includegraphics[width=0.5\textwidth]{pictures/homog1-pol-charges-on-z.png}
 	}
-	\subfloat[]{
+	\hspace*{0.01\textwidth}
+	\subfloat[Plot on the \(z\) axis of free charge density \(\rho\), of \(\pi_1\) and \(\pi_2\), where the last two are related to a separate part of the domain.]{
 		\includegraphics[width=0.5\textwidth]{pictures/homog2-pol-charges-on-z.png}
 	}
-	\caption{Refinement procedure of a cell. On the left the uniform grid, on the right the grid refined in the cell 0.}
-	\label{fig:octant_refinement}
+	\caption{Test 2: Homogeneous material. \(\varepsilon_\infty = 3.5,\ \sigma = 3.21\cdot 10^{-14}S\). Parameters for the only process are \(\chi_p = 1.970,\ \tau_p = 3.57\cdot 10^{2}s\).}
+	\label{fig:test2}
 	
 \end{figure}
 \subsection{Test 3: Bi-phase material}
 \subsection{Test 4: Homogeneous material with hole}
 \subsection{Test 5: Butt gap}
 
+\section{Conclusions}
 %-----------------------------------------------------------------------------
 % EQUATIONS
 %-----------------------------------------------------------------------------
