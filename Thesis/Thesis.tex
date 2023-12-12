@@ -97,13 +97,13 @@
 
 % Insert here the info that will be displayed into your Title page 
 % -> title of your work
-\renewcommand{\title}{Modelling of non homogeneous insulating materials in transient regime}
+\renewcommand{\title}{Modelling of Non Homogeneous Insulating Materials in Transient Regime}
 % -> author name and surname
 \renewcommand{\author}{Luca Edoardo Mosconi}
 % -> MSc course
 \newcommand{\course}{Mathematical Engineering - Ingegneria Matematica}
 % -> advisor name and surname
-\newcommand{\advisor}{Prof. Carlo De Falco}
+\newcommand{\advisor}{Prof. Carlo de Falco}
 % IF AND ONLY IF you need to modify the co-supervisors you also have to modify the file Configuration_files/title_page.tex (ONLY where it is marked)
 \newcommand{\firstcoadvisor}{Name Surname} % insert if any otherwise comment
 \newcommand{\secondcoadvisor}{Name Surname} % insert if any otherwise comment
@@ -112,7 +112,7 @@
 % -> academic year
 \newcommand{\YEAR}{2022-2023}
 % -> abstract (only in English)
-\renewcommand{\abstract}{This work aims to contribute to the study and optimization of insulating materials for high voltage direct current (HVDC) cables. High voltage adopted on HVDC lines puts much stress on these materials, especially during transients, when the power flow in the line is swiched on and off, or inverted, rising up reliability and durability concerns. In this work we first report a quite general model, suitable for the main commercial solutions. Then we focus on a model suitable for insulation based on MI-paper, and we present a parallel code to simulate this kind of insulation, able to provide a spatial representation of charges distribution and electric field, for any given geometry. The embedded model considers slow polarization dynamics, which play a crucial role intransients. This is achieved with a finite element method, based on non-conforming, octree-structured, cartesian grids, combined with an adaptive time stepping algorithm. This is an innovative approach in the research panorama as most discretizations are based on finite difference methods, or simply neglect geometrical peculiarities of the insulation systems such as the butt gaps. The proposed code also allows to compute the total current inside the material. We finally present some tests and possible applications of this tool, coparing the results with other models from litterature.}
+\renewcommand{\abstract}{This work aims to contribute to the study and optimization of insulating materials for high voltage direct current (HVDC) cables. The high voltage applied to HVDC cables puts much stress on these materials, especially during transients, when the power flow in the line is swiched on and off, or inverted, raising up reliability and durability concerns. We focus on a model suitable for insulation that is based on mass-ipregnated paper, and we present a parallel code to simulate this kind of insulation, able to provide a spatial representation of charges distribution and electric field, for any geometry. The mathematical model considers slow polarization dynamics, which play a crucial role during transients. This is achieved by means of a finite element method, based on non-conforming, octree, cartesian grids, combined with an adaptive time stepping algorithm. Such an approach improves on existing simulation methods that often rely on geometric simplifications. We finally present some tests and possible applications of this tool, comparing the results with other models from litterature.}
 
 % -> key-words (only in English)
 \newcommand{\keywords}{HVDC cables, MI-paper insulation, transient, polarization, finite elements method, octree mesh}
@@ -192,9 +192,9 @@ This insulation system has proven to be quite durable and effective. Also, whene
 \end{figure}
 \subsection{Polypropylene and Polyethilene Solid Insulation}
 More recently, different technologies for the insulation system based on polyethilene and polypropylene have been proposed. These cables are easier to handle and lighter with respect to MI cables, representing a valid alternative, and are gaining popularity on the market. However from a modeling perspective they show a more complex behavior, as different non-linearities arise when the insulating dielectric is stressed with very high voltage, which make them more unpredictable. The reason of these non linearities is related to the charge trapping phenomena.
-\subsection{Challenges for the future}
+\subsection{Challenges of HVDC Cables}
 HVDC cables routinely undergo voltage changes in different ways when cables are switched on and off, or when power flow in the cable is inverted. This occurs in response to the varying energy requirements at different nodes within the network. Looking ahead, with the widespread use of renewable energy sources, which can be very intermittent according to weather conditions, we also expect current reversals in HVDC cables to become increasingly frequent. These transients critically test the resilience of the insulating material, and need to be studied in order to increase durability and minimize probability of break-down \cite{hakonseththesis}. The latter usually happens when very high electric field is generated locally in some regions of the insulation system \cite{9474605}.
-\subsection{Mathematical models and numerical methods}\label{sec:mmnm}
+\subsection{Mathematical Models and Numerical Methods}\label{sec:mmnm}
 Mathematical models and numerical simulations can be an useful tool to estimate failure probability of HVDC cables. A key step was achieved by Occhini and Maschio in 1967 \cite{4073280}, when they proposed a model based on equivalent circuits stacked in series to emulate insulation structures. The limits of this kind of models is that they do not take into account 2-D and 3-D geometries. Other approaches have been developed to account geometry, and are usually based on finite differences. The advantage of 3-D models is that they account for gaps (like the butt gaps of MI-paper) and smaller impurities in the material that affect electric field distribution.\\
 There are different dynamics to consider when modeling these materials, apart from those described by the usual Maxwell equations for a dielectric. First of all the slow polarization of the material, meaning that response of the dipoles to a variation of the electric field is not instantaneous. Then we have charge deep trapping, a chemical phenomenon typical in polymer based materials. Finally, conductivity depends on the electric field and on the temperature \cite{time-dep-layered}. This has a crucial consequence, namely that thermal non-homogeneity causes space charges to slowly accumulate inside the material volume, affecting the electric field distribution \cite{en13195189},\cite{8939463},\cite{grading-techniques}. These are very slow processes, and generally require long computational times \cite{https://doi.org/10.1002/jnm.2713}.\\
 Mathematical models can be classified by their complexity and ability to describe the dynamics previously mentioned. In section \ref{sec:mat-model} we report a fairly comprehensive model. Our main focus, however, will then be a simpler one, suitable for MI paper case, without charge trapping phenomena. In particular, it will be based on Maxwell equations and a Debye relaxation model for slow polarization. The Debye model consists in a superposition of parallel polarization processes evolving at different rates, ruled by ordinary differential equations. Its parameters need to be fitted according to experimental data.\\
@@ -203,7 +203,7 @@ Research on numerical methods suitable for this and other classes of electromagn
 
 \section{Mathematical Model}\label{sec:mat-model}
 In this section we present a model which comprehends all the dynamics described in section \ref{sec:mmnm}. We begin with a simple model for dielectric materials coming directly from Maxwell equations in the assumption of electro-quasi-static regime. Then we introduce the dynamics of slow polarization through a set of auxiliary equations associated to the Debye relaxation mechanism and a correspondent set of variables. Then we go further introducing a model for the conductivity, which is typically dependent on electric field intensity and on temperature. Finally we complete the model considering also deep charge trapping phenomena, arising in polymer based insulating materials. We conclude presenting boundary conditions for the model with slow polarization processes.
-\subsection{Maxwell equations}
+\subsection{Maxwell Equations}
 We start from Gauss and Ampère-Maxwell laws
 
 \begin{equation}
@@ -252,7 +252,7 @@ On the other hand if we apply the divergence operator to \eqref{eq:Maxwell2} the
 	\dfrac{\partial \rho}{\partial t} - \mathrm{div} \left(  \sigma \nabla \varphi\right) = 0
 \end{equation}
 Equations \eqref{eq:LEVEL0a}--\eqref{eq:LEVEL0b} together represent the simplest model for a dielectric material.
-\subsection{Slow polarization}
+\subsection{Slow Polarization}
 The simple model just presented is valid as long as we only have instantaneous response of the material to the electric stimulus. Unfortunately this is rare, and non instantaneous response cannot be neglected in HVDC insulation systems. In other words the relation between \(\mathbf{P}\) and \(\mathbf{E}\) is not local in time and could be written as \begin{equation}
 	\mathbf{P}(t) = \varepsilon_0 \int_{-\infty}^{t}\chi(t-\tau)\mathbf{E}(\tau)\mathrm{d}\tau
 \end{equation}
@@ -308,7 +308,7 @@ with
 \end{cases}
 \]
 where \(\bar{a}\), \(e_{tr}\), \(\kappa\), \(c\) and \(\bar{\tau}_a\) are physical constants of the material. Therefore, modeling \(\sigma\) leads to an additional differential equation to \eqref{eq:finalmodel}.
-\subsection{Trapping and de-trapping}
+\subsection{Trapping and De-trapping}
 Model \eqref{eq:finalmodel} gives good results when applied to MI paper insulation systems. However it fails with polymeric materials, as new dynamics arise.\\
 Here a characteristic phenomenon are the charge deep traps, which are thought to have chemical origin. This leads to an ad-hoc treatment of the free charge density:
 \begin{equation}\label{eq:freechargetraps}
@@ -393,7 +393,7 @@ Note that starting from \eqref{eq:fullmodel1}--\eqref{eq:fullmodel2} and taking 
 \end{cases}
 \end{equation}
 we retrieve \eqref{eq:finalmodel}
-\subsection{Boundary conditions}
+\subsection{Boundary Conditions}
 We briefly discuss typical boundary conditions for \eqref{eq:finalmodel}.\\
 The only variable appearing under space differential operator is the electric potential \(\varphi\). Typically the dielectric is interposed between different conductive materials at different voltages. It comes natural to impose Dirichlet b.c. on the contacts. On the other sides of the domain natural b.c. are adopted:
 \begin{equation}\label{eq:LEVEL1Bc}
@@ -408,7 +408,7 @@ Normally \(\Gamma_D\) is the union of contact surfaces \(\Gamma_k\).
 Traditionally this class of problems including a Debye relaxation mechanism, is addressed with the so called ADE-FDTD method \cite{taflove}, where finite differences (FD) are applied both at time and domain (TD) dicretization. The auxiliary differential equations (ADE) in the method name are the numerical discrete counterparts of Debye model, and are deduced from \eqref{eq:Polprocess}, so, at a vectorial lavel. Here we propose a different method based on finite elements considers \(\pi_k = \nabla \cdot \mathbf{P}_k\) as problem variables, instead of vectors \(\mathbf{P}_k\).\\
 In order to present the numerical methods adopted here, we divide this section in time semi-discretization, based on finite difference, and space discretization, based on finite element method. 
 
-\subsection{Time semi-discretization}\label{sec:time-discr}
+\subsection{Time Semi-discretization}\label{sec:time-discr}
 Consider the system of equations \eqref{eq:finalmodel}: it consists in a set of \(m+2\) PDEs in the \(m+2\) variables \(\varphi\), \(\rho\), \(\pi_i\) for \(i=1,...,m\). The Implicit Euler method can be applied to discretize the problem in time. Given time step magnitude \(\Delta t\) and the the solution at time step \(n\) \((\varphi^n,\rho^n,\pi_i^n)\) we solve the following system:
 \begin{subequations}
 	\begin{alignat}{2}[left=\empheqlbrace]
@@ -428,7 +428,7 @@ We also adopt an adaptive time step method: \(\Delta t\) is not fixed once for a
 To ease post-processing however, we want to save the solution in regular steps. This necessity leads to an external loop iterating through fixed time steps \(\Delta t\) with a nested loop marching from \(t\) to \(t+\Delta t\) using the adaptive time step method. For the complete algorithm see section \ref{sec:timecycle}.
 \paragraph{Error estimate} Consider a generic first order advancing scheme for the variable \(x\) defined by \(f(x^{n+1},x^n, \Delta t)=0\) and define the time-advance operator \(g\) such that \(x^{n+1}=g(x^n,\Delta t)\). An error estimate can be done comparing the two solutions \(x_1=g(x^n,\Delta t)\) and \(x_2=g(g(x^n,\Delta t/2),\Delta t/2)\). In our case, given the solutions 1 and 2, we compute the correspondent total currents through one contact \(I_{tot\, 1}\) and \(I_{tot\,2}\) and compare the relative error \((I_{tot\,1}+I_{tot\,2})/I_{tot\,2}\) with a predefined tolerance.
 
-\subsection{Space discretization}
+\subsection{Space Discretization}
 Space discretization is based on finite elements, defined on cartesian, non-conforming grids with hanging nodes for local refinement. This choice allows a very efficient management of the mesh through an octree structure, showing excellent performances on parallel computing.
 Discretization is managed by bim++ library, which is able to handle such grids. Here, however, is no place to introduce this library so we go straight to the discreization. For simplicity we start with a uniform grid, then we explain the local-refinement procedure generating non-conforming meshes. For further information refer to \cite{africa2022scalable},\cite{thesis-pasquale-africa}. 
 \paragraph{Uniform grid case}
@@ -445,7 +445,7 @@ Now the space for the discretization of our problem can be written:
 	Q_h^1(\tau_h) = \left\{u\in C^0\left(\overline{\Omega}_h\right),\ u|_{\mathcal{K}^k}\in\mathbb{Q}_{1,1,1}\left(\mathcal{K}^k\right)\ \forall \mathcal{K}^k\in \tau_h \right\}
 \end{equation}
 At this point a lagrangian basis for the space can be obtained in the same way as for continuous Galerkin finite element method.
-\paragraph{Non uniform mesh}
+\paragraph{Non Uniform Mesh}
 \begin{figure}\captionsetup[subfloat]{labelformat=empty}
 	\subfloat[]{
 		\includegraphics[width=0.49\textwidth]{pictures/octant_not_refined.png}
@@ -456,8 +456,8 @@ At this point a lagrangian basis for the space can be obtained in the same way a
 	\caption{Refinement procedure of a cell. On the left the uniform grid, on the right the grid refined in the cell 0.}
 	\label{fig:octant_refinement}
 \end{figure}\captionsetup[subfloat]{labelformat=parens}
-To refine the grid in a specific (regular cube-shaped) cell, we cut it into eight similar cube-shaped cells as shown in figure \ref{fig:octant_refinement} where the refinement procedure of cell 0 is displayed. At the end of the process new vertices appear, but not all of them correspond to new degrees of freedom: vertices that are internal to the domain and are not the vertices of all adjacent cells are called hanging nodes and do not introduce degrees of freedom. For simplicity consider the refinement of a singular cell \(\mathcal{K}\) internal to the mesh (no edge on borders). We describe now the procedure to obtain the new function space by building the new set of basis functions. Let \(\tau_h\) be the original uniform domain discretization and \(\overline{\tau}_h\) the discretization obtained by uniformly refining \(\tau_h\). By refining the cell \(\mathcal{K}\) we obtain only one new degree of freedom in its centre. We associate it to the same base function it would have in the uniform refinement of the whole mesh \(\overline{\tau}_h\), say \(\overline{\varphi}_8\in Q_h^1(\overline{\tau_h})\). At the same time we replace the basis functions \(\varphi_i \in Q_h^1(\tau_h,\ i=0,...,7\), associated to the vertices of \(\mathcal{K}\), with \(\tilde{\varphi}_i=\varphi_i-\frac{1}{8}\overline{\varphi}_8\). The new set of basis functions \(\tilde{\varphi}_i\) where \(\tilde{\varphi}_i\) is defined as above for \(i=1,...,7\), \(\tilde{\varphi}_8=\overline{\varphi}_8\) and \(\tilde{\varphi}_i = \varphi_i\ \forall i \notin 1,...,8\) (outside \(\mathcal{K}\) they are left unchanged) identifies a new linear space \(\tilde{Q}_h^1(\tilde{\tau}_h)\). Moreover \(\sum_{i=1}^N\tilde{\varphi}_i=1\) and \(\Tilde{\varphi}_i(x_j)=\delta_{ij}\ \forall x_j\in \tilde{X}\), \(\tilde{X}\) being the set of nodes of \(\tilde{\tau_h}\).
-\subsection{Discrete weak formulation}
+To refine the grid in a specific (regular cube-shaped) cell, we cut it into eight similar cube-shaped cells as shown in figure \ref{fig:octant_refinement} where the refinement procedure of cell 0 is displayed. At the end of the process new vertices appear, but not all of them correspond to new degrees of freedom: vertices that are internal to the domain and are not the vertices of all adjacent cells are called hanging nodes and do not introduce degrees of freedom. For simplicity consider the refinement of a singular cell \(\mathcal{K}\) internal to the mesh (no edge on borders). We describe now the procedure to obtain the new function space by building the new set of basis functions. Let \(\tau_h\) be the original uniform domain discretization and \(\overline{\tau}_h\) the discretization obtained by uniformly refining \(\tau_h\). By refining the cell \(\mathcal{K}\) we obtain only one new degree of freedom in its center. We associate it to the same base function it would have in the uniform refinement of the whole mesh \(\overline{\tau}_h\), say \(\overline{\varphi}_8\in Q_h^1(\overline{\tau_h})\). At the same time we replace the basis functions \(\varphi_i \in Q_h^1(\tau_h,\ i=0,...,7\), associated to the vertices of \(\mathcal{K}\), with \(\tilde{\varphi}_i=\varphi_i-\frac{1}{8}\overline{\varphi}_8\). The new set of basis functions \(\tilde{\varphi}_i\) where \(\tilde{\varphi}_i\) is defined as above for \(i=1,...,7\), \(\tilde{\varphi}_8=\overline{\varphi}_8\) and \(\tilde{\varphi}_i = \varphi_i\ \forall i \notin 1,...,8\) (outside \(\mathcal{K}\) they are left unchanged) identifies a new linear space \(\tilde{Q}_h^1(\tilde{\tau}_h)\). Moreover \(\sum_{i=1}^N\tilde{\varphi}_i=1\) and \(\Tilde{\varphi}_i(x_j)=\delta_{ij}\ \forall x_j\in \tilde{X}\), \(\tilde{X}\) being the set of nodes of \(\tilde{\tau_h}\).
+\subsection{Discrete Weak Formulation}
 Now that we gave defined an appropriate functional space we can introduce a weak formulation for problem \eqref{eq:finalmodel}. Defining \(Q_h\) the functional space just presented applied to our domain \(\Omega_h\), setting \(p\) the number of polarization processes, we state:\\
 Given \((\rho^n,\ \varphi^n,\ \pi^n_1,\ ...,\ \pi^n_p)\in Q^{2+p}_h\) the solution at time \(t^n\), find \((\rho^{n+1},\ \varphi^{n+1},\ \pi^{n+1}_1,\ ...,\ \pi^{n+1}_p)\in Q^{2+p}_h\) such that:
 \begin{subequations}\label{eq:Gal-form}
@@ -491,10 +491,10 @@ The application outputs the spatial distribution of variables every fixed time s
 	\item Saving of temporary solutions to allow stopping a resuming a simulation later.
 \end{itemize}
 
-The core code is located in \texttt{HVDC\_main.cpp}. Plugin source files are found in a dedicated folder. Here we report the code structure and the file dependency tree.
+The core code is located in \texttt{HVDC\_main.cpp}. Plugin source files are found in a dedicated folder. In figure \ref{fig:code-struc} report the code structure and in figure \ref{fig:file-struc} the file dependency tree.
 \begin{figure}[h]
 \begin{minipage}{5cm}
-	\caption*{Code Structure}
+	\caption{Code Structure}\label{fig:code-struc}
 \end{minipage}\\
 \begin{minipage}[t]{7cm}
 	\small
@@ -527,7 +527,7 @@ The core code is located in \texttt{HVDC\_main.cpp}. Plugin source files are fou
 \end{figure}
 \begin{figure}[h]
 \begin{minipage}{\textwidth}
-	\caption*{File dependency tree}
+	\caption{File dependency tree}\label{fig:file-struc}
 \end{minipage}\\
 \begin{minipage}{\textwidth}
 \begin{tikzpicture}
@@ -564,7 +564,7 @@ The core code is located in \texttt{HVDC\_main.cpp}. Plugin source files are fou
 \end{minipage}
 \end{figure}
 
-\subsection{Parameter file}
+\subsection{Parameter File}
 Parameters of a simulation are set in the parameter file. A parameter file may contain different tests to execute in sequence. Each test is a json object subdivided into three sections: physics, algorithm and output.\\
 \begin{minipage}{\textwidth}
 	\vspace{3mm}
@@ -624,7 +624,7 @@ Note that we have to specify a plugin, a test template inside it and a compatibl
 	\end{verbatim}
 \end{minipage}\\
 
-\subsection{Time stepping}\label{sec:timecycle}
+\subsection{Time Stepping}\label{sec:timecycle}
 As exposed in section \ref{sec:time-discr} we aim at saving a solution every fixed time step \(\Delta t\). At the same time we use ad adaptive time-stepping approach inside the regular time step, that is, to advance from \(t^n\) to \(t^n+\Delta t\). This introduced some technicalities to care of, namely how to choose the time step magnitude to start a new "macro" time step. Choosing a very small value is obviously an expensive option. In this implementation, experience from the last resolved macro time step is used to prompt a starting \(dt\) for the next one. In Algorithm \ref{alg:adaptive-time-step} the complete time cycle run in the execution of the program is reported.
 
 \begin{algorithm}
@@ -685,7 +685,7 @@ As already mentioned plugins were used to contain the test specific functions an
 	\item \texttt{generic\_factory.h} and \texttt{generic\_factory.cpp} implement an abstract factory with the single-tone technique.
 	\item Finally, to let the plugin mechanism work, when the dynamic libraries are loaded, \texttt{tests.cpp} and \texttt{voltages.cpp} guarantee auto-loading of the chosen test and voltage constructors in the factory. 
 \end{itemize}
-\section{Currents computation}
+\section{Currents Computation}
 Just as with any dielectric material, total current is the superposition of conduction current and displacement current:
 \begin{itemize}
 	\item \textit{Conduction current} or drift current, is generated by free charges moved by the electric field. It can be determined through the gradient of the electric potential \(\varphi\) and the conductivity \(\sigma\).
@@ -699,6 +699,10 @@ In formulas we have
 \begin{equation}
 	\mathrm{rot}(\mathbf{H})=:\mathbf{j}_{tot} = \mathbf{j}_{drift} + \mathbf{j}_{fast} + \mathbf{j}_{slow} = \mathbf{j}_{drift} + \dfrac{\partial \mathbf{D}}{\partial t}
 \end{equation}
+While to compute total current through a generic surface \(\Gamma\):
+\begin{equation}
+	I_{tot} = \int_{\Gamma} \left(\mathbf{j}_{drift}+\dfrac{\partial \mathbf{D}}{\partial t}\right) \cdot \mathbf{n}\,\mathrm{d}x
+\end{equation}
 \begin{figure}
 	\centering
 	\begin{tikzpicture}
@@ -711,12 +715,12 @@ In formulas we have
 	\label{fig:circuit}
 \end{figure}
 
-Consider a the ideal circuit in figure \ref{fig:circuit}, where the a dielectric material is used as a medium in the capacitor. Ampère-Maxwell law guarantees that the current in the circuit \(i_{tot}\) is equivalent to the sum of conduction and displacement currents through the dielectric. In stationary conditions, total current will coincide with the conduction current.\\
+Consider now the ideal circuit in figure \ref{fig:circuit}, where the a dielectric material is used as a medium in the capacitor. Ampère-Maxwell law guarantees that the current in the circuit \(i_{tot}\) is equivalent to the sum of conduction and displacement currents through the dielectric. In stationary conditions, total current will coincide with the conduction current.\\
 In the discrete discrete formulation it is possible to compute total current through the interface between conductor and dielectric material \(\Gamma_c\) via the Nanz method \cite{Nanz},\cite{HUGHES2000467}. This method allows, once we have the spatial solution for \(\phi\) and \(\rho\), to compute the flux of \(\mathbf{j}_{tot}\) through \(\Gamma_{c}\) with simple linear algebra, including a matrix-vector product. 
 
 \section{Results}
 For most of our tests we considered a cubic shaped domain with 1 mm edge. On the upper and lower sides a voltage (Dirichlet boundary conditions for \(\varphi\)) is imposed. On the upper the voltage is time dependent, while on the lower side it is fixed to 0. A charging transient is first simulated. Then, once the variables stabilize, we simulate a discharging transient.
-\subsection{Test 1: Homogeneous material 1}
+\subsection{Test 1: Homogeneous Material 1}
 We consider a uniform dielectric material with parameters taken from \cite{en14248323}, obtained through measurements on a paper insulated cable. A uniform grid displayed in figure \ref{fig:unif-grid} is adopted. The three slow polarization processes have their parameters fitted with experimental data. We start with a null initial solution, and turn on the voltage at the upper interface with the electrode. In particular we impose \(V(t)=V_0(1-e^{-t/\tau})\chi_{(0,T_{discharge}]}(t)\), where \(V_0 = 1.5\cdot 10^4\), \(\tau=2 s\) is a time constant and \(\chi\) is an indicator function. We let the system evolve for \(T_{discharge}=15000\,s\), then we short-circuit the 2 contacts and study the discharge process. No charge is expected to accumulate in the interior of the domain, but only at the interfaces with the contacts.\\
 In this very simple problem it is also possible to compute analytically the total current through the Occhini circuital model \cite{4073280},\cite{en14248323}. In figure \ref{fig:test1} we report some results of this test.
 
@@ -748,7 +752,7 @@ In this particular case, it was found that conduction currents are equal on the 
 	\label{fig:test1}
 	
 \end{figure}
-\subsection{Test 2: Homogeneous material 2}
+\subsection{Test 2: Homogeneous Material 2}
 In this test we consider a simple homogeneous material, with only one polarization process. We split the cubic domain into an upper half and a lower half (plane \(z=0.5\,\)mm). On each part a separate polarization process is applied with the same \(\chi\) and \(\tau\). We want to verify that results coincide with the case of a homogeneous material with one polarization process applied on the whole domain. Plots in figure \ref{fig:test2} show how \(\pi_1\) and \(p2_2\) cancel each other out at the interface in the middle, and the global profile along \(z\) axis of \(pi_1+\pi_2\) coincides with the one of the homogeneous domain with one global polarization process. In this and similar tests we verified that for any polarization process \(p\), characterized by a fixed \(\tau_p\) and a possibly space dependent \(\chi_p(\mathbf{x})\), its related charges \(\pi_p\) are balanced, i.e. \(\int_{\Omega}\pi_p\,\mathrm{d}\Omega=0\). It is then possible, as we have done here, to enable a polarization process only in a region of the domain \(A\) by setting \(\chi_p\) to the desired value in \(A\), and \(\chi_p = 0\) on \(\Omega\setminus A\).
 \begin{figure}
 	\hspace*{-0.01\textwidth}
@@ -758,31 +762,100 @@ In this test we consider a simple homogeneous material, with only one polarizati
 	\hspace*{0.01\textwidth}
 	\subfloat[Plot on the \(z\) axis of free charge density \(\rho\), of \(\pi_1\) and \(\pi_2\), where the last two are related to a separate part of the domain: process 1 applied for \(z < 0.5\)mm, process 2 for \(z>0.5\)mm.]{
 		\includegraphics[width=0.5\textwidth]{pictures/homog2-pol-charges-on-z.png}
-	}
-	\caption{Test 2: Homogeneous material. \(\varepsilon_\infty = 3.5,\ \sigma = 3.21\cdot 10^{-14}S\). Parameters for the only process are \(\chi_p = 1.970,\ \tau_p = 3.57\cdot 10^{2}s\). The plots above compare charges distribution at the same instance during charging transient.}
-	\label{fig:test2}
-	
-\end{figure}
-\subsection{Test 3: Bi-phase material}
-In this test we consider two different materials put in series. The first material occupies the lower half of the cubic domain (\(z<0.5\,\)mm), the second material lies on the first one, occupying the upper half of the domain. For simplicity each material has a single slow polarization process. We expect to observe discontinuity in the electric field at the middle interface and accumulation of charges.
-\begin{figure}
-	\hspace*{-0.01\textwidth}
-	\subfloat[Plot on the \(z\) axis of free charge density \(\rho\), and of slow polarization charge (with reversed sign) \(\pi_{slow} = \nabla\cdot\mathbf{P_{slow}}\), where \(\mathbf{P_{slow}}\) is the component of \(\mathbf{P}\) related to the slow polarization process.]{
-		\includegraphics[width=0.5\textwidth]{pictures/homog1-pol-charges-on-z.png}
+	}\\
+	\hspace*{-0.02\textwidth}
+	\subfloat[\(\pi_1\) distribution. Related to the polarization process 1, on lower size.]{
+		\includegraphics[width=0.32\textwidth]{pictures/homog2-p1.png}
 	}
 	\hspace*{0.01\textwidth}
-	\subfloat[Plot on the \(z\) axis of free charge density \(\rho\), of \(\pi_1\) and \(\pi_2\), where the last two are related to a separate part of the domain: process 1 applied for \(z < 0.5\)mm, process 2 for \(z>0.5\)mm.]{
-		\includegraphics[width=0.5\textwidth]{pictures/homog2-pol-charges-on-z.png}
+	\subfloat[\(\pi_2\) distribution. Related to the polarization process w, on upper size]{
+		\includegraphics[width=0.32\textwidth]{pictures/homog2-p2.png}
 	}
+	\hspace*{0.01\textwidth}
+	\subfloat[\(\pi_1+\pi_2\) distribution: no charge appears at the middle interface.]{
+		\includegraphics[width=0.32\textwidth]{pictures/homog2-ptot.png}
+	}
+	
 	\caption{Test 2: Homogeneous material. \(\varepsilon_\infty = 3.5,\ \sigma = 3.21\cdot 10^{-14}S\). Parameters for the only process are \(\chi_p = 1.970,\ \tau_p = 3.57\cdot 10^{2}s\). The plots above compare charges distribution at the same instance during charging transient.}
 	\label{fig:test2}
 	
 \end{figure}
-\subsection{Test 4: Homogeneous material with hole}
-In this test we consider a parallelepiped-shaped domain (\(5\mathrm{mm}\times 5\mathrm{mm}\times 1\mathrm{mm}\))with a little hole in its centre (\(\)).
-\subsection{Test 5: Butt gap}
+\subsection{Test 3: Bi-phase Material}
+In this test we consider two different materials put in series. The first material occupies the lower half of the cubic domain (\(z<0.5\,\)mm), the second material lies on the first one, occupying the upper half of the domain. For simplicity each material has a single slow polarization process. We expect to observe discontinuity in the electric field at the middle interface and accumulation of charges. We report data and results in figure \ref{fig:test3}.
+\begin{figure}
+	\hspace*{-0.02\textwidth}
+	\subfloat[Free charge density \(\rho\). We can easily see the accumulation of free charges at the interface. Total free charge is balanced in the domain]{
+		\includegraphics[width=0.5\textwidth]{pictures/serial_rho_max.png}
+	}
+	\hspace*{0.01\textwidth}
+	\subfloat[Electric potential \(\varphi\). We can see how discontinuity of physical òarameters dertermines a dicontinuity in the electric field at the interface: in the lower region a steeper gradient of \(\varphi\).]{
+		\includegraphics[width=0.5\textwidth]{pictures/serial_phi_max.png}
+	}\\
+	\subfloat[Here we compare in absolute value total currents at the interfaces with the two conductors. As expected from theory they match pretty well.]{
+		\includegraphics[width=0.5\textwidth]{pictures/test3-comp.png}
+	}
+	\caption{Test 3: Bi-phase material. Parameters for the material 1 are \(\varepsilon_\infty = 2,\ \sigma = 3.14\cdot 10^{-14}S,\ \chi_1 = 1,\ \tau_1 = 10s\). Parameters for material 2 are \(\varepsilon_{\infty} = 4,\ \sigma = 1.13\cdot10^{-13}S,\ \chi_2 = 1.5,\ \tau_2 = 40\,s\).}
+	\label{fig:test3}
+	
+\end{figure}
+\subsection{Test 4: Homogeneous Material with Hole}
+In this test we consider a parallelepiped-shaped domain (\(5\mathrm{mm}\times 5\mathrm{mm}\times 1\mathrm{mm}\))with a little hole in its center. In figure \ref{fig:test4} we report data and results. We can appreciate from this test the possibility to locally refine the mesh in the region with the small hole. In figure \ref{fig:test4} we can see how the hole affects the electric field and how free charge accumulates at the interface.
+\begin{figure}
+	\centering
+	\subfloat[Geometry and grid for the test.]{
+		\includegraphics[width=0.7\textwidth]{pictures/hole-geom.png}
+	}\\
+	\hspace*{-0.02\textwidth}
+	\subfloat[Electric potential \(\varphi\) on the line parallel to \(z\) axis and passing through the center of the sherical hole. Notice how the electric field increases in the hole.]{
+		\includegraphics[width=0.5\textwidth]{pictures/hole-phi.png}
+	}
+	\hspace*{0.01\textwidth}
+	\subfloat[Free charge \(\rho\) on the line parallel to \(z\) axis and passing through the center of the sherical hole.]{
+		\includegraphics[width=0.5\textwidth]{pictures/hole-rho.png}
+	}
+	\caption{Test 4: Homogeneous material with hole. Parameters outside the hole are \(\varepsilon_\infty = 2,\ \sigma = 3.14\cdot 10^{-14}S,\ \chi_1 = 1,\ \tau_1 = 10\,s,\ \chi_2 = 1.5,\ \tau_2 = 40\,s\). Inside hole we have \(\varepsilon_\infty = 1,\ \sigma = 1\cdot 10^{-12}s\) and no polarization process. Plots are referred to the end of charging transient.}
+	\label{fig:test4}
+	
+\end{figure}
+
+\subsection{Test 5: Butt Gap}
+In this last test consider a more complex geometry, representing a possible structure of mass impregnated cables. We consider a cubic domain with 1 mm edge, inside we have three layers of impregnated paper separated by thin oil layers, plus a cavity filled with oil: the butt gap. Physical parameters were derived from \cite{hakonseththesis}, manually fitting the curves for the time-dependent response of paper and oil. A total of five polarization processes were introduced, three for the mass-impregnated paper, two for oil.
+Data and results are reported in figure \ref{fig:test5}.
+
+\begin{figure}
+	\centering
+	\vspace*{-5mm}
+	\subfloat[Geometry of butt gap. Black regions are occupied by oil.]{
+		\includegraphics[width=0.45\textwidth]{pictures/butt-gap-geom.png}
+	}
+	\subfloat[Grid of butt gap.]{
+		\includegraphics[width=0.45\textwidth]{pictures/butt-gap-grid.png}
+	}
+	\\
+	\hspace*{-0.02\textwidth}
+	\subfloat[Electric potential \(\varphi\) distribution.]{
+		\includegraphics[width=0.5\textwidth]{pictures/butt-gap-phi.png}
+	}
+	\hspace*{0.01\textwidth}
+	\subfloat[Free charge \(\rho\) distribution.]{
+		\includegraphics[width=0.5\textwidth]{pictures/butt-gap-rho.png}
+	}\\
+	\hspace*{0.0\textwidth}
+	\subfloat[Electric potential \(\varphi\) on the line parallel to \(z\) axis and passing through the butt gao. Notice how the electric field increases in the hole.]{
+	\includegraphics[width=0.45\textwidth]{pictures/butt-gap-phi-prof.png}
+	}
+	\hspace*{0.01\textwidth}
+	\subfloat[Free charge \(\rho\) on the line parallel to \(z\) axis and passing through the butt gap.]{
+	\includegraphics[width=0.45\textwidth]{pictures/butt-gap-rho-prof.png}
+	}
+	\caption{Test 5: Butt Gap. Parameters impregnated paper are \(\varepsilon_\infty = 3.14,\ \sigma = 1\cdot 10^{-14}S,\ \chi_1 = 0.2174,\ \tau_1 = 10\,s,\ \chi_2 = 0.5221,\ \tau_2 = 166.7\,s,\ \chi_3 = 3.523,\ \tau_3 = 3333.3\,s\). For the oil we assume \(\varepsilon_\infty = 2.25,\ \sigma = 8.4\cdot 10^{-14}S,\ \chi_1 = 0.6\cdot 10^{-4},\ \tau_1 = 5\,s,\ \chi_2 = 6.9\cdot 10^{-3},\ \tau_2 = 100\,s\). Plots are referred to the end of charging transient.}
+	\label{fig:test5}
+	
+\end{figure}
 
 \section{Conclusions}
+In this work we presented an innovative approach to the simulation of insulating materials for HVDC cables, In addition to the mathematical model and the numerical methods, an achievement of this work was the production of a code implementing the proposed methods. Different tests were run on this code, besides those reported here. Computational performances were the main concern since the long intervals of time one usually has to simulate a test require also more computational time. In the section on results we verified the code comparing the estimated currents with other existing models and we showed the ability of this simulation tool to simulate complex geometries. The next step would be to extend the code to more general models that include conductivity dependence on the electric field, and charge trapping phenomena arising in other kinds of materials.\\
+
 %-----------------------------------------------------------------------------
 % EQUATIONS
 %-----------------------------------------------------------------------------
@@ -1004,6 +1077,8 @@ The bibliography and list of references are generated automatically by running B
 %-----------------------------------------------------------------------------
 % BIBLIOGRAPHY
 %-----------------------------------------------------------------------------
+
+\nocite{*}
 \bibliography{bibliography.bib}
 \begin{comment}
 \appendix
@@ -1024,17 +1099,15 @@ It may be necessary to include another appendix to better organize the presentat
 % SOMMARIO
 %-----------------------------------------------------------------------------
 \section*{Abstract in lingua italiana}
-Qui va l'Abstract in lingua italiana della tesi seguito dalla lista di parole chiave.
+Questo lavoro si propone di contribuire allo studio e all'ottimizzazione dei materiali isolanti per cavi in corrente continua ad alta tensione (HVDC). L'alta tensione applicata ai cavi HVDC sottopone molto stress a questi materiali, soprattutto durante i transitori, quando il flusso di potenza nella linea viene attivato, disattivato o invertito, sollevando problemi di affidabilità e durata. Ci concentriamo su un modello adatto all'isolamento basato su carta impregnata di massa (MI-paper )e presentiamo un codice parallelo per simulare questo tipo di isolamento, in grado di fornire una rappresentazione spaziale della distribuzione delle cariche e del campo elettrico, per qualsiasi geometria. Il modello matematico considera dinamiche di polarizzazione lenta, che svolgono un ruolo cruciale durante i transitori. Ciò è ottenuto mediante un metodo agli elementi finiti, basato su griglie cartesiane non conformi implementate attraverso una struttura a octree, e con un algoritmo di time stepping adattivo. Un simile approccio migliora i metodi di simulazione esistenti che spesso si basano su semplificazioni geometriche. Presentiamo infine alcuni test e possibili applicazioni di questo strumento, confrontando i risultati con altri modelli tratti dalla letteratura.
 \vspace{15pt}
 \begin{tcolorbox}[arc=0pt, boxrule=0pt, colback=bluePoli!60, width=\textwidth, colupper=white]
-    \textbf{Parole chiave:} qui, le parole chiave, della tesi, in italiano 
+    \textbf{Parole chiave:} cavi HVDC, isolamento con carta impregnata, transitori, polarizzaziont, elementi finiti, griglie octree 
 \end{tcolorbox}
 
 %-----------------------------------------------------------------------------
 % ACKNOWLEDGEMENTS
 %-----------------------------------------------------------------------------
-\section*{Acknowledgements}
-Here you might want to acknowledge someone.
 
 %-------------------------------------------------------------------------
 %	END OF YOUR DOCUMENT
