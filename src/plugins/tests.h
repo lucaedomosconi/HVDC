@@ -87,7 +87,7 @@ namespace tests {
       double tau_p5_fun (double x, double y, double z) const
         {return 1;}
 
-      double sigma_fun (double x, double y, double z, double DT) const
+      double sigma_fun (double x, double y, double z, double DT, double E = 0) const
         {return sigma_ * DT;}
   };
 
@@ -258,7 +258,7 @@ namespace tests {
           return z < 0.0005 ? tau_m1_p5 : tau_m2_p5;
         }
 
-      double sigma_fun (double x, double y, double z, double DT) const
+      double sigma_fun (double x, double y, double z, double DT, double E = 0) const
         {return z < 0.0005 ? sigma_1 * DT : sigma_2 * DT;}
   };
   
@@ -385,7 +385,7 @@ namespace tests {
       double tau_p5_fun (double x, double y, double z) const
         {return 1;}
 
-      double sigma_fun (double x, double y, double z, double DT) const
+      double sigma_fun (double x, double y, double z, double DT, double E = 0) const
         {return x < 0.0005 ? sigma_1 * DT : sigma_2 * DT;}
   };
 
@@ -564,7 +564,7 @@ namespace tests {
           return (x-2.5e-3)*(x-2.5e-3)+(y-2.5e-3)*(y-2.5e-3)+(z-0.5e-3)*(z-0.5e-3) < hole_rad_2 ? tau_m1_p5 : tau_m2_p5;
         }
 
-      double sigma_fun (double x, double y, double z, double DT) const
+      double sigma_fun (double x, double y, double z, double DT, double E = 0) const
         {return (x-2.5e-3)*(x-2.5e-3)+(y-2.5e-3)*(y-2.5e-3)+(z-0.5e-3)*(z-0.5e-3) < hole_rad_2 ? sigma_1 * DT : sigma_2 * DT;}
   };
   

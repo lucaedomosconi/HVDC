@@ -116,12 +116,37 @@ void time_step (const int rank, const double time, const double DELTAT,
     sol.assemble(replace_op);
 
     // Initialize non constant (in time) parameters
+    double xx, yy, zz;
+    std::array<std::array<double,2>,3> quad_lims;
+    std::array<double,8> phi_local;
     for (auto quadrant = tmsh.begin_quadrant_sweep ();
     quadrant != tmsh.end_quadrant_sweep ();
     ++quadrant)
     {
-      double xx{quadrant->centroid(0)}, yy{quadrant->centroid(1)}, zz{quadrant->centroid(2)};  
+      xx = quadrant->centroid(0); yy = quadrant->centroid(1); zz = quadrant->centroid(2);
+      quad_lims[0][0] = quadrant->p(0,0); quad_lims[0][1] = quadrant->p(0,1);
+      quad_lims[1][0] = quadrant->p(1,0); quad_lims[1][1] = quadrant->p(1,2);
+      quad_lims[2][0] = quadrant->p(2,0); quad_lims[2][1] = quadrant->p(2,4);
+      for (int ii = 0; ii < 8; ++ii) {
+        if (!quadrant->is_hanging (ii))
+          phi_local[ii] = sold[ord[1] (quadrant->gt (ii))];
+        else {
+          phi_local[ii] = 0;
+          int n_parents = quadrant->num_parents (ii);
+          for (int pp = 0; pp < n_parents; ++pp)
+            phi_local[ii] += sold[ord[1] (quadrant->gparent (pp,ii))];
+          phi_local[ii] /= n_parents;
+        }
+      }
+      
 
+      double E = quad_integral(&quad_lims[0][0], &quad_lims[1][0], &quad_lims[2][0],
+      [&](double x, double y, double z) {
+        return std::sqrt (std::pow (dudx(x,y,z,&quad_lims[0][0],&quad_lims[1][0],&quad_lims[2][0],&phi_local[0]),2)
+                        + std::pow (dudy(x,y,z,&quad_lims[0][0],&quad_lims[1][0],&quad_lims[2][0],&phi_local[0]),2)
+                        + std::pow (dudz(x,y,z,&quad_lims[0][0],&quad_lims[1][0],&quad_lims[2][0],&phi_local[0]),2))
+                         / ( (quad_lims[0][1]-quad_lims[0][0])*(quad_lims[1][1]-quad_lims[1][0])*(quad_lims[2][1]-quad_lims[2][0]) );
+      });
       reaction_term_p1[quadrant->get_forest_quad_idx ()] =
         1 + DELTAT / test->tau_p1_fun(xx,yy,zz);
       reaction_term_p2[quadrant->get_forest_quad_idx ()] =
@@ -142,7 +167,7 @@ void time_step (const int rank, const double time, const double DELTAT,
         - DELTAT / test->tau_p4_fun(xx,yy,zz) * epsilon_0 * test->chi_4_fun(xx,yy,zz);
       diffusion_term_p5[quadrant->get_forest_quad_idx ()] =
         - DELTAT / test->tau_p5_fun(xx,yy,zz) * epsilon_0 * test->chi_5_fun(xx,yy,zz);
-      sigma[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,DELTAT);
+      sigma[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,DELTAT,E);
       for (int ii = 0; ii < 8; ++ii) {
         if (! quadrant->is_hanging (ii)){
           g0[quadrant->gt (ii)] = sold[ord[0](quadrant->gt (ii))];

@@ -19,6 +19,7 @@ namespace tests
       double chi1, chi2, chi3, chi4, chi5;
       double tau_p1, tau_p2, tau_p3, tau_p4, tau_p5;
       double sigma_1, sigma_2, sigma_gap;
+      double eta = 2.52e-8;
       double tol = 1e-5;
       double z_oil = 5e-5;
       double z_paper = 3e-4;
@@ -176,14 +177,14 @@ namespace tests
         return 0;
       }
 
-      double sigma_fun (double x, double y, double z, double DT) const {
+      double sigma_fun (double x, double y, double z, double DT, double E = 0) const {
          if((z > z_paper+z_oil && z<2*z_paper+z_oil) && x<z_paper && (y>5e-4-z_paper/2 && y<5e-4+z_paper/2))
-          return  sigma_2 * DT;
+          return  sigma_gap * DT;
         
         if((z > z_paper && z<z_paper+z_oil) || (z>2*z_paper+z_oil && z<2*(z_paper+z_oil)))
-          return  sigma_gap * DT;
+          return  sigma_2 * DT;
     
-        return sigma_1 * DT;
+        return DT * sigma_1 * std::exp(eta * E);
       }
   };
 

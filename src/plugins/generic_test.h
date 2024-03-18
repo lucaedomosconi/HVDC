@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <string>
+#include <cmath>
 using json = nlohmann::json;
 
 
@@ -47,7 +48,7 @@ namespace tests{
 
       virtual double tau_p5_fun(double x, double y, double z) const = 0;
 
-      virtual double sigma_fun(double x, double y, double z, double DT) const = 0;
+      virtual double sigma_fun(double x, double y, double z, double DT, double E = 0) const = 0;
 
   };
 }
