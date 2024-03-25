@@ -1,7 +1,7 @@
 #ifndef GENERIC_TEST_HPP
 #define GENERIC_TEST_HPP
 #include <tmesh_3d.h>
-#include <simple_connectivity_3d.h>
+#include <connectivity_mi_paper.h>
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <string>
@@ -38,6 +38,8 @@ namespace tests{
 
       virtual double chi_5_fun(double x, double y, double z) const = 0;
 
+      virtual double chi_6_fun(double x, double y, double z) const = 0;
+
       virtual double tau_p1_fun(double x, double y, double z) const = 0;
 
       virtual double tau_p2_fun(double x, double y, double z) const = 0;
@@ -47,6 +49,8 @@ namespace tests{
       virtual double tau_p4_fun(double x, double y, double z) const = 0;
 
       virtual double tau_p5_fun(double x, double y, double z) const = 0;
+
+      virtual double tau_p6_fun(double x, double y, double z) const = 0;
 
       virtual double sigma_fun(double x, double y, double z, double DT, double E = 0) const = 0;
 
