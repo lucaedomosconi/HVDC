@@ -143,7 +143,7 @@ namespace tests
         if(x*x+y*y+z*z < radius*radius)
           return 0;
     
-        if(x*x < half_gap_length*half_gap_length && y*y < half_gap_height)
+        if(x*x < half_gap_length*half_gap_length && z*z < half_gap_height*half_gap_height)
           return  0;
     
         return chi1;
@@ -153,7 +153,7 @@ namespace tests
         if(x*x+y*y+z*z < radius*radius)
           return 0;
     
-        if(x*x < half_gap_length*half_gap_length && y*y < half_gap_height)
+        if(x*x < half_gap_length*half_gap_length && z*z < half_gap_height*half_gap_height)
           return 0;
     
         return chi2;
@@ -163,7 +163,7 @@ namespace tests
         if(x*x+y*y+z*z < radius*radius)
           return 0;
     
-        if(x*x < half_gap_length*half_gap_length && y*y < half_gap_height)
+        if(x*x < half_gap_length*half_gap_length && z*z < half_gap_height*half_gap_height)
           return 0;
     
         return chi3;
@@ -174,7 +174,7 @@ namespace tests
         if(x*x+y*y+z*z < radius*radius)
           return 0;
     
-        if(x*x < half_gap_length*half_gap_length && y*y < half_gap_height)
+        if(x*x < half_gap_length*half_gap_length && z*z < half_gap_height*half_gap_height)
           return chi4;
     
         return 0;
@@ -184,7 +184,7 @@ namespace tests
         if(x*x+y*y+z*z < radius*radius)
           return 0;
     
-        if(x*x < half_gap_length*half_gap_length && y*y < half_gap_height)
+        if(x*x < half_gap_length*half_gap_length && z*z < half_gap_height*half_gap_height)
           return chi5;
     
         return 0;
@@ -194,14 +194,14 @@ namespace tests
         if(x*x+y*y+z*z < radius*radius)
           return 0;
     
-        if(x*x < half_gap_length*half_gap_length && y*y < half_gap_height)
+        if(x*x < half_gap_length*half_gap_length && z*z < half_gap_height*half_gap_height)
           return chi6;
     
         return 0;
       }
 
       double sigma_fun (double x, double y, double z, double DT, double E = 0) const {
-         if(x*x < half_gap_length*half_gap_length && y*y < half_gap_height)
+         if(x*x < half_gap_length*half_gap_length && z*z < half_gap_height*half_gap_height)
           return sigma_bubble * DT;
         
         if(x*x+y*y+z*z < radius*radius)
