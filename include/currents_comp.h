@@ -50,7 +50,13 @@ public:
 
     border_built.fill(false);
   }
-  
+  void sigma_update (const std::vector<double> & sigma,
+                     const q1_vector & null_q1_vec) {
+    phi_stiffness.reset ();
+    bim3a_advection_diffusion (tmsh, sigma, null_q1_vec, phi_stiffness, true);
+    phi_stiffness.assemble();
+  }
+
   double operator() (const q1_vector & sol1,
                      const q1_vector & sol0,
                      double dt, int side, bool only_dphi = false) {

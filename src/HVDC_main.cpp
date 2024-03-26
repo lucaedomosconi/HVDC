@@ -82,6 +82,7 @@ void time_step (const int rank, const double time, const double DELTAT,
                 std::vector<double> &xa, std::vector<int> &ir, std::vector<int> &jc,
                 std::vector<double> &epsilon,
                 std::vector<double> &sigma,
+                std::vector<double> &sigma_c,
                 std::vector<double> &null_vec,
                 std::vector<double> &unitary_vec,
                 std::vector<double> &neg_unitary_vec,
@@ -101,7 +102,7 @@ void time_step (const int rank, const double time, const double DELTAT,
                 q1_vector &unitary_q1_vec,
                 q1_vector &g1, q1_vector &g0, q1_vector &gp1, q1_vector &gp2,
                 q1_vector &gp3, q1_vector &gp4, q1_vector &gp5, q1_vector &gp6,
-                q1_vector &sold, q1_vector &sol) {
+                q1_vector &sold, q1_vector &sol, const bool update_sigma_c = false) {
 
     // Define boundary conditions
     dirichlet_bcs3 bcs0, bcs1;
@@ -174,6 +175,8 @@ void time_step (const int rank, const double time, const double DELTAT,
       diffusion_term_p6[quadrant->get_forest_quad_idx ()] =
         - DELTAT / test->tau_p6_fun(xx,yy,zz) * epsilon_0 * test->chi_6_fun(xx,yy,zz);
       sigma[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,DELTAT,E);
+      if (update_sigma_c)
+        sigma_c[quadrant->get_forest_quad_idx ()] = test->sigma_fun(xx,yy,zz,1.,E);
       for (int ii = 0; ii < 8; ++ii) {
         if (! quadrant->is_hanging (ii)){
           g0[quadrant->gt (ii)] = sold[ord[0](quadrant->gt (ii))];
@@ -836,21 +839,21 @@ main (int argc, char **argv) {
       sold1 = sold; sold2 = sold; sol1 = sol; sol2 = sol;
       time_step<N_eqs>(rank, Time + time_in_step, dt, test, voltage,
                   ord, tmsh, lin_solver, A,
-                  xa, ir, jc, epsilon, sigma,
+                  xa, ir, jc, epsilon, sigma, sigma_c,
                   null_vec, unitary_vec, neg_unitary_vec,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3, reaction_term_p4, reaction_term_p5, reaction_term_p6,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3, diffusion_term_p4, diffusion_term_p5, diffusion_term_p6,
-                  null_q1_vec, unitary_q1_vec, g1, g0, gp1, gp2, gp3, gp4, gp5, gp6, sold1, sol1);
+                  null_q1_vec, unitary_q1_vec, g1, g0, gp1, gp2, gp3, gp4, gp5, gp6, sold1, sol1, true);
       time_step<N_eqs>(rank, Time + time_in_step, dt/2, test, voltage,
                   ord, tmsh, lin_solver, A,
-                  xa, ir, jc, epsilon, sigma,
+                  xa, ir, jc, epsilon, sigma, sigma_c,
                   null_vec, unitary_vec, neg_unitary_vec,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3, reaction_term_p4, reaction_term_p5, reaction_term_p6,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3, diffusion_term_p4, diffusion_term_p5, diffusion_term_p6,
                   null_q1_vec, unitary_q1_vec, g1, g0, gp1, gp2, gp3, gp4, gp5, gp6, sold2, sol2);
       time_step<N_eqs>(rank, Time + time_in_step + dt/2, dt/2, test, voltage,
                   ord, tmsh, lin_solver, A,
-                  xa, ir, jc, epsilon, sigma,
+                  xa, ir, jc, epsilon, sigma, sigma_c,
                   null_vec, unitary_vec, neg_unitary_vec,
                   reaction_term_p1, reaction_term_p2, reaction_term_p3, reaction_term_p4, reaction_term_p5, reaction_term_p6,
                   diffusion_term_p1, diffusion_term_p2, diffusion_term_p3, diffusion_term_p4, diffusion_term_p5, diffusion_term_p6,
@@ -859,6 +862,7 @@ main (int argc, char **argv) {
 
 
       // Computing conduction currents on contacts along z axis
+      conduction.sigma_update (sigma_c, null_q1_vec);
       I_cond1_c1 = conduction (sold1, sold, dt, 5);
       I_cond2_c1 = conduction (sold2, sold, dt, 5);
       I_cond1_c2 = conduction (sold1, sold, dt, 4);
