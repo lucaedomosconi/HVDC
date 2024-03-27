@@ -24,7 +24,7 @@ namespace tests
       double z_oil = 5e-5;
       double half_gap_height = 5e-5;
       double half_gap_length = 5e-4;
-      double radius = 5e-5;
+      double radius = 4e-5;
       double z_paper = 0;
     public:
 
