@@ -242,7 +242,7 @@ void time_step (const int rank, const double time, const double DELTAT,
     bim3a_rhs (tmsh, unitary_vec, gp3, sol, ord[4]);
     bim3a_rhs (tmsh, unitary_vec, gp4, sol, ord[5]);
     bim3a_rhs (tmsh, unitary_vec, gp5, sol, ord[6]);
-    bim3a_rhs (tmsh, unitary_vec, gp5, sol, ord[7]);
+    bim3a_rhs (tmsh, unitary_vec, gp6, sol, ord[7]);
 
     // Boundary conditions
     bim3a_dirichlet_bc (tmsh, bcs0, A, sol, ord[0], ord[1], false);
@@ -881,7 +881,7 @@ main (int argc, char **argv) {
         std::cout << "error/tol = " << est_err/tol << std::endl;
       
       // If the error on the conduction current is small enough go on, otherwise halve dt and repeat
-      if (est_err < tol || dt < 0.051) {
+      if (est_err < tol || dt < 1.01*mindt) {
         time_in_step += dt;
         sold = sold2;
         if (rank == 0 && save_cond_current) {
@@ -952,6 +952,7 @@ main (int argc, char **argv) {
                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[3]
                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[4]
                            << std::setw(20) << std::setprecision(5) << - rho_pi_k[5]
+                           << std::setw(20) << std::setprecision(5) << - rho_pi_k[6]
                            << std::endl;
           }
 
@@ -971,6 +972,8 @@ main (int argc, char **argv) {
             tmsh.octbin_export (filename,sold, ord[5]);
             sprintf(filename, "%s%s/%s/model_1_p5_%4.4d",  output_folder.c_str(), test_iter->c_str(), "sol", count);
             tmsh.octbin_export (filename,sold, ord[6]);
+            sprintf(filename, "%s%s/%s/model_1_p6_%4.4d",  output_folder.c_str(), test_iter->c_str(), "sol", count);
+            tmsh.octbin_export (filename,sold, ord[7]);
           }
 
           // Enter new big time step after updating 'dt_start_big_step'
@@ -978,7 +981,7 @@ main (int argc, char **argv) {
         }
         
         // Update dt
-        dt = std::max(0.05, dt*std::pow(est_err/tol,-0.5)*0.9);
+        dt = std::max(mindt, dt*std::pow(est_err/tol,-0.5)*0.9);
         dt_start_big_step = std::min(DT,std::max(dt_start_big_step*truncated_dt, dt));
         if (dt > DT - time_in_step - eps) {
           dt = DT - time_in_step;
@@ -989,7 +992,7 @@ main (int argc, char **argv) {
           time1 = comp_time_of_previous_simuls + MPI_Wtime();
         if (rank == 0 && save_error_and_comp_time) {
           // Saving error and computation times
-          error_file << std::setw(20) << Time + time_in_step
+          error_file << std::setw(20) << Time + time_in_step * !(time_in_step > DT - eps)
                      << std::setw(20) << std::setprecision(7) << est_err
                      << std::setw(20) << std::setprecision(7) << time1 - time0
                      << std::setw(20) << std::setprecision(7) << time1 - start_time
