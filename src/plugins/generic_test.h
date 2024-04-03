@@ -22,7 +22,7 @@ namespace tests{
 
       virtual int	uniform_refinement (tmesh_3d::quadrant_iterator q) const = 0;
 
-      virtual int refinement (tmesh_3d::quadrant_iterator q) const = 0;
+      virtual int refinement (tmesh_3d &tmsh) const = 0;
       
       virtual int coarsening (tmesh_3d::quadrant_iterator q) const = 0;
 

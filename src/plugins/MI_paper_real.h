@@ -26,6 +26,42 @@ namespace tests
       double half_gap_length = 5e-4;
       double radius = 4e-5;
       double z_paper = 0;
+
+      int refinement_1 (tmesh_3d::quadrant_iterator q) const {
+        int currentlevel = static_cast<int> (q->the_quadrant->level);
+        double xcoord, ycoord, zcoord;
+        int retval = 0;
+        for (int ii = 0; ii < 8; ++ii) {
+          xcoord = q->p(0, ii);
+          ycoord = q->p(1, ii);
+          zcoord = q->p(2, ii);
+            
+          if ((std::fabs(zcoord) > half_gap_height - tol && std::fabs(zcoord) < half_gap_height + tol && std::fabs(xcoord) < half_gap_length + tol) ||
+              (std::fabs(zcoord) < half_gap_height + tol && std::fabs(xcoord) > half_gap_length - tol && std::fabs(xcoord) < half_gap_length + tol) ||
+              (xcoord*xcoord + ycoord*ycoord + zcoord*zcoord < radius*radius)) {
+            return 1;
+          }
+        }
+        return retval;
+      }
+
+      int refinement_2 (tmesh_3d::quadrant_iterator q) const {
+        int currentlevel = static_cast<int> (q->the_quadrant->level);
+        double xcoord, ycoord, zcoord;
+        int retval = 0;
+        for (int ii = 0; ii < 8; ++ii) {
+          xcoord = q->p(0, ii);
+          ycoord = q->p(1, ii);
+          zcoord = q->p(2, ii);
+            
+          if ((xcoord*xcoord + ycoord*ycoord + zcoord*zcoord < 1.2 * radius*radius) &&
+              (xcoord*xcoord + ycoord*ycoord + zcoord*zcoord > 0.5 * radius*radius)) {
+            return 1;
+          }
+        }
+        return retval;
+      }
+
     public:
 
       MI_paper_real() {extra_refinement = true;}
@@ -58,27 +94,16 @@ namespace tests
       int uniform_refinement (tmesh_3d::quadrant_iterator q) const
         { return num_refinements; }
 
-      int refinement (tmesh_3d::quadrant_iterator q) const {
-        int currentlevel = static_cast<int> (q->the_quadrant->level);
-        double xcoord, ycoord, zcoord;
-        int retval = 0;
-        for (int ii = 0; ii < 8; ++ii) {
-          xcoord = q->p(0, ii);
-          ycoord = q->p(1, ii);
-          zcoord = q->p(2, ii);
-            
-          if ((std::fabs(zcoord) > half_gap_height - tol && std::fabs(zcoord) < half_gap_height + tol && std::fabs(xcoord) < half_gap_length + tol) ||
-              (std::fabs(zcoord) < half_gap_height + tol && std::fabs(xcoord) > half_gap_length - tol && std::fabs(xcoord) < half_gap_length + tol) ||
-              (xcoord*xcoord + ycoord*ycoord + zcoord*zcoord < radius*radius)) {
-            retval = 1;
-            break;
-          }
+      int refinement (tmesh_3d &tmsh) const {
+        for (auto ii = 0; ii < 2; ++ii) {
+          tmsh.set_refine_marker([this](tmesh_3d::quadrant_iterator q) {return this->refinement_1(q);});
+          tmsh.refine (1);
         }
-        
-        if (currentlevel >= maxlevel)
-          retval = 0;
-              
-        return retval;
+        for (auto ii = 0; ii < 1; ++ii) {
+          tmsh.set_refine_marker([this](tmesh_3d::quadrant_iterator q) {return this->refinement_2(q);});
+          tmsh.refine (1);
+        }
+        return 0;
       }
 
       int coarsening (tmesh_3d::quadrant_iterator q) const {

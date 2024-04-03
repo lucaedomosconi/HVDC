@@ -262,7 +262,7 @@ void time_step (const int rank, const double time, const double DELTAT,
     lin_solver->set_distributed_lhs_data (xa);
 
     // Factorization
-    std::cout << "lin_solver->factorize () = " << lin_solver->factorize () << std::endl;
+    std::cout << "lin_solver->factorize () = " << lin_solver->factorize () << "; info(2) = " << lin_solver->id.info[1] <<  std::endl;
 
     // Set RHS data
     lin_solver->set_rhs_distributed (sol);
@@ -510,15 +510,8 @@ main (int argc, char **argv) {
   tmsh.refine (recursive);
 
   // According to the test we may refine the grid or just leave it uniform
-  if (test->extra_refinement) {
-    for (auto i = 0; i < 2; ++i) {
-      tmsh.set_refine_marker([&test](tmesh_3d::quadrant_iterator q) {return test->refinement(q);});
-      tmsh.refine (recursive);
-    }
-
-    tmsh.set_coarsen_marker([&test](tmesh_3d::quadrant_iterator q) {return test->coarsening(q);});
-    tmsh.coarsen(recursive);
-  }
+  if (test->extra_refinement)
+    test->refinement(tmsh);
 
   tmesh_3d::idx_t gn_nodes = tmsh.num_global_nodes ();
   tmesh_3d::idx_t ln_nodes = tmsh.num_owned_nodes ();
@@ -527,6 +520,7 @@ main (int argc, char **argv) {
   // Allocate linear solver
   mumps *lin_solver = new mumps ();
   lin_solver->id.icntl[13] = 1000;
+  //lin_solver->id.icntl[22] = 1000;
 
   // Allocate initial data container
   q1_vector sold (ln_nodes * N_eqs);
