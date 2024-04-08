@@ -101,7 +101,7 @@ namespace tests
         { return num_refinements; }
 
       int refinement (tmesh_3d &tmsh) const {
-        for (auto ii = 0; ii < 2; ++ii) {
+        for (auto ii = 0; ii < 1; ++ii) {
           tmsh.set_refine_marker([this](tmesh_3d::quadrant_iterator q) {return this->refinement_1(q);});
           tmsh.refine (1);
         }
@@ -140,7 +140,7 @@ namespace tests
         
       double epsilon_fun (double x, double y, double z) const {
 #ifdef MI_HOLE 
-        if(x*x+(y-5e-4)*(y-5e-4)+z*z < radius*radius)
+        if(x*x+y*y+z*z < radius*radius)
           return  epsilon_0 * epsilon_r_bubble;
 #endif
         if(std::fabs(z) < half_gap_height && std::fabs(x) < half_gap_length)
