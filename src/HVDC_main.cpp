@@ -47,11 +47,6 @@
 
 
 
-extern double epsilon_0;
-
-
-
-
 template<size_t N,class>
 struct make_order_struct{};
 
@@ -459,7 +454,7 @@ main (int argc, char **argv) {
 
   // If check-params mode is on, when a failure happens in reading parameters the program stops
   // and reports the errpr, otherwise it may skip to the subsequent test
-  try{set_params(data, *test_iter, T, epsilon_0, DT, mindt, dt, tol, save_every_n_steps,start_from_solution,
+  try{set_params(data, *test_iter, T, DT, mindt, dt, tol, save_every_n_steps,start_from_solution,
                  save_temp_solution, save_sol, save_error_and_comp_time, save_charges,
                  save_cond_current, temp_solution_file_name);}
   catch (...) {if(parameters_check) throw; else continue;}
@@ -518,7 +513,7 @@ main (int argc, char **argv) {
   tmesh_3d::idx_t ln_elements = tmsh.num_local_quadrants (); 
 
   // Allocate linear solver
-  mumps *lin_solver = new mumps ();
+  mumps *lin_solver = new mumps (false);
   lin_solver->id.icntl[13] = 1000;
   //lin_solver->id.icntl[22] = 1000;
 

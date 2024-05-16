@@ -1,7 +1,7 @@
 #ifndef GENERIC_TEST_HPP
 #define GENERIC_TEST_HPP
 #include <tmesh_3d.h>
-#include <connectivity_mi_paper.h>
+#include <connectivity_paper_layer.h>
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <string>
@@ -10,7 +10,7 @@ using json = nlohmann::json;
 
 
 // Problem parameters
-double epsilon_0;
+constexpr double epsilon_0 = 8.8542e-12;
 
 
 namespace tests{

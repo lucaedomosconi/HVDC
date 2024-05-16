@@ -18,7 +18,7 @@ DOXYFILE= ../doc/Doxyfile
 
 include local_settings.mk
 
-plugs= libgenericfactory.so libVoltages.so libMIPaperReal.so
+plugs= libgenericfactory.so libVoltages.so libPaperLayer.so
 
 all : $(plugs) HVDC_main
 
@@ -35,6 +35,10 @@ libMIPaper.so : plugins/MI_paper.cpp plugins/MI_paper.h plugins/generic_test.h
 libMIPaperReal.so : plugins/MI_paper_real.cpp plugins/MI_paper_real.h plugins/generic_test.h
 	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/MI_paper_real.cpp
 	g++ $(CXXFLAGS) $(LDFLAGS) -shared MI_paper_real.o -o libMIPaperReal.so
+
+libPaperLayer.so : plugins/paper_layer.cpp plugins/paper_layer.h plugins/generic_test.h
+	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/paper_layer.cpp
+	g++ $(CXXFLAGS) $(LDFLAGS) -shared paper_layer.o -o libPaperLayer.so
 
 libVoltages.so : plugins/voltages.cpp plugins/voltages.h plugins/generic_voltage.h
 	g++ $(CXXFLAGS) $(CPPFLAGS) -fPIC -c plugins/voltages.cpp

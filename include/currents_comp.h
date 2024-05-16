@@ -9,7 +9,7 @@
 #include <bim_distributed_vector.h>
 #include <bim_sparse_distributed.h>
 #include <quad_operators_3d.h>
-#include <connectivity_mi_paper.h>
+#include <connectivity_paper_layer.h>
 
 using q1_vector = q1_vec<distributed_vector>;
 

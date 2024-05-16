@@ -161,7 +161,6 @@ int check_overwritings (int rank,
 void set_params (json & data,
                  std::string test_name,
                  double & T,
-                 double & epsilon_0,
                  double & DT,
                  double & mindt,
                  double & dt,
@@ -179,8 +178,6 @@ void set_params (json & data,
   catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][algorithm][T]" << std::endl; throw;}
   try {start_from_solution = data[test_name]["algorithm"]["start_from_solution"];}
   catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][algorithm][start_from_solution]" << std::endl; throw;}
-  try {epsilon_0 = data[test_name]["physics"]["epsilon_0"];}
-  catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][algorithm][epsilon_0]" << std::endl; throw;}
   try {save_temp_solution = data[test_name]["algorithm"]["save_temp_solution"];}
   catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][algorithm][save_temp_solution]" << std::endl; throw;}
   try {
