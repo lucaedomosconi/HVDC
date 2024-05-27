@@ -172,8 +172,7 @@ void set_params (json & data,
                  bool & save_error_and_comp_time,
                  bool & save_charges,
                  bool & save_cond_current,
-                 std::string & temp_solution_file_name
-                 ) {
+                 std::string & temp_solution_file_name) {
   try {T = data[test_name]["algorithm"]["T"];}
   catch (...) {std::cerr << "Error: Unable to read ["+test_name+"][algorithm][T]" << std::endl; throw;}
   try {start_from_solution = data[test_name]["algorithm"]["start_from_solution"];}
