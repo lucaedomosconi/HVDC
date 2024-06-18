@@ -41,12 +41,7 @@ namespace tests
           ycoord = q->p(1, ii);
           zcoord = q->p(2, ii);
             
-          if ((std::fabs(zcoord) > half_gap_height - tol && std::fabs(zcoord) < half_gap_height + tol && std::fabs(xcoord) < half_gap_length + tol) ||
-              (std::fabs(zcoord) < half_gap_height + tol && std::fabs(xcoord) > half_gap_length - tol && std::fabs(xcoord) < half_gap_length + tol)
-#ifdef MI_HOLE
-                || (xcoord*xcoord + ycoord*ycoord + zcoord*zcoord < radius*radius)
-#endif
-              ) {
+          if (std::fabs(zcoord) < tol) {
             return 1;
           }
         }
@@ -72,7 +67,7 @@ namespace tests
 
     public:
 
-      paper_layer() {extra_refinement = false;}
+      paper_layer() {extra_refinement = true;}
       
       void import_params (json & data) {
         epsilon_r_paper = data["physics"]["plugin_params"]["epsilon_r_paper"];
@@ -115,7 +110,6 @@ namespace tests
         { return num_refinements; }
 
       int refinement (tmesh_3d &tmsh) const {
-        return 0;
         for (auto ii = 0; ii < 1; ++ii) {
           tmsh.set_refine_marker([this](tmesh_3d::quadrant_iterator q) {return this->refinement_1(q);});
           tmsh.refine (1);

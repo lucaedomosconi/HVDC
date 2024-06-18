@@ -1,14 +1,13 @@
 {
-	"output_location" : "MI_paper1",
+	"output_location" : "PapLay",
 	"test_to_run" : 
 	[
-		"butt_gap"
+		"test_2l_r"
 	],
-	"butt_gap" : {
+	"test_2l_r" : {
 		"physics" : {
-			"epsilon_0" : 8.8542e-12,
-			"physics_plugin" : "libMIPaperReal.so",
-			"plugin_test_index" : "MI_paper_real",
+			"physics_plugin" : "libPaperLayer.so",
+			"plugin_test_index" : "paper_layer",
 			"plugin_params" : {
 				"tau_p1" : 10.0,
 				"tau_p2" : 166.7,
@@ -27,7 +26,7 @@
 				"chi6" : 0.6634,
 				"sigma_paper" : 1.0e-14,
 				"sigma_oil" : 8.4e-14,
-				"sigma_bubble" : 1.0e-12
+				"sigma_bubble" : 1.0e-14
 			}
 		},
 		"algorithm" : {
@@ -42,8 +41,8 @@
 			"voltage_plugin" : "libVoltages.so",
 			"voltage_name" : "voltage2",
 			"voltage_plugin_params" : {
-				"T_discharge" : 15000,
-				"tau" : 50.0
+				"T_discharge" : 30000,
+				"tau" : 2.0
 			},
 			"start_from_solution" : false,
 			"save_temp_solution" : true,

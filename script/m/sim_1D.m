@@ -2,7 +2,7 @@
 tau = 2.0;
 Vmax = 1.5e4;
 A = 1e-6;
-d1 = 1.0e-4;
+d1 = 0.5e-4;
 d2 = 0.5e-4;
 
 sigma_pap = 1e-14;
@@ -25,7 +25,7 @@ V = @(t) Vmax * (1 - exp(-t/tau)) * (t <= 30000);
 
 T = 30000;
 dt = 0.02;
-time = [0;DATA.time]';
+%time = [0;DATA.time]';
 time = 0:dt:T;
 I = zeros(1,length(time)-1);
 qinfvec = zeros(1,length(time));
