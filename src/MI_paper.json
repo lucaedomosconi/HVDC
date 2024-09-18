@@ -1,13 +1,13 @@
 {
-	"output_location" : "PapLay",
+	"output_location" : "torem",
 	"test_to_run" : 
 	[
 		"test_2l_r"
 	],
 	"test_2l_r" : {
 		"physics" : {
-			"physics_plugin" : "libPaperLayer.so",
-			"plugin_test_index" : "paper_layer",
+			"physics_plugin" : "libMIPaperReal.so",
+			"plugin_test_index" : "MI_paper_real",
 			"plugin_params" : {
 				"tau_p1" : 10.0,
 				"tau_p2" : 166.7,
@@ -30,7 +30,7 @@
 			}
 		},
 		"algorithm" : {
-			"num_refinements" : 4,
+			"num_refinements" : 3,
 			"maxlevel" : 7,
 			"minlevel" : 4,
 			"T" : 30000,

@@ -100,9 +100,31 @@ void time_step (const int rank, const double time, const double DELTAT,
                 q1_vector &sold, q1_vector &sol, const bool update_sigma_c = false) {
 
     // Define boundary conditions
-    dirichlet_bcs3 bcs0, bcs1;
+    dirichlet_bcs3 bcs0;
     bcs0.push_back (std::make_tuple (0, 4, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(4, time+DELTAT, x, y, z);})); //bottom
+    bcs0.push_back (std::make_tuple (1, 4, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(4, time+DELTAT, x, y, z);})); //bottom
+    bcs0.push_back (std::make_tuple (2, 4, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(4, time+DELTAT, x, y, z);})); //bottom
+    bcs0.push_back (std::make_tuple (3, 4, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(4, time+DELTAT, x, y, z);})); //bottom
+    bcs0.push_back (std::make_tuple (4, 4, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(4, time+DELTAT, x, y, z);})); //bottom
+    bcs0.push_back (std::make_tuple (5, 4, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(4, time+DELTAT, x, y, z);})); //bottom
+    bcs0.push_back (std::make_tuple (6, 4, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(4, time+DELTAT, x, y, z);})); //bottom
+    bcs0.push_back (std::make_tuple (7, 4, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(4, time+DELTAT, x, y, z);})); //bottom
+    bcs0.push_back (std::make_tuple (8, 4, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(4, time+DELTAT, x, y, z);})); //bottom
+    bcs0.push_back (std::make_tuple (9, 4, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(4, time+DELTAT, x, y, z);})); //bottom
+    bcs0.push_back (std::make_tuple (10, 4, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(4, time+DELTAT, x, y, z);})); //bottom
+    bcs0.push_back (std::make_tuple (11, 4, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(4, time+DELTAT, x, y, z);})); //bottom
     bcs0.push_back (std::make_tuple (0, 5, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(5, time+DELTAT, x, y, z);})); //top
+    bcs0.push_back (std::make_tuple (1, 5, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(5, time+DELTAT, x, y, z);})); //top
+    bcs0.push_back (std::make_tuple (2, 5, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(5, time+DELTAT, x, y, z);})); //top
+    bcs0.push_back (std::make_tuple (3, 5, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(5, time+DELTAT, x, y, z);})); //top
+    bcs0.push_back (std::make_tuple (4, 5, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(5, time+DELTAT, x, y, z);})); //top
+    bcs0.push_back (std::make_tuple (5, 5, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(5, time+DELTAT, x, y, z);})); //top
+    bcs0.push_back (std::make_tuple (6, 5, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(5, time+DELTAT, x, y, z);})); //top
+    bcs0.push_back (std::make_tuple (7, 5, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(5, time+DELTAT, x, y, z);})); //top
+    bcs0.push_back (std::make_tuple (8, 5, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(5, time+DELTAT, x, y, z);})); //top
+    bcs0.push_back (std::make_tuple (9, 5, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(5, time+DELTAT, x, y, z);})); //top
+    bcs0.push_back (std::make_tuple (10, 5, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(5, time+DELTAT, x, y, z);})); //top
+    bcs0.push_back (std::make_tuple (11, 5, [&voltage, time, DELTAT](double x, double y, double z){return voltage->V_in_time(5, time+DELTAT, x, y, z);})); //top
 
     // Print curent time
     if (rank==0)
@@ -496,8 +518,31 @@ main (int argc, char **argv) {
 
   // Generate the mesh in 3d
   tmesh_3d tmsh;
-  tmsh.read_connectivity (simple_conn_p, simple_conn_num_vertices,
-                          simple_conn_t, simple_conn_num_trees);
+  const p4est_topidx_t num_trees[3] = {4,3,1};
+  const double step[3] = {4e-4,3.3333333333333333333333333e-4,3e-4};
+  double * conn_p;
+  p4est_topidx_t conn_num_vertices;
+  p4est_topidx_t * conn_t;
+  p4est_topidx_t conn_num_trees;
+  std::vector<std::pair<p4est_topidx_t, p4est_topidx_t>> bcells;
+  make_connectivity_3d (num_trees, step,
+                        conn_p, conn_num_vertices,
+                        conn_t, conn_num_trees, bcells);
+//  std::cout << "n of vertices = " << conn_num_vertices << std::endl;
+  for (auto it = 0; it < 3*conn_num_vertices; ++it) {
+    if (it % 3 == 0)
+      conn_p[it] -= 8e-4;
+    if (it % 3 == 1)
+      conn_p[it] -= 5e-4;
+    if (it % 3 == 2)
+      conn_p[it] -= 1.5e-4;
+//    std::cout << conn_p[it] << std::endl;
+  }
+/*  for (auto it = bcells.cbegin (); it != bcells.cend (); ++it) {
+    std::cout << std::get<0> (*it) << " \t" << std::get<1> (*it) << ";" << std::endl;
+  } */
+  tmsh.read_connectivity (conn_p, conn_num_vertices,
+                          conn_t, conn_num_trees);
 
   // Uniform refinement
   int recursive = 1;

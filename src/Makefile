@@ -18,7 +18,7 @@ DOXYFILE= ../doc/Doxyfile
 
 include local_settings.mk
 
-plugs= libgenericfactory.so libVoltages.so libPaperLayer.so
+plugs= libgenericfactory.so libVoltages.so libPaperLayer.so libMIPaperReal.so
 
 all : $(plugs) HVDC_main
 

@@ -12,7 +12,7 @@ namespace {
 }
 
 
-#define MI_HOLE
+#define MI_HOLE 2
 
 namespace tests
 {
@@ -23,11 +23,12 @@ namespace tests
       double tau_p1, tau_p2, tau_p3, tau_p4, tau_p5, tau_p6;
       double sigma_paper, sigma_oil, sigma_bubble;
       double eta = 2.52e-8;
-      double tol = 1e-5;
+      double tol = 1.5e-5;
       double z_oil = 5e-5;
       double half_gap_height = 5e-5;
       double half_gap_length = 5e-4;
       double radius = 4e-5;
+      double displ_bubbles = 1.5*radius;
       double z_paper = 0;
 
       int refinement_1 (tmesh_3d::quadrant_iterator q) const {
@@ -41,8 +42,11 @@ namespace tests
             
           if ((std::fabs(zcoord) > half_gap_height - tol && std::fabs(zcoord) < half_gap_height + tol && std::fabs(xcoord) < half_gap_length + tol) ||
               (std::fabs(zcoord) < half_gap_height + tol && std::fabs(xcoord) > half_gap_length - tol && std::fabs(xcoord) < half_gap_length + tol)
-#ifdef MI_HOLE
+#if MI_HOLE == 1
                 || (xcoord*xcoord + ycoord*ycoord + zcoord*zcoord < radius*radius)
+#elif MI_HOLE == 2
+                || ((xcoord-displ_bubbles)*(xcoord-displ_bubbles) + ycoord*ycoord + zcoord*zcoord < radius*radius)
+                || ((xcoord+displ_bubbles)*(xcoord+displ_bubbles) + ycoord*ycoord + zcoord*zcoord < radius*radius)
 #endif
               ) {
             return 1;
@@ -59,11 +63,19 @@ namespace tests
           xcoord = q->p(0, ii);
           ycoord = q->p(1, ii);
           zcoord = q->p(2, ii);
-            
+#if MI_HOLE == 1
           if ((xcoord*xcoord + ycoord*ycoord + zcoord*zcoord < 1.2 * radius*radius) &&
               (xcoord*xcoord + ycoord*ycoord + zcoord*zcoord > 0.5 * radius*radius)) {
             return 1;
           }
+#elif MI_HOLE == 2
+          if ((((xcoord-displ_bubbles)*(xcoord-displ_bubbles) + ycoord*ycoord + zcoord*zcoord < 1.2 * radius*radius) &&
+               ((xcoord-displ_bubbles)*(xcoord-displ_bubbles) + ycoord*ycoord + zcoord*zcoord > 0.5 * radius*radius)) ||
+              (((xcoord+displ_bubbles)*(xcoord+displ_bubbles) + ycoord*ycoord + zcoord*zcoord < 1.2 * radius*radius) &&
+               ((xcoord+displ_bubbles)*(xcoord+displ_bubbles) + ycoord*ycoord + zcoord*zcoord > 0.5 * radius*radius))) {
+                return 1;
+              }
+#endif
         }
         return retval;
       }
@@ -101,7 +113,7 @@ namespace tests
         { return num_refinements; }
 
       int refinement (tmesh_3d &tmsh) const {
-        for (auto ii = 0; ii < 1; ++ii) {
+        for (auto ii = 0; ii < 2; ++ii) {
           tmsh.set_refine_marker([this](tmesh_3d::quadrant_iterator q) {return this->refinement_1(q);});
           tmsh.refine (1);
         }
@@ -139,8 +151,12 @@ namespace tests
       }
         
       double epsilon_fun (double x, double y, double z) const {
-#ifdef MI_HOLE 
+#if MI_HOLE == 1
         if(x*x+y*y+z*z < radius*radius)
+          return  epsilon_0 * epsilon_r_bubble;
+#elif MI_HOLE == 2
+        if((x-displ_bubbles)*(x-displ_bubbles)+y*y+z*z < radius*radius ||
+           (x+displ_bubbles)*(x+displ_bubbles)+y*y+z*z < radius*radius)
           return  epsilon_0 * epsilon_r_bubble;
 #endif
         if(std::fabs(z) < half_gap_height && std::fabs(x) < half_gap_length)
@@ -174,8 +190,12 @@ namespace tests
       }
 
       double chi_1_fun (double x, double y, double z) const {
-#ifdef MI_HOLE
+#if MI_HOLE == 1
         if(x*x+y*y+z*z < radius*radius)
+          return 0;
+#elif MI_HOLE == 2
+        if((x-displ_bubbles)*(x-displ_bubbles)+y*y+z*z < radius*radius ||
+           (x+displ_bubbles)*(x+displ_bubbles)+y*y+z*z < radius*radius)
           return 0;
 #endif
     
@@ -186,8 +206,12 @@ namespace tests
       }
 
       double chi_2_fun (double x, double y, double z) const {
-#ifdef MI_HOLE
+#if MI_HOLE == 1
         if(x*x+y*y+z*z < radius*radius)
+          return 0;
+#elif MI_HOLE == 2
+        if((x-displ_bubbles)*(x-displ_bubbles)+y*y+z*z < radius*radius ||
+           (x+displ_bubbles)*(x+displ_bubbles)+y*y+z*z < radius*radius)
           return 0;
 #endif
     
@@ -198,8 +222,12 @@ namespace tests
       }
 
       double chi_3_fun (double x, double y, double z) const {
-#ifdef MI_HOLE
+#if MI_HOLE == 1
         if(x*x+y*y+z*z < radius*radius)
+          return 0;
+#elif MI_HOLE == 2
+        if((x-displ_bubbles)*(x-displ_bubbles)+y*y+z*z < radius*radius ||
+           (x+displ_bubbles)*(x+displ_bubbles)+y*y+z*z < radius*radius)
           return 0;
 #endif
     
@@ -211,8 +239,12 @@ namespace tests
 
       
       double chi_4_fun (double x, double y, double z) const {
-#ifdef MI_HOLE
+#if MI_HOLE == 1
         if(x*x+y*y+z*z < radius*radius)
+          return 0;
+#elif MI_HOLE == 2
+        if((x-displ_bubbles)*(x-displ_bubbles)+y*y+z*z < radius*radius ||
+           (x+displ_bubbles)*(x+displ_bubbles)+y*y+z*z < radius*radius)
           return 0;
 #endif
     
@@ -223,8 +255,12 @@ namespace tests
       }
 
       double chi_5_fun (double x, double y, double z) const {
-#ifdef MI_HOLE
+#if MI_HOLE == 1
         if(x*x+y*y+z*z < radius*radius)
+          return 0;
+#elif MI_HOLE == 2
+        if((x-displ_bubbles)*(x-displ_bubbles)+y*y+z*z < radius*radius ||
+           (x+displ_bubbles)*(x+displ_bubbles)+y*y+z*z < radius*radius)
           return 0;
 #endif
     
@@ -235,8 +271,12 @@ namespace tests
       }
 
       double chi_6_fun (double x, double y, double z) const {
-#ifdef MI_HOLE
+#if MI_HOLE == 1
         if(x*x+y*y+z*z < radius*radius)
+          return 0;
+#elif MI_HOLE == 2
+        if((x-displ_bubbles)*(x-displ_bubbles)+y*y+z*z < radius*radius ||
+           (x+displ_bubbles)*(x+displ_bubbles)+y*y+z*z < radius*radius)
           return 0;
 #endif
     
@@ -247,8 +287,12 @@ namespace tests
       }
 
       double sigma_fun (double x, double y, double z, double DT, double E = 0) const {
-#ifdef MI_HOLE
+#if MI_HOLE == 1
         if(x*x+y*y+z*z < radius*radius)
+          return sigma_bubble * DT;
+#elif MI_HOLE == 2
+        if((x-displ_bubbles)*(x-displ_bubbles)+y*y+z*z < radius*radius ||
+           (x+displ_bubbles)*(x+displ_bubbles)+y*y+z*z < radius*radius)
           return sigma_bubble * DT;
 #endif
         if(x*x < half_gap_length*half_gap_length && z*z < half_gap_height*half_gap_height)

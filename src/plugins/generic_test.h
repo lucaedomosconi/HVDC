@@ -1,7 +1,7 @@
 #ifndef GENERIC_TEST_HPP
 #define GENERIC_TEST_HPP
 #include <tmesh_3d.h>
-#include <connectivity_paper_layer.h>
+//#include <connectivity_paper_layer.h>
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <string>
